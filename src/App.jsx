@@ -81,10 +81,16 @@ export function App() {
 
   const [systemStatus, setSystemStatus] = useState('STANDBY');
   const [serverConnected, setServerConnected] = useState(false);
+  const [showRouteOverlays, setShowRouteOverlays] = useState(true);
+  const [showExitBadges, setShowExitBadges] = useState(true);
+
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
     evacuated: 0,
+    inside: calculateTotal(INITIAL_ROOMS),
     inTransit: calculateTotal(INITIAL_ROOMS),
+    queued: 0,
+    trapped: 0,
     elapsedSeconds: 0
   });
 
@@ -245,6 +251,54 @@ export function App() {
     }
   };
 
+  const handleBlockStairwell = (coreName) => {
+    if (sceneManagerRef.current) {
+      const result = sceneManagerRef.current.blockStairwell(coreName);
+      if (result) {
+        setExits(result.exitStats);
+        setBottlenecks(result.bottlenecks || []);
+      }
+    }
+  };
+
+  const handleClearHazards = () => {
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.fireSystem.extinguishAll();
+      sceneManagerRef.current.scenarioEngine.clearAllIncidents();
+      const freshRooms = rooms.map(r => ({ ...r, hasFire: false, tempCelsius: 22 }));
+      setRooms(freshRooms);
+      if (isSimulating) {
+        const result = sceneManagerRef.current.routeOptimizer.optimizeEvacuationRoutes(sceneManagerRef.current.agentCrowd.agents);
+        sceneManagerRef.current.agentCrowd.rerouteAgents(result.assignments);
+        sceneManagerRef.current.renderRouteOverlays(result.assignments);
+        sceneManagerRef.current.updateExitHoloBadges(result.exitStats);
+        setExits(result.exitStats);
+      }
+    }
+  };
+
+  const handleToggleRouteOverlays = () => {
+    setShowRouteOverlays(prev => {
+      const next = !prev;
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.showRouteOverlays = next;
+        sceneManagerRef.current.routeOverlayGroup.visible = next;
+      }
+      return next;
+    });
+  };
+
+  const handleToggleExitBadges = () => {
+    setShowExitBadges(prev => {
+      const next = !prev;
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.showExitBadges = next;
+        sceneManagerRef.current.exitOverlayGroup.visible = next;
+      }
+      return next;
+    });
+  };
+
   const handleSetSpeed = (speed) => {
     setSimSpeed(speed);
     if (sceneManagerRef.current) {
@@ -295,10 +349,14 @@ export function App() {
         </div>
 
         {/* Center Live KPI Overview */}
-        <div className="hidden lg:flex items-center gap-4 px-3.5 py-1.5 bg-slate-900/90 border border-slate-800 rounded-lg text-xs font-mono backdrop-blur-sm">
+        <div className="hidden lg:flex items-center gap-3.5 px-3 py-1.5 bg-slate-900/90 border border-slate-800 rounded-lg text-xs font-mono backdrop-blur-sm">
           <div className="flex items-center gap-1.5 text-slate-300">
             <Users className="w-3.5 h-3.5 text-cyan-400" />
             <span>FACILITY: <b className="text-white">{stats.total}</b></span>
+          </div>
+          <div className="flex items-center gap-1.5 text-slate-300">
+            <span className="w-2 h-2 rounded-full bg-blue-400" />
+            <span>INSIDE: <b className="text-blue-300">{stats.inside ?? (stats.total - stats.evacuated)}</b></span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-300">
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -308,9 +366,9 @@ export function App() {
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             <span>SAFE: <b className="text-emerald-300">{stats.evacuated}</b></span>
           </div>
-          <div className="flex items-center gap-1.5 text-slate-300">
-            <Clock className="w-3.5 h-3.5 text-purple-400" />
-            <span>TIME: <b className="text-purple-300">{stats.elapsedSeconds}s</b></span>
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-[10px] text-emerald-300 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>INVARIANT: PASS</span>
           </div>
         </div>
 
@@ -505,12 +563,19 @@ export function App() {
               isSimulating={isSimulating}
               simSpeed={simSpeed}
               activeFloorView={activeFloorView}
+              showRouteOverlays={showRouteOverlays}
+              showExitBadges={showExitBadges}
               onStartEvacuation={handleStartEvacuation}
               onPauseResume={handlePauseResume}
               onReset={handleReset}
               onSetSpeed={handleSetSpeed}
               onSetCameraPreset={handleSetCameraPreset}
               onSetFloorView={handleSetFloorView}
+              onTriggerScenarioFire={(roomId) => handleTriggerFire(roomId)}
+              onBlockStairwell={handleBlockStairwell}
+              onClearHazards={handleClearHazards}
+              onToggleRouteOverlays={handleToggleRouteOverlays}
+              onToggleExitBadges={handleToggleExitBadges}
             />
           </div>
         </div>

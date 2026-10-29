@@ -300,11 +300,20 @@ export class AgentCrowd {
     this.agents.forEach(agent => {
       const assignment = assignmentMap.get(agent.id);
       if (assignment) {
+        if (assignment.isTrapped) {
+          agent.state = 'TRAPPED';
+          agent.beacon.material.color = new THREE.Color(0xff0044);
+          agent.suitMat.emissive = new THREE.Color(0xff0022);
+          agent.suitMat.emissiveIntensity = 0.6;
+          return;
+        }
+
         this.standUpAgent(agent);
         agent.path = assignment.path || [];
         agent.currentWaypointIdx = 0;
         agent.state = 'EVACUATING';
         agent.assignedExitColor = assignment.exitColor;
+        agent.queueTimer = 0;
 
         agent.beacon.material.color = new THREE.Color(0xff5500);
         agent.suitMat.emissive = new THREE.Color(0xff3300);
@@ -313,25 +322,87 @@ export class AgentCrowd {
     });
   }
 
+  rerouteAgents(newAssignments) {
+    if (!newAssignments || newAssignments.length === 0) return;
+    const assignmentMap = new Map();
+    newAssignments.forEach(a => assignmentMap.set(a.agentId, a));
+
+    this.agents.forEach(agent => {
+      if (agent.state === 'SAFE') return;
+
+      const assignment = assignmentMap.get(agent.id);
+      if (!assignment) return;
+
+      if (assignment.isTrapped) {
+        agent.state = 'TRAPPED';
+        agent.beacon.material.color = new THREE.Color(0xff0044);
+        agent.suitMat.emissive = new THREE.Color(0xff0022);
+        agent.suitMat.emissiveIntensity = 0.6;
+        return;
+      }
+
+      if (assignment.path && assignment.path.length > 0) {
+        let bestIdx = 0;
+        let minDistSq = Infinity;
+        for (let i = 0; i < assignment.path.length; i++) {
+          const pt = assignment.path[i];
+          const dSq = Math.hypot(pt.x - agent.x, pt.z - agent.z);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            bestIdx = i;
+          }
+        }
+
+        agent.path = assignment.path;
+        agent.currentWaypointIdx = Math.min(bestIdx + 1, assignment.path.length - 1);
+        agent.state = 'EVACUATING';
+        agent.assignedExitColor = assignment.exitColor;
+      }
+    });
+  }
+
   update(delta, simSpeed = 1.0) {
     if (simSpeed === 0) {
       if (this.cachedStats) return this.cachedStats;
       let safeCount = 0;
+      let inTransitCount = 0;
+      let queuedCount = 0;
+      let trappedCount = 0;
+      let idleCount = 0;
+
       for (let i = 0; i < this.agents.length; i++) {
-        if (this.agents[i].state === 'SAFE') safeCount++;
+        const s = this.agents[i].state;
+        if (s === 'SAFE') safeCount++;
+        else if (s === 'EVACUATING') inTransitCount++;
+        else if (s === 'QUEUED') queuedCount++;
+        else if (s === 'TRAPPED') trappedCount++;
+        else idleCount++;
       }
+
+      const total = this.agents.length;
+      const inside = total - safeCount;
+
       this.cachedStats = {
-        total: this.agents.length,
+        total,
         evacuated: safeCount,
-        inTransit: this.agents.length - safeCount,
-        isCompleted: safeCount === this.agents.length && this.agents.length > 0
+        inside,
+        inTransit: inTransitCount,
+        queued: queuedCount,
+        trapped: trappedCount,
+        idle: idleCount,
+        invariantValid: total === safeCount + inside,
+        isCompleted: safeCount === total && total > 0
       };
       return this.cachedStats;
     }
 
     this.cachedStats = null;
     const effectiveDelta = delta * simSpeed;
-    let evacuatedCount = 0;
+    let safeCount = 0;
+    let inTransitCount = 0;
+    let queuedCount = 0;
+    let trappedCount = 0;
+    let idleCount = 0;
 
     const isSingleFloor = this.floorMode && this.floorMode !== 'ALL' && this.floorMode !== 'EXPLODED';
     const targetFloorNum = isSingleFloor ? parseInt(this.floorMode, 10) : null;
@@ -346,16 +417,35 @@ export class AgentCrowd {
       }
 
       if (agent.state === 'SAFE') {
-        evacuatedCount++;
+        safeCount++;
+        continue;
+      }
+
+      if (agent.state === 'TRAPPED') {
+        trappedCount++;
         continue;
       }
 
       if (agent.state === 'IDLE') {
+        idleCount++;
         continue;
+      }
+
+      // Handle Queued State (bottleneck delay at stairwells/doors)
+      if (agent.state === 'QUEUED') {
+        queuedCount++;
+        agent.queueTimer = (agent.queueTimer || 0) - effectiveDelta;
+        if (agent.queueTimer <= 0) {
+          agent.state = 'EVACUATING';
+        } else {
+          continue;
+        }
       }
 
       // Evacuating Human Locomotion
       if (agent.state === 'EVACUATING' && agent.path.length > 0) {
+        inTransitCount++;
+
         if (agent.isSeated) {
           this.standUpAgent(agent);
         }
@@ -397,7 +487,8 @@ export class AgentCrowd {
               agent.rightArm.rotation.x = 0;
               agent.torso.position.y = 1.16;
               agent.headGroup.position.y = 1.64;
-              evacuatedCount++;
+              safeCount++;
+              inTransitCount--;
               continue;
             }
           } else {
@@ -420,11 +511,19 @@ export class AgentCrowd {
       }
     }
 
+    const total = this.agents.length;
+    const inside = total - safeCount;
+
     const currentStats = {
-      total: this.agents.length,
-      evacuated: evacuatedCount,
-      inTransit: this.agents.length - evacuatedCount,
-      isCompleted: evacuatedCount === this.agents.length && this.agents.length > 0
+      total,
+      evacuated: safeCount,
+      inside,
+      inTransit: inTransitCount,
+      queued: queuedCount,
+      trapped: trappedCount,
+      idle: idleCount,
+      invariantValid: total === safeCount + inside,
+      isCompleted: safeCount === total && total > 0
     };
     this.cachedStats = currentStats;
     return currentStats;

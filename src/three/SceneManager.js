@@ -9,6 +9,10 @@ import { AgentCrowd } from './AgentCrowd.js';
 import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
+import { NavigationGraph } from '../simulation/NavigationGraph.js';
+import { RouteOptimizationEngine } from '../simulation/RouteOptimizationEngine.js';
+import { ScenarioEngine } from '../simulation/ScenarioEngine.js';
+import { GIS_MUSTER_ZONES, GIS_ORIGIN } from '../simulation/GISCoordinateSystem.js';
 
 export class SceneManager {
   constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onGisToggle) {
@@ -161,6 +165,22 @@ export class SceneManager {
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
+
+    // Enterprise Navigation Graph & Scenario Engine
+    this.navGraph = new NavigationGraph(10, 3.8);
+    this.routeOptimizer = new RouteOptimizationEngine(this.navGraph);
+    this.scenarioEngine = new ScenarioEngine(this.navGraph, this.routeOptimizer);
+
+    // Independent 3D Visual Overlay Groups
+    this.routeOverlayGroup = new THREE.Group();
+    this.exitOverlayGroup = new THREE.Group();
+    this.stairwellOverlayGroup = new THREE.Group();
+    this.scene.add(this.routeOverlayGroup);
+    this.scene.add(this.exitOverlayGroup);
+    this.scene.add(this.stairwellOverlayGroup);
+
+    this.showRouteOverlays = true;
+    this.showExitBadges = true;
 
     this.initGisLayer();
   }
@@ -491,6 +511,130 @@ export class SceneManager {
     this.agentCrowd.spawnAgentsForRooms(rooms);
   }
 
+  renderRouteOverlays(assignments) {
+    // Clear existing route line meshes
+    while (this.routeOverlayGroup.children.length > 0) {
+      const obj = this.routeOverlayGroup.children[0];
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) obj.material.dispose();
+      this.routeOverlayGroup.remove(obj);
+    }
+
+    if (!this.showRouteOverlays || !assignments || assignments.length === 0) return;
+
+    // Pick unique representative paths per floor to avoid cluttering 600 overlapping lines
+    const pathsByFloor = new Map();
+    assignments.forEach(a => {
+      if (a.path && a.path.length > 1) {
+        const fl = a.path[0]?.y ? Math.round(a.path[0].y / 3.8) + 1 : 1;
+        if (!pathsByFloor.has(fl)) pathsByFloor.set(fl, []);
+        if (pathsByFloor.get(fl).length < 5) {
+          pathsByFloor.get(fl).push(a);
+        }
+      }
+    });
+
+    pathsByFloor.forEach(routeList => {
+      routeList.forEach(a => {
+        const pts = a.path.map(p => new THREE.Vector3(p.x, p.y + 0.15, p.z));
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+
+        // Primary Recommended Route: Glowing emerald green line
+        const primaryMat = new THREE.LineBasicMaterial({
+          color: new THREE.Color(a.exitColor || 0x00ff88),
+          transparent: true,
+          opacity: 0.75,
+          linewidth: 2
+        });
+        const primaryLine = new THREE.Line(lineGeo, primaryMat);
+        primaryLine.userData = { floor: a.path[0]?.y ? Math.round(a.path[0].y / 3.8) + 1 : 1 };
+        this.routeOverlayGroup.add(primaryLine);
+
+        // Alternative Route (if available): Cyan dashed line
+        if (a.altPathWaypoints && a.altPathWaypoints.length > 1) {
+          const altPts = a.altPathWaypoints.map(p => new THREE.Vector3(p.x, p.y + 0.18, p.z));
+          const altGeo = new THREE.BufferGeometry().setFromPoints(altPts);
+          const altMat = new THREE.LineDashedMaterial({
+            color: 0x00e5ff,
+            dashSize: 1.2,
+            gapSize: 0.6,
+            transparent: true,
+            opacity: 0.55
+          });
+          const altLine = new THREE.Line(altGeo, altMat);
+          altLine.computeLineDistances();
+          this.routeOverlayGroup.add(altLine);
+        }
+      });
+    });
+  }
+
+  updateExitHoloBadges(exitStats) {
+    while (this.exitOverlayGroup.children.length > 0) {
+      const obj = this.exitOverlayGroup.children[0];
+      if (obj.material && obj.material.map) obj.material.map.dispose();
+      if (obj.material) obj.material.dispose();
+      this.exitOverlayGroup.remove(obj);
+    }
+
+    if (!this.showExitBadges || !exitStats) return;
+
+    const exitLocations = {
+      exit_west: { x: -29.5, y: 3.5, z: 0.0, name: 'EXIT A (WEST)' },
+      exit_east: { x: 29.5, y: 3.5, z: 0.0, name: 'EXIT B (EAST)' },
+      exit_south: { x: 0.0, y: 3.5, z: 24.5, name: 'EXIT C (SOUTH)' }
+    };
+
+    exitStats.forEach(ex => {
+      const loc = exitLocations[ex.id];
+      if (!loc) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+
+      const load = ex.load || ex.currentLoad || 0;
+      const cap = ex.capacity || 60;
+      const pct = Math.round((load / cap) * 100);
+
+      // Background rounded card
+      ctx.fillStyle = 'rgba(10, 16, 28, 0.92)';
+      ctx.beginPath();
+      ctx.roundRect(8, 8, 240, 112, 12);
+      ctx.fill();
+
+      // Border with status color
+      const borderColor = pct > 110 ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981';
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Text Header
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 22px Inter, sans-serif';
+      ctx.fillText(loc.name, 22, 42);
+
+      // Load & Percentage
+      ctx.font = '18px Inter, sans-serif';
+      ctx.fillStyle = borderColor;
+      ctx.fillText(`${load} / ${cap} queued (${pct}%)`, 22, 74);
+
+      // Status pill
+      ctx.font = '14px Inter, sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(pct > 110 ? 'CRITICAL OVERLOAD' : pct > 80 ? 'CONGESTION WARNING' : 'OPTIMAL FLOW', 22, 100);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(mat);
+      sprite.position.set(loc.x, loc.y, loc.z);
+      sprite.scale.set(7.5, 3.8, 1.0);
+      this.exitOverlayGroup.add(sprite);
+    });
+  }
+
   triggerFire(roomId) {
     const room = this.building.roomsData.find(r => r.id === roomId);
     if (!room) return;
@@ -498,19 +642,45 @@ export class SceneManager {
     const fireY = (room.center.y || 0) + 0.2;
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z });
     this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
+
+    // Register with Scenario Engine
+    this.scenarioEngine.triggerRoomFire(roomId, 1.0);
+
+    // If currently simulating, perform real-time dynamic rerouting!
+    if (this.isSimulating) {
+      const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+      this.agentCrowd.rerouteAgents(newPlan.assignments);
+      this.renderRouteOverlays(newPlan.assignments);
+      this.updateExitHoloBadges(newPlan.exitStats);
+    }
+  }
+
+  blockStairwell(coreName, floorNum = null) {
+    this.scenarioEngine.blockStairwellCore(coreName, floorNum);
+
+    // If currently simulating, recalculate paths dynamically!
+    if (this.isSimulating) {
+      const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+      this.agentCrowd.rerouteAgents(newPlan.assignments);
+      this.renderRouteOverlays(newPlan.assignments);
+      this.updateExitHoloBadges(newPlan.exitStats);
+      return newPlan;
+    }
+    return null;
   }
 
   startEvacuation() {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
-    const fireLocations = [];
-    this.fireSystem.activeFires.forEach(f => {
-      fireLocations.push(f.basePos);
-    });
-
-    const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+    // Use Enterprise Route Optimization Engine
+    const optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
+
+    // Render 3D Visual Overlays
+    this.renderRouteOverlays(optimizationResult.assignments);
+    this.updateExitHoloBadges(optimizationResult.exitStats);
+
     return optimizationResult;
   }
 
@@ -530,6 +700,12 @@ export class SceneManager {
     this._lastElapsedSec = -1;
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
+    this.scenarioEngine.clearAllIncidents();
+
+    // Clear route overlays & badges
+    this.renderRouteOverlays([]);
+    this.updateExitHoloBadges([]);
+
     this.agentCrowd.spawnAgentsForRooms(rooms);
   }
 
