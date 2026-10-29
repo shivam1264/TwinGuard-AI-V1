@@ -138,9 +138,8 @@ export function App() {
           setSystemStatus('COMPLETED');
         }
       },
-      (clickedRoomId) => {
-        // Single click: open inspection modal
-        setActiveModalRoomId(clickedRoomId);
+      () => {
+        // Single click popup removed
       },
       (matchedRoom, screenPos) => {
         // Double tap / double click: show minimalist fire trigger pill
@@ -152,6 +151,7 @@ export function App() {
     );
 
     sceneManagerRef.current = manager;
+    window.__sceneManager = manager;
     manager.syncOccupants(rooms);
 
     return () => {

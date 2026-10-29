@@ -24,6 +24,9 @@ export class SceneManager {
     this._lastEvacuated = -1;
     this._lastElapsedSec = -1;
 
+    // Smooth Camera Animation Controller
+    this.cameraTransition = null;
+
     this.initScene();
     this.initSystems();
     this.initRaycaster();
@@ -34,69 +37,95 @@ export class SceneManager {
   initScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xf1f5f9); // Clean architectural daylight studio sky
-    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.0035); // Soft architectural daylight haze
+    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.0032); // Soft architectural daylight haze
 
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 500);
+    const width = this.container.clientWidth || window.innerWidth || 1200;
+    const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 600);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(width, height);
-    // Use device pixel ratio up to 1.25 for razor-sharp rendering without supersampling lag
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
-    this.renderer.shadowMap.enabled = false;
+
+    // Enable soft, physically believable architectural contact shadows
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = 1.08;
 
     this.container.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    // Enable full multi-axis 3D rotation (both horizontal yaw and vertical pitch)
-    this.controls.minPolarAngle = 0.02; // Can tilt all the way down
-    this.controls.maxPolarAngle = Math.PI * 0.96; // Can tilt all the way up (not locked to single axis!)
+    this.controls.minPolarAngle = 0.02;
+    this.controls.maxPolarAngle = Math.PI * 0.96;
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.5;
-    this.controls.maxDistance = 250;
+    this.controls.maxDistance = 280;
 
-    // Architectural Daylight Studio Lighting (Clean, Crisp & Bright)
+    // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     this.scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.3);
+    // Primary Directional Sunlight with optimized shadow map
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.2);
     sunLight.position.set(45, 68, 50);
-    sunLight.castShadow = false;
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 180;
+    sunLight.shadow.camera.left = -65;
+    sunLight.shadow.camera.right = 65;
+    sunLight.shadow.camera.top = 65;
+    sunLight.shadow.camera.bottom = -65;
+    sunLight.shadow.bias = -0.0004;
+    sunLight.shadow.normalBias = 0.02;
     this.scene.add(sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.8);
+    // Cool Sky Fill Light
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.75);
     fillLight.position.set(-50, 42, -45);
+    fillLight.castShadow = false;
     this.scene.add(fillLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.7);
+    // Subtle Ground Hemisphere Bounce
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.65);
     this.scene.add(hemiLight);
 
-    // Initial Hero View (Matches Screenshot 1 Architectural Section Elevation)
-    this.setCameraPreset('HERO_VIEW');
+    // Initial Hero View (Architectural Section Elevation)
+    this.setCameraPreset('HERO_VIEW', null, false);
 
     this.handleResize = () => {
-      if (!this.container) return;
-      const w = this.container.clientWidth;
-      const h = this.container.clientHeight;
+      if (!this.container || this.isDisposed) return;
+      const w = this.container.clientWidth || window.innerWidth || 1200;
+      const h = this.container.clientHeight || (window.innerHeight - 56) || 800;
+      if (w === 0 || h === 0) return;
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
     };
 
     window.addEventListener('resize', this.handleResize);
+
+    if (typeof ResizeObserver !== 'undefined' && this.container) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.handleResize();
+      });
+      this.resizeObserver.observe(this.container);
+    }
   }
 
   initSystems() {
     this.building = new Building3D(this.scene);
-    this.fireSystem = new FireParticles(this.scene);
+    this.fireSystem = new FireParticles(this.scene, (parentRoomId, targetRoomId) => {
+      this.triggerFire(targetRoomId);
+    });
     this.agentCrowd = new AgentCrowd(this.scene);
 
     this.navGrid = new NavGrid();
@@ -108,13 +137,11 @@ export class SceneManager {
     this.keysDown = {};
 
     this.handleKeyDown = (e) => {
-      // Ignore if typing in an input field
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const code = e.code;
       const key = e.key;
 
-      // Prevent page scrolling on navigation keys
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Space'].includes(key) ||
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
         e.preventDefault();
@@ -122,6 +149,9 @@ export class SceneManager {
 
       this.keysDown[code] = true;
       this.keysDown[key] = true;
+
+      // Yield any running camera transition on user manual input
+      this.cameraTransition = null;
 
       if ((key === 'h' || key === 'H') && !e.altKey && !e.ctrlKey && !e.metaKey) {
         this.setCameraPreset('HERO_VIEW');
@@ -146,37 +176,32 @@ export class SceneManager {
     window.addEventListener('blur', this.handleBlur);
   }
 
-  // First-person walkthrough navigation & full multi-axis view orientation
   updateCameraNavigation(delta) {
     if (!this.camera || !this.controls || !this.keysDown) return;
 
-    // Check if Alt or Ctrl is held down for keyboard view rotation (Look Around)
     const isRotateModifier = !!(this.keysDown['Alt'] || this.keysDown['AltLeft'] || this.keysDown['AltRight'] ||
                                 this.keysDown['Control'] || this.keysDown['ControlLeft'] || this.keysDown['ControlRight']);
 
     if (isRotateModifier) {
+      this.cameraTransition = null;
       const rotSpeed = 1.6 * delta;
       const offset = this.controls.target.clone().sub(this.camera.position);
 
       if (this.keysDown['ArrowLeft']) {
-        // Rotate view left around camera
         offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotSpeed);
         this.controls.target.copy(this.camera.position).add(offset);
         this.camera.lookAt(this.controls.target);
       }
       if (this.keysDown['ArrowRight']) {
-        // Rotate view right around camera
         offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), -rotSpeed);
         this.controls.target.copy(this.camera.position).add(offset);
         this.camera.lookAt(this.controls.target);
       }
       if (this.keysDown['ArrowUp']) {
-        // Tilt view up
         this.controls.target.y += 6.0 * delta;
         this.camera.lookAt(this.controls.target);
       }
       if (this.keysDown['ArrowDown']) {
-        // Tilt view down
         this.controls.target.y -= 6.0 * delta;
         this.camera.lookAt(this.controls.target);
       }
@@ -192,11 +217,11 @@ export class SceneManager {
 
     if (!isUp && !isDown && !isLeft && !isRight && !isElevateUp && !isElevateDown) return;
 
-    // 1. Current look direction of the camera
+    this.cameraTransition = null; // Yield transition
+
     const forward = new THREE.Vector3();
     this.camera.getWorldDirection(forward);
 
-    // Keep horizontal movement parallel to floor (XZ plane) so camera stays at current eye level
     const horizontalForward = new THREE.Vector3(forward.x, 0, forward.z);
     if (horizontalForward.lengthSq() > 0.0001) {
       horizontalForward.normalize();
@@ -204,11 +229,9 @@ export class SceneManager {
       horizontalForward.copy(forward).normalize();
     }
 
-    // 2. Right vector perpendicular to horizontal forward
     const right = new THREE.Vector3();
     right.crossVectors(horizontalForward, new THREE.Vector3(0, 1, 0)).normalize();
 
-    // 3. Accumulate movement direction
     const moveDir = new THREE.Vector3(0, 0, 0);
 
     if (isUp) moveDir.add(horizontalForward);
@@ -223,16 +246,13 @@ export class SceneManager {
       moveDir.normalize();
 
       const isSprint = !!(this.keysDown['ShiftLeft'] || this.keysDown['ShiftRight'] || this.keysDown['Shift']);
-      const speed = isSprint ? 22.0 : 10.5; // Natural smooth walkthrough speed
+      const speed = isSprint ? 22.0 : 10.5;
 
       const displacement = moveDir.multiplyScalar(speed * delta);
 
-      // Move BOTH camera.position AND controls.target by the EXACT same displacement!
-      // This guarantees the viewing angle, pitch, yaw, and orientation NEVER CHANGE.
       this.camera.position.add(displacement);
       this.controls.target.add(displacement);
 
-      // Prevent camera from falling below ground plane
       if (this.camera.position.y < 0.5) {
         const diff = 0.5 - this.camera.position.y;
         this.camera.position.y = 0.5;
@@ -241,66 +261,60 @@ export class SceneManager {
     }
   }
 
-  setFacadeModeDirect(mode) {
-    if (this.building && this.building.facadeMode !== mode) {
-      const newMode = this.building.toggleFacadeMode();
-      if (this.onFacadeModeChange) {
-        this.onFacadeModeChange(newMode);
-      }
-      return newMode;
-    }
-    return mode;
-  }
-
-  zoomIn(amount = 6) {
-    if (!this.camera || !this.controls) return;
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    const len = offset.length();
-    if (len > 4) {
-      offset.multiplyScalar(Math.max(4, len - amount) / len);
-      this.camera.position.copy(this.controls.target).add(offset);
-      this.controls.update();
-    }
-  }
-
-  zoomOut(amount = 6) {
-    if (!this.camera || !this.controls) return;
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    const len = offset.length();
-    offset.multiplyScalar((len + amount) / len);
-    this.camera.position.copy(this.controls.target).add(offset);
-    this.controls.update();
-  }
-
-  getCameraYaw() {
-    if (!this.camera || !this.controls) return 0;
-    const offset = this.camera.position.clone().sub(this.controls.target);
-    return Math.atan2(offset.x, offset.z) * (180 / Math.PI);
-  }
-
-  setBimLayer(layerName, isVisible) {
-    if (layerName === 'occupants' && this.agentCrowd) {
-      this.agentCrowd.group.visible = isVisible;
-    }
-    if (layerName === 'fireSafety' && this.fireSystem) {
-      this.fireSystem.activeFires.forEach(f => {
-        if (f.group) f.group.visible = isVisible;
-      });
-    }
-    if (layerName === 'structure' && this.building) {
-      if (this.building.roofGroup) this.building.roofGroup.visible = isVisible;
-    }
+  getElevatorStatus() {
+    return this.building ? this.building.getElevatorStatus() : [];
   }
 
   toggleFacadeMode() {
     if (this.building) {
       const newMode = this.building.toggleFacadeMode();
+      // Camera stays in place - do NOT re-adjust or jump camera on C toggle
       if (this.onFacadeModeChange) {
         this.onFacadeModeChange(newMode);
       }
       return newMode;
     }
     return 'CUTAWAY';
+  }
+
+  // Presentation View Mode Selection (Full Exterior, Transparent, Cutaway, Floor Plan, etc.)
+  setViewMode(mode) {
+    if (!this.building) return;
+    this.building.setViewMode(mode);
+
+    if (mode === 'FULL_EXTERIOR') {
+      this.setCameraPreset('FULL_BUILDING');
+    } else if (mode === 'TRANSPARENT_FACADE') {
+      this.setCameraPreset('AXONOMETRIC');
+    } else if (mode === 'CUTAWAY') {
+      this.setCameraPreset('HERO_VIEW');
+    } else if (mode === 'FLOOR_PLAN') {
+      this.setCameraPreset('FLOOR_PLAN');
+    } else if (mode === 'SECTIONAL_CUT') {
+      this.setCameraPreset('SECTION');
+    } else if (mode === 'EXPLODED') {
+      this.setFloorMode('EXPLODED');
+    } else if (mode === 'ROOF_VIEW') {
+      this.setCameraPreset('ROOF');
+    }
+
+    if (this.onFacadeModeChange) {
+      this.onFacadeModeChange(this.building.facadeMode);
+    }
+  }
+
+  // Layer Filter Control (Structure, Architecture, Facade, Furniture, Occupancy, MEP, Environment)
+  setLayerVisibility(layerName, isVisible) {
+    if (layerName === 'occupancy') {
+      if (this.agentCrowd && this.agentCrowd.group) {
+        this.agentCrowd.group.visible = isVisible;
+      }
+      return;
+    }
+
+    if (this.building) {
+      this.building.setLayerVisibility(layerName, isVisible);
+    }
   }
 
   getRoomAtClientPos(clientX, clientY) {
@@ -313,7 +327,7 @@ export class SceneManager {
 
     const activeMode = this.building.floorMode;
     const floorLevels = (activeMode === 'ALL' || activeMode === 'EXPLODED')
-      ? [10, 9, 8, 7, 6, 5, 4, 3, 2, 1] // Test top floor down to ground
+      ? [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
       : [parseInt(activeMode, 10) || 1];
 
     for (const fl of floorLevels) {
@@ -348,18 +362,18 @@ export class SceneManager {
 
     this.container.addEventListener('pointerdown', (e) => {
       pointerDownPos = { x: e.clientX, y: e.clientY };
+      this.cameraTransition = null; // Interrupt camera tween if user interacts
     });
 
     this.container.addEventListener('pointerup', (e) => {
       const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-      if (dist > 8) return; // Orbit drag, ignore
+      if (dist > 8) return;
 
       const now = Date.now();
       const timeDiff = now - lastTapTime;
       const tapDist = Math.hypot(e.clientX - lastTapPos.x, e.clientY - lastTapPos.y);
 
       if (timeDiff < 320 && tapDist < 25) {
-        // Double-Tap Detected!
         if (singleTapTimeout) {
           clearTimeout(singleTapTimeout);
           singleTapTimeout = null;
@@ -371,20 +385,16 @@ export class SceneManager {
           this.onRoomDoubleTap(matchedRoom, { screenX: e.clientX, screenY: e.clientY });
         }
       } else {
-        // First tap / potential single-click
         lastTapTime = now;
         lastTapPos = { x: e.clientX, y: e.clientY };
 
         singleTapTimeout = setTimeout(() => {
           const matchedRoom = this.getRoomAtClientPos(e.clientX, e.clientY);
-          if (matchedRoom && this.onRoomSelect) {
-            this.onRoomSelect(matchedRoom.id);
-          }
+          // Room popup on click removed per user request
         }, 260);
       }
     });
 
-    // Native dblclick support for desktop
     this.container.addEventListener('dblclick', (e) => {
       if (singleTapTimeout) {
         clearTimeout(singleTapTimeout);
@@ -397,36 +407,91 @@ export class SceneManager {
     });
   }
 
-  setCameraPreset(presetName, targetRoomId = null) {
+  // Smooth, Cinematic Camera Transition to any preset
+  setCameraPreset(presetName, targetRoomId = null, animate = true) {
     if (!this.camera || !this.controls) return;
 
+    let targetPos = new THREE.Vector3(3, 20, 68);
+    let targetLook = new THREE.Vector3(0, 19, 0);
+
     if (presetName === 'HERO_VIEW') {
-      // Architectural Section Elevation Cutaway View (Screenshot 1)
-      this.camera.position.set(3, 20, 68);
-      this.controls.target.set(0, 19, 0);
+      targetPos.set(0, 20, 70);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'CUTAWAY_VIEW') {
+      targetPos.set(16, 22, 64);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'FULL_BUILDING') {
+      targetPos.set(68, 48, 75);
+      targetLook.set(0, 18, 0);
+    } else if (presetName === 'SOUTH_FACADE') {
+      targetPos.set(0, 22, 75);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'NORTH_FACADE') {
+      targetPos.set(0, 22, -75);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'EAST_FACADE') {
+      targetPos.set(75, 22, 0);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'WEST_FACADE') {
+      targetPos.set(-75, 22, 0);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'TOP_DOWN') {
-      this.camera.position.set(0, 115, 1);
-      this.controls.target.set(0, 19, 0);
+      targetPos.set(0, 120, 1);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'FLOOR_PLAN') {
+      const fl = (this.building && parseInt(this.building.floorMode, 10)) || 1;
+      const baseY = (fl - 1) * (this.building ? this.building.floorHeight : 3.8);
+      targetPos.set(0, baseY + 38, 12);
+      targetLook.set(0, baseY + 0.5, 0);
+    } else if (presetName === 'AXONOMETRIC') {
+      targetPos.set(62, 68, 68);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'SECTION') {
+      targetPos.set(0, 20, 62);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'ENTRANCE') {
+      targetPos.set(0, 6.5, 42);
+      targetLook.set(0, 3.5, 24);
+    } else if (presetName === 'ROOF') {
+      targetPos.set(0, 56, 32);
+      targetLook.set(0, 38, -2);
     } else if (presetName === 'STAIRS_FOCUS') {
-      this.camera.position.set(-42, 24, 32);
-      this.controls.target.set(-28, 16, 0);
+      targetPos.set(-42, 24, 32);
+      targetLook.set(-28, 16, 0);
+    } else if (presetName === 'ATRIUM') {
+      targetPos.set(0, 5.0, 16);
+      targetLook.set(0, 3.5, 0);
     } else if (presetName.startsWith('FLOOR_')) {
       const fl = parseInt(presetName.replace('FLOOR_', ''), 10) || 1;
       const baseY = (fl - 1) * this.building.floorHeight;
-      this.camera.position.set(32, baseY + 14, 36);
-      this.controls.target.set(0, baseY + 1.5, 0);
+      targetPos.set(32, baseY + 14, 36);
+      targetLook.set(0, baseY + 1.5, 0);
     } else if (presetName === 'ROOM_FOCUS' && targetRoomId) {
       const room = this.building.roomsData.find(r => r.id === targetRoomId);
       if (room) {
-        this.camera.position.set(room.camPos.x, room.camPos.y + 5, room.camPos.z);
-        this.controls.target.set(room.center.x, room.center.y + 1, room.center.z);
+        targetPos.set(room.camPos.x, room.camPos.y + 5, room.camPos.z);
+        targetLook.set(room.center.x, room.center.y + 1, room.center.z);
       }
     } else {
-      // Default High Isometric View
-      this.camera.position.set(58, 65, 75);
-      this.controls.target.set(0, 19, 0);
+      targetPos.set(58, 65, 75);
+      targetLook.set(0, 19, 0);
     }
-    this.controls.update();
+
+    if (!animate) {
+      this.camera.position.copy(targetPos);
+      this.controls.target.copy(targetLook);
+      this.controls.update();
+      this.cameraTransition = null;
+    } else {
+      this.cameraTransition = {
+        startPos: this.camera.position.clone(),
+        endPos: targetPos,
+        startTarget: this.controls.target.clone(),
+        endTarget: targetLook,
+        duration: 0.85,
+        elapsed: 0
+      };
+    }
   }
 
   setFloorMode(mode) {
@@ -440,11 +505,8 @@ export class SceneManager {
       this.fireSystem.setFloorMode(mode);
     }
 
-    // Only zoom out for exploded view; never hijack user's custom viewing angle when toggling floors or all-tower view
     if (mode === 'EXPLODED') {
-      this.camera.position.set(70, 80, 85);
-      this.controls.target.set(0, 24, 0);
-      this.controls.update();
+      this.setCameraPreset('AXONOMETRIC');
     }
   }
 
@@ -457,8 +519,15 @@ export class SceneManager {
     if (!room) return;
 
     const fireY = (room.center.y || 0) + 0.2;
-    this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z });
+    this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
     this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
+
+    if (this.isSimulating) {
+      const fireLocations = [];
+      this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
+      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+    }
   }
 
   startEvacuation() {
@@ -495,9 +564,31 @@ export class SceneManager {
   }
 
   animate = () => {
-    requestAnimationFrame(this.animate);
+    if (this.isDisposed) return;
+    this.animationFrameId = requestAnimationFrame(this.animate);
 
     const delta = Math.min(this.clock.getDelta(), 0.1);
+
+    // Smooth Camera Transition Interpolation
+    if (this.cameraTransition) {
+      const ct = this.cameraTransition;
+      ct.elapsed += delta;
+      const progress = Math.min(1.0, ct.elapsed / ct.duration);
+
+      // Smoothstep Cubic Easing
+      const ease = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      this.camera.position.lerpVectors(ct.startPos, ct.endPos, ease);
+      this.controls.target.lerpVectors(ct.startTarget, ct.endTarget, ease);
+
+      if (progress >= 1.0) {
+        this.camera.position.copy(ct.endPos);
+        this.controls.target.copy(ct.endTarget);
+        this.cameraTransition = null;
+      }
+    }
 
     this.updateCameraNavigation(delta);
 
@@ -547,11 +638,18 @@ export class SceneManager {
   };
 
   dispose() {
+    this.isDisposed = true;
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
     window.removeEventListener('resize', this.handleResize);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
-    if (this.renderer && this.renderer.domElement) {
+    if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
       this.container.removeChild(this.renderer.domElement);
     }

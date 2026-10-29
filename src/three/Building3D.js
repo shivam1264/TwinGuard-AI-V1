@@ -12,12 +12,31 @@ export class Building3D {
     this.floorHeight = 3.8; // Realistic commercial floor-to-floor height
     this.totalFloors = 10;
     this.floorMode = 'ALL';
-    this.facadeMode = 'CUTAWAY'; // 'CUTAWAY' or 'FULL'
+    this.facadeMode = 'CUTAWAY'; // 'CUTAWAY', 'FULL', 'TRANSPARENT'
+    this.viewMode = 'CUTAWAY';
 
+    // === Layer Subgroups for Professional Digital Twin Layer Filtering ===
+    this.layers = {
+      structure: new THREE.Group(),
+      architecture: new THREE.Group(),
+      facade: new THREE.Group(),
+      furniture: new THREE.Group(),
+      mep: new THREE.Group(),
+      environment: new THREE.Group()
+    };
+
+    this.group.add(this.layers.environment);
+    this.group.add(this.layers.structure);
+    this.group.add(this.layers.architecture);
+    this.group.add(this.layers.facade);
+    this.group.add(this.layers.furniture);
+    this.group.add(this.layers.mep);
+
+    // Floor groups preserved for backward compatibility
     this.floorGroups = {};
     for (let f = 1; f <= this.totalFloors; f++) {
       this.floorGroups[f] = new THREE.Group();
-      this.group.add(this.floorGroups[f]);
+      this.layers.architecture.add(this.floorGroups[f]);
     }
 
     this.stairsGroup = new THREE.Group();
@@ -25,21 +44,43 @@ export class Building3D {
     this.roofGroup = new THREE.Group();
     this.facadeCutawayGroup = new THREE.Group();
 
-    this.group.add(this.stairsGroup);
-    this.group.add(this.elevatorGroup);
-    this.group.add(this.roofGroup);
-    this.group.add(this.facadeCutawayGroup);
+    this.layers.architecture.add(this.stairsGroup);
+    this.layers.architecture.add(this.elevatorGroup);
+    this.layers.mep.add(this.roofGroup);
+    this.layers.facade.add(this.facadeCutawayGroup);
 
-    // === High-Performance Shared Architectural Materials (Zero Texture Flush) ===
+    this.cutawayProgress = 1.0; // 1.0 = Cutaway (default), 0.0 = Full Exterior
+    this.targetCutawayProgress = 1.0;
 
-    // 1. Crisp Matte White Architectural Dividing Walls
+    this.hvacFans = []; // For subtle mechanical rotation in update()
+    this.stairCoreMeshes = []; // For dual-mode exterior vs inspection toggling
+
+    // === High-Performance Shared Architectural Materials (PBR) ===
+
+    // 1. Crisp Architectural Concrete
+    this.concreteTex = TextureHelper.createConcreteTexture();
+    this.concreteMat = new THREE.MeshStandardMaterial({
+      map: this.concreteTex,
+      roughness: 0.65,
+      metalness: 0.1
+    });
+
+    // 2. Anodized Aluminum Spandrel Panels with Horizontal Shadow Reveals
+    this.spandrelTex = TextureHelper.createSpandrelPanelTexture();
+    this.spandrelMat = new THREE.MeshStandardMaterial({
+      map: this.spandrelTex,
+      roughness: 0.35,
+      metalness: 0.65
+    });
+
+    // 3. Crisp Matte White Architectural Dividing Walls
     this.whiteWallMat = new THREE.MeshStandardMaterial({
       color: 0xf1f5f9,
       roughness: 0.85,
       metalness: 0.05
     });
 
-    // 2. Warm Architectural Honey Oak Fluted Slat Accent Back Walls
+    // 4. Warm Architectural Honey Oak Fluted Slat Accent Back Walls
     this.flutedWoodTex = TextureHelper.createFlutedWoodTexture();
     this.woodAccentWallMat = new THREE.MeshStandardMaterial({
       map: this.flutedWoodTex,
@@ -47,11 +88,18 @@ export class Building3D {
       metalness: 0.05
     });
 
-    // 3. Dark Charcoal / Black Structural Columns & Framing
+    // 5. Dark Charcoal / Black Structural Columns & Framing
     this.columnMat = new THREE.MeshStandardMaterial({
       color: 0x1f2733,
       roughness: 0.45,
       metalness: 0.35
+    });
+
+    // 6. Vertical Architectural Sunshade Fins / Louvers
+    this.finMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.3,
+      metalness: 0.85
     });
 
     // Floor & Architectural Surface Textures
@@ -60,6 +108,16 @@ export class Building3D {
     this.tileTex = TextureHelper.createTileTexture();
     this.ceilingTex = TextureHelper.createCeilingTileTexture();
     this.plazaTex = TextureHelper.createPlazaPavingTexture();
+    this.terrazzoTex = TextureHelper.createTerrazzoTexture();
+    this.asphaltTex = TextureHelper.createAsphaltRoadTexture();
+    this.roofMembraneTex = TextureHelper.createRoofMembraneTexture();
+    this.louverTex = TextureHelper.createMetalLouverTexture();
+
+    // Upgraded Architectural Stair & Envelope Textures
+    this.stairTreadTex = TextureHelper.createConcreteStairTexture ? TextureHelper.createConcreteStairTexture() : this.concreteTex;
+    this.antiSlipNosingTex = TextureHelper.createAntiSlipNosingTexture ? TextureHelper.createAntiSlipNosingTexture() : null;
+    this.precastFacadeTex = TextureHelper.createPrecastFacadeTexture ? TextureHelper.createPrecastFacadeTexture() : this.concreteTex;
+
     this.exitSignLeftTex = TextureHelper.createExitSignLeftTexture();
     this.exitSignRightTex = TextureHelper.createExitSignRightTexture();
 
@@ -81,29 +139,76 @@ export class Building3D {
       metalness: 0.25
     });
 
-    // Acoustic False Ceiling Tile Material
+    this.terrazzoMat = new THREE.MeshStandardMaterial({
+      map: this.terrazzoTex,
+      roughness: 0.25,
+      metalness: 0.2
+    });
+
     this.ceilingMat = new THREE.MeshStandardMaterial({
       map: this.ceilingTex,
       roughness: 0.85,
       metalness: 0.05
     });
 
-    // Exterior Granite Plaza Paver Material
     this.plazaMat = new THREE.MeshStandardMaterial({
       map: this.plazaTex,
       roughness: 0.8,
       metalness: 0.15
     });
 
-    // 7. Glowing Recessed Ceiling Light Fixtures
-    this.ceilingLightMat = new THREE.MeshStandardMaterial({
-      color: 0xfffcf5,
-      emissive: 0xfff5ea,
-      emissiveIntensity: 1.2,
-      roughness: 0.2
+    this.asphaltMat = new THREE.MeshStandardMaterial({
+      map: this.asphaltTex,
+      roughness: 0.85,
+      metalness: 0.1
     });
 
-    // Sleek Recessed Continuous Linear LED Light Strips
+    this.roofMembraneMat = new THREE.MeshStandardMaterial({
+      map: this.roofMembraneTex,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+
+    this.louverMat = new THREE.MeshStandardMaterial({
+      map: this.louverTex,
+      roughness: 0.45,
+      metalness: 0.7
+    });
+
+    this.hvacUnitMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      roughness: 0.35,
+      metalness: 0.8
+    });
+
+    this.foliageMat = new THREE.MeshStandardMaterial({
+      color: 0x166534,
+      roughness: 0.65,
+      metalness: 0.05
+    });
+    this.trunkMat = new THREE.MeshStandardMaterial({
+      color: 0x3f2719,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+    this.bollardMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.2,
+      metalness: 0.9
+    });
+    this.benchWoodMat = new THREE.MeshStandardMaterial({
+      color: 0x92400e,
+      roughness: 0.4,
+      metalness: 0.1
+    });
+
+    this.ceilingLightMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0,
+      emissive: 0xf1f5f9,
+      emissiveIntensity: 0.35,
+      roughness: 0.4
+    });
+
     this.linearLightMat = new THREE.MeshStandardMaterial({
       color: 0xfffcf0,
       emissive: 0xfffbf0,
@@ -111,7 +216,6 @@ export class Building3D {
       roughness: 0.1
     });
 
-    // Recessed Circular Ceiling Downlight Pucks
     this.downlightMat = new THREE.MeshStandardMaterial({
       color: 0xfffcf5,
       emissive: 0xfff5ea,
@@ -119,7 +223,6 @@ export class Building3D {
       roughness: 0.2
     });
 
-    // 8. Minimalist Architectural Timber Tables
     this.tableWoodMat = new THREE.MeshStandardMaterial({
       color: 0xb46b38,
       roughness: 0.4,
@@ -132,26 +235,77 @@ export class Building3D {
       metalness: 0.85
     });
 
-    // 9. Black Architectural Balustrades & Railings
     this.railingMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
       metalness: 0.85,
       roughness: 0.3
     });
 
-    // 10. Ultra-Fast Lightweight Standard Glass (ZERO expensive transmission passes!)
     this.glassMat = new THREE.MeshStandardMaterial({
       color: 0x93c5fd,
       transparent: true,
-      opacity: 0.25,
+      opacity: 0.24,
       roughness: 0.1,
-      metalness: 0.3
+      metalness: 0.4
+    });
+
+    this.glassExteriorMat = new THREE.MeshStandardMaterial({
+      color: 0x7dd3fc,
+      transparent: true,
+      opacity: 0.72,
+      roughness: 0.08,
+      metalness: 0.75
     });
 
     this.mullionMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
       metalness: 0.85,
       roughness: 0.3
+    });
+
+    // Upgraded Materials for Realistic Stairs & Building Envelope
+    this.stairTreadMat = new THREE.MeshStandardMaterial({
+      map: this.stairTreadTex,
+      roughness: 0.65,
+      metalness: 0.15
+    });
+
+    this.antiSlipNosingMat = new THREE.MeshStandardMaterial({
+      color: 0x00ff88,
+      emissive: 0x00ff88,
+      emissiveIntensity: 0.75,
+      roughness: 0.25
+    });
+
+    this.precastFacadeMat = new THREE.MeshStandardMaterial({
+      map: this.precastFacadeTex,
+      roughness: 0.68,
+      metalness: 0.12
+    });
+
+    this.fireDoorMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.4,
+      metalness: 0.5
+    });
+
+    this.stairWallMat = new THREE.MeshStandardMaterial({
+      color: 0xdde4ec,
+      roughness: 0.8,
+      metalness: 0.05
+    });
+
+    this.stairLightMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xffedd5,
+      emissiveIntensity: 1.4,
+      roughness: 0.2
+    });
+
+    this.walkwayGratingMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      roughness: 0.5,
+      metalness: 0.8
     });
 
     this.exitSignLeftMat = new THREE.MeshStandardMaterial({
@@ -168,7 +322,6 @@ export class Building3D {
       roughness: 0.2
     });
 
-    // === Ultra-High-Visibility Emergency Exit Portal Textures & Materials ===
     this.exitPortalSignTexWest = TextureHelper.createExitPortalSignTexture('WEST EMERGENCY EXIT A');
     this.exitPortalSignTexEast = TextureHelper.createExitPortalSignTexture('EAST EMERGENCY EXIT B');
     this.exitPortalSignTexSouth = TextureHelper.createExitPortalSignTexture('MAIN PLAZA EVACUATION GATE');
@@ -195,14 +348,12 @@ export class Building3D {
       roughness: 0.15
     });
 
-    // High-Visibility Industrial Fire Safety Red Doors
     this.fireDoorRedMat = new THREE.MeshStandardMaterial({
       color: 0xdc2626,
       roughness: 0.35,
       metalness: 0.2
     });
 
-    // Panic Push Crash Hardware
     this.panicBarSilverMat = new THREE.MeshStandardMaterial({
       color: 0xf1f5f9,
       roughness: 0.2,
@@ -215,21 +366,18 @@ export class Building3D {
       roughness: 0.2
     });
 
-    // Hazard Caution Striped Threshold Plate
     this.hazardPlateMat = new THREE.MeshStandardMaterial({
       map: this.hazardStripesTex,
       roughness: 0.4,
       metalness: 0.3
     });
 
-    // Door Warning Decal Badge
     this.fireDoorDecalMat = new THREE.MeshStandardMaterial({
       map: this.fireDoorSignTex,
       roughness: 0.3,
       metalness: 0.1
     });
 
-    // Evacuation Runway to Assembly Muster Zone
     this.exitRunwayMat = new THREE.MeshStandardMaterial({
       map: this.exitRunwayTex,
       roughness: 0.6,
@@ -248,196 +396,266 @@ export class Building3D {
       roughness: 0.25
     });
 
-    // === Shared Specialized Furniture & Decor Materials ===
     this.deskTopWhiteMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.35,
+      color: 0xe2e8f0,
+      roughness: 0.40,
       metalness: 0.05
     });
 
-    this.deskTopDarkMat = new THREE.MeshStandardMaterial({
+    this.workstationDividerMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+    this.acousticDividerMat = this.workstationDividerMat;
+
+    this.screenDisplayCyanMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00d4e6,
+      emissiveIntensity: 1.1,
+      roughness: 0.15
+    });
+
+    this.screenDisplayOrangeMat = new THREE.MeshStandardMaterial({
+      color: 0xf97316,
+      emissive: 0xea580c,
+      emissiveIntensity: 0.95,
+      roughness: 0.2
+    });
+
+    this.chairLeatherMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b,
       roughness: 0.45,
-      metalness: 0.1
+      metalness: 0.15
     });
-
-    this.chairMeshMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a, // Obsidian ergonomic mesh chair
-      roughness: 0.65,
-      metalness: 0.1
-    });
+    this.chairMeshMat = this.chairLeatherMat;
 
     this.chairLeatherCognacMat = new THREE.MeshStandardMaterial({
-      color: 0x6b3614, // Warm executive cognac leather
-      roughness: 0.35,
+      color: 0x92400e,
+      roughness: 0.40,
       metalness: 0.1
     });
 
-    this.chairChromeMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      roughness: 0.25,
-      metalness: 0.85
-    });
-
-    this.screenBezelMat = new THREE.MeshStandardMaterial({
-      color: 0x090d16,
-      roughness: 0.3,
-      metalness: 0.8
-    });
-
-    this.screenDisplayCyanMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8, // High-tech cyan IDE/dashboard glow
-      side: THREE.DoubleSide
-    });
-
-    this.screenDisplayOrangeMat = new THREE.MeshBasicMaterial({
-      color: 0xf59e0b, // Living room OLED cinema warm glow
-      side: THREE.DoubleSide
-    });
-
-    this.acousticDividerMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7, // Vibrant cyan/blue acoustic desk screen
-      roughness: 0.8,
-      metalness: 0.05
-    });
+    this.screenBezelMat = this.columnMat;
+    this.coffeeTableEspressoMat = this.columnMat;
 
     this.sofaFabricSlateMat = new THREE.MeshStandardMaterial({
-      color: 0x334155, // Slate grey sectional couch
+      color: 0x334155,
       roughness: 0.75,
       metalness: 0.05
     });
 
     this.sofaFabricSandMat = new THREE.MeshStandardMaterial({
-      color: 0xb45309, // Luxury camel/amber velvet
-      roughness: 0.65,
+      color: 0xd6c7b2,
+      roughness: 0.80,
       metalness: 0.05
     });
 
-    this.coffeeTableEspressoMat = new THREE.MeshStandardMaterial({
-      color: 0x26150b, // Dark espresso walnut
-      roughness: 0.3,
-      metalness: 0.1
-    });
-
-    this.areaRugMat = new THREE.MeshStandardMaterial({
-      color: 0x475569, // Soft floor rug
-      roughness: 0.9,
-      metalness: 0.02
-    });
-
+    this.areaRugMat = this.carpetFloorMat;
     this.areaRugCreamMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0, // Cream modern Scandinavian rug
-      roughness: 0.9,
-      metalness: 0.02
-    });
-
-    this.plantLeafMat = new THREE.MeshStandardMaterial({
-      color: 0x15803d, // Lush tropical botanical emerald green
-      roughness: 0.45,
+      color: 0xf1f5f9,
+      roughness: 0.85,
       metalness: 0.05
     });
 
-    this.plantPotMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc, // Pristine Scandinavian architectural ceramic
-      roughness: 0.28,
-      metalness: 0.08
+    this.plantPotMat = this.potMat;
+    this.plantLeafMat = this.foliageMat;
+    this.whiteboardMat = this.whiteWallMat;
+
+    this.confTableMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.25,
+      metalness: 0.4
     });
 
-    this.whiteboardMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
+    this.cabinetMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+
+    this.loungeSofaMat = new THREE.MeshStandardMaterial({
+      color: 0x1e3a8a,
+      roughness: 0.6,
+      metalness: 0.05
+    });
+
+    this.potMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
       roughness: 0.2,
       metalness: 0.1
     });
 
-    // === High-Performance Pre-Merged Geometries (Zero Lag / Ultra Low Draw Calls) ===
-    // 1. Task Chair (Base + Stem + Seat + Back merged into 1 geometry)
-    const baseG = new THREE.CylinderGeometry(0.26, 0.26, 0.03, 8);
-    baseG.translate(0, 0.02, 0);
-    const stemG = new THREE.CylinderGeometry(0.04, 0.04, 0.42, 8);
-    stemG.translate(0, 0.22, 0);
-    const seatG = new THREE.BoxGeometry(0.52, 0.07, 0.50);
-    seatG.translate(0, 0.45, 0);
-    const backG = new THREE.BoxGeometry(0.48, 0.52, 0.06);
-    backG.translate(0, 0.72, -0.22);
-    this.taskChairGeo = BufferGeometryUtils.mergeGeometries([baseG, stemG, seatG, backG]);
+    // === Pre-Merged Reusable Geometries for High-Speed Instancing ===
+    // 1. Modern Architectural Open-Frame Workstation Desk
+    const deskTop = new THREE.BoxGeometry(1.45, 0.026, 0.75);
+    deskTop.translate(0, 0.72, 0);
 
-    // 2. Dual Workstation Desks (Tops + Legs merged into 1 geometry)
-    const dTop1 = new THREE.BoxGeometry(1.8, 0.06, 0.9);
-    dTop1.translate(0, 0.76, -0.48);
-    const dTop2 = new THREE.BoxGeometry(1.8, 0.06, 0.9);
-    dTop2.translate(0, 0.76, 0.48);
-    const dLeg1 = new THREE.BoxGeometry(0.06, 0.74, 0.86);
-    dLeg1.translate(-0.85, 0.38, -0.48);
-    const dLeg2 = new THREE.BoxGeometry(0.06, 0.74, 0.86);
-    dLeg2.translate(0.85, 0.38, -0.48);
-    const dLeg3 = new THREE.BoxGeometry(0.06, 0.74, 0.86);
-    dLeg3.translate(-0.85, 0.38, 0.48);
-    const dLeg4 = new THREE.BoxGeometry(0.06, 0.74, 0.86);
-    dLeg4.translate(0.85, 0.38, 0.48);
-    this.workstationDesksGeo = BufferGeometryUtils.mergeGeometries([dTop1, dTop2, dLeg1, dLeg2, dLeg3, dLeg4]);
+    const legGeo = new THREE.BoxGeometry(0.032, 0.707, 0.032);
+    const legFL = legGeo.clone().translate(-0.68, 0.353, 0.33);
+    const legFR = legGeo.clone().translate(0.68, 0.353, 0.33);
+    const legBL = legGeo.clone().translate(-0.68, 0.353, -0.33);
+    const legBR = legGeo.clone().translate(0.68, 0.353, -0.33);
 
-    // 3. Acoustic Divider
-    this.acousticDividerGeo = new THREE.BoxGeometry(1.8, 0.38, 0.035);
+    const apronGeoX = new THREE.BoxGeometry(1.36, 0.03, 0.02);
+    const apronF = apronGeoX.clone().translate(0, 0.695, 0.33);
+    const apronB = apronGeoX.clone().translate(0, 0.695, -0.33);
 
-    // 4. Desktop Monitor (Base + Stem + Frame merged)
-    const mBase = new THREE.BoxGeometry(0.24, 0.02, 0.16);
-    mBase.translate(0, 0.01, 0);
-    const mStem = new THREE.BoxGeometry(0.04, 0.20, 0.04);
-    mStem.translate(0, 0.11, 0);
-    const mFrame = new THREE.BoxGeometry(0.68, 0.38, 0.02);
-    mFrame.translate(0, 0.30, 0);
-    this.monitorFrameGeo = BufferGeometryUtils.mergeGeometries([mBase, mStem, mFrame]);
+    this.deskGeo = BufferGeometryUtils.mergeGeometries([
+      deskTop, legFL, legFR, legBL, legBR, apronF, apronB
+    ]);
+    this.workstationDesksGeo = this.deskGeo;
 
-    this.monitorDisplayGeo = new THREE.PlaneGeometry(0.64, 0.34);
+    // 2. High-End Modern Ergonomic Task Chair
+    const chairParts = [];
+    for (let sp = 0; sp < 5; sp++) {
+      const angle = (sp * Math.PI * 2) / 5;
+      const spoke = new THREE.BoxGeometry(0.028, 0.025, 0.24);
+      spoke.translate(0, 0.035, 0.12);
+      spoke.rotateY(angle);
+      chairParts.push(spoke);
 
-    // 5. Sectional Plush Sofa (Main Seat + Back + Arm + Chaise + Armchair merged)
-    const sSeat = new THREE.BoxGeometry(2.4, 0.36, 0.95);
-    sSeat.translate(-0.3, 0.18, -0.55);
-    const sBack = new THREE.BoxGeometry(2.4, 0.54, 0.26);
-    sBack.translate(-0.3, 0.45, -0.95);
-    const sArm = new THREE.BoxGeometry(0.22, 0.46, 0.95);
-    sArm.translate(-1.55, 0.35, -0.55);
-    const sChaise = new THREE.BoxGeometry(0.95, 0.36, 1.45);
-    sChaise.translate(1.40, 0.18, 0.15);
-    const sArmchair = new THREE.BoxGeometry(0.88, 0.34, 0.85);
-    sArmchair.translate(-1.45, 0.17, 0.85);
-    this.sectionalSofaGeo = BufferGeometryUtils.mergeGeometries([sSeat, sBack, sArm, sChaise, sArmchair]);
+      const caster = new THREE.BoxGeometry(0.025, 0.035, 0.035);
+      caster.translate(Math.sin(angle) * 0.24, 0.02, Math.cos(angle) * 0.24);
+      chairParts.push(caster);
+    }
 
-    // 6. Conference Table (Table top + 2 Pedestals merged)
-    const cTop = new THREE.BoxGeometry(4.6, 0.08, 1.6);
-    cTop.translate(0, 0.76, 0);
-    const cPed1 = new THREE.CylinderGeometry(0.32, 0.42, 0.72, 12);
-    cPed1.translate(-1.5, 0.37, 0);
-    const cPed2 = new THREE.CylinderGeometry(0.32, 0.42, 0.72, 12);
-    cPed2.translate(1.5, 0.37, 0);
-    this.confTableGeo = BufferGeometryUtils.mergeGeometries([cTop, cPed1, cPed2]);
+    const cylinder = new THREE.CylinderGeometry(0.024, 0.028, 0.34, 10);
+    cylinder.translate(0, 0.20, 0);
+    chairParts.push(cylinder);
 
-    // 7. Coffee Table & Rug
-    this.coffeeTableGeo = new THREE.BoxGeometry(1.5, 0.34, 0.8);
-    this.areaRugGeo = new THREE.BoxGeometry(4.2, 0.015, 3.2);
+    const tiltMech = new THREE.BoxGeometry(0.18, 0.05, 0.16);
+    tiltMech.translate(0, 0.38, 0);
+    chairParts.push(tiltMech);
 
-    // 8. Realistic Architectural Ceramic Planter Pot (Gamla)
+    const seatCushion = new THREE.BoxGeometry(0.46, 0.05, 0.44);
+    seatCushion.translate(0, 0.44, 0);
+    chairParts.push(seatCushion);
+
+    const backrest = new THREE.BoxGeometry(0.42, 0.46, 0.03);
+    backrest.translate(0, 0.70, -0.20);
+    chairParts.push(backrest);
+
+    const spineBar = new THREE.BoxGeometry(0.04, 0.34, 0.03);
+    spineBar.translate(0, 0.54, -0.21);
+    chairParts.push(spineBar);
+
+    const armL_Post = new THREE.BoxGeometry(0.025, 0.18, 0.03);
+    armL_Post.translate(-0.24, 0.52, -0.02);
+    chairParts.push(armL_Post);
+    const armL_Pad = new THREE.BoxGeometry(0.06, 0.02, 0.20);
+    armL_Pad.translate(-0.24, 0.61, -0.02);
+    chairParts.push(armL_Pad);
+
+    const armR_Post = new THREE.BoxGeometry(0.025, 0.18, 0.03);
+    armR_Post.translate(0.24, 0.52, -0.02);
+    chairParts.push(armR_Post);
+    const armR_Pad = new THREE.BoxGeometry(0.06, 0.02, 0.20);
+    armR_Pad.translate(0.24, 0.61, -0.02);
+    chairParts.push(armR_Pad);
+
+    this.chairGeo = BufferGeometryUtils.mergeGeometries(chairParts);
+    this.taskChairGeo = this.chairGeo;
+
+    // 3. Widescreen 27-inch Monitor with Stand, Keyboard & Mouse
+    const screenBezel = new THREE.BoxGeometry(0.62, 0.36, 0.016);
+    screenBezel.translate(0, 0.26, 0);
+
+    const standArm = new THREE.CylinderGeometry(0.014, 0.016, 0.18, 8);
+    standArm.translate(0, 0.12, -0.04);
+
+    const standBase = new THREE.BoxGeometry(0.18, 0.008, 0.14);
+    standBase.translate(0, 0.004, -0.02);
+
+    const kbd = new THREE.BoxGeometry(0.42, 0.006, 0.12);
+    kbd.translate(0, 0.004, 0.16);
+
+    const mouse = new THREE.BoxGeometry(0.06, 0.010, 0.10);
+    mouse.translate(0.26, 0.005, 0.16);
+
+    this.monitorFrameGeo = BufferGeometryUtils.mergeGeometries([
+      screenBezel, standArm, standBase, kbd, mouse
+    ]);
+    this.screenGeo = this.monitorFrameGeo;
+
+    const disp = new THREE.BoxGeometry(0.60, 0.34, 0.006);
+    disp.translate(0, 0.26, 0.007);
+    this.monitorDisplayGeo = disp;
+
+    // 4. Large Executive Conference Table
+    const confParts = [];
+    const cTop = new THREE.BoxGeometry(3.8, 0.045, 1.35);
+    cTop.translate(0, 0.73, 0);
+    confParts.push(cTop);
+
+    const pylonL = new THREE.BoxGeometry(0.32, 0.70, 0.65);
+    pylonL.translate(-1.15, 0.35, 0);
+    confParts.push(pylonL);
+
+    const pylonR = new THREE.BoxGeometry(0.32, 0.70, 0.65);
+    pylonR.translate(1.15, 0.35, 0);
+    confParts.push(pylonR);
+
+    const footL = new THREE.BoxGeometry(0.36, 0.03, 0.85);
+    footL.translate(-1.15, 0.015, 0);
+    confParts.push(footL);
+
+    const footR = new THREE.BoxGeometry(0.36, 0.03, 0.85);
+    footR.translate(1.15, 0.015, 0);
+    confParts.push(footR);
+
+    this.confTableGeo = BufferGeometryUtils.mergeGeometries(confParts);
+
+    // 5. Minimalist Architectural Coffee Table
+    const ctTop = new THREE.BoxGeometry(1.30, 0.024, 0.65);
+    ctTop.translate(0, 0.36, 0);
+    const ctLeg = new THREE.BoxGeometry(0.022, 0.35, 0.022);
+    const ctLeg1 = ctLeg.clone().translate(-0.58, 0.175, 0.26);
+    const ctLeg2 = ctLeg.clone().translate(0.58, 0.175, 0.26);
+    const ctLeg3 = ctLeg.clone().translate(-0.58, 0.175, -0.26);
+    const ctLeg4 = ctLeg.clone().translate(0.58, 0.175, -0.26);
+    this.coffeeTableGeo = BufferGeometryUtils.mergeGeometries([ctTop, ctLeg1, ctLeg2, ctLeg3, ctLeg4]);
+
+    // 6. Contemporary Low-Profile 3-Seat Sofa
+    const sfParts = [];
+    const sfSeat = new THREE.BoxGeometry(2.10, 0.22, 0.80);
+    sfSeat.translate(0, 0.22, 0);
+    sfParts.push(sfSeat);
+
+    const sfBack = new THREE.BoxGeometry(2.10, 0.44, 0.20);
+    sfBack.translate(0, 0.54, -0.30);
+    sfParts.push(sfBack);
+
+    const sfArmL = new THREE.BoxGeometry(0.16, 0.32, 0.82);
+    sfArmL.translate(-1.05, 0.38, 0);
+    sfParts.push(sfArmL);
+
+    const sfArmR = new THREE.BoxGeometry(0.16, 0.32, 0.82);
+    sfArmR.translate(1.05, 0.38, 0);
+    sfParts.push(sfArmR);
+
+    this.sectionalSofaGeo = BufferGeometryUtils.mergeGeometries(sfParts);
+    this.sofaGeo = this.sectionalSofaGeo;
+
+    this.dividerGeo = new THREE.BoxGeometry(1.45, 0.38, 0.03);
+    this.acousticDividerGeo = this.dividerGeo;
+    this.areaRugGeo = new THREE.BoxGeometry(3.8, 0.015, 2.8);
+    this.wallTvFrameGeo = new THREE.BoxGeometry(2.4, 1.4, 0.08);
+    this.wallTvScreenGeo = new THREE.BoxGeometry(2.28, 1.28, 0.09);
+
     const potGeos = [];
-    // Ceramic Tapered Pot Body
     const pBody = new THREE.CylinderGeometry(0.28, 0.20, 0.58, 20);
     pBody.translate(0, 0.38, 0);
     potGeos.push(pBody);
-
-    // Architectural Lip Rim
     const pRim = new THREE.CylinderGeometry(0.30, 0.28, 0.05, 20);
     pRim.translate(0, 0.65, 0);
     potGeos.push(pRim);
-
-    // Dark Potting Soil Bed
     const pSoil = new THREE.CylinderGeometry(0.27, 0.27, 0.04, 16);
     pSoil.translate(0, 0.63, 0);
     potGeos.push(pSoil);
-
-    // Modern Tripod Stand Base (Ring + 3 Tapered Legs)
     const pStandRing = new THREE.CylinderGeometry(0.18, 0.18, 0.04, 12);
     pStandRing.translate(0, 0.10, 0);
     potGeos.push(pStandRing);
-
     for (let l = 0; l < 3; l++) {
       const legAng = (l * Math.PI * 2) / 3;
       const legX = Math.cos(legAng) * 0.18;
@@ -448,9 +666,7 @@ export class Building3D {
     }
     this.indoorPlantPotGeo = BufferGeometryUtils.mergeGeometries(potGeos);
 
-    // Realistic Multi-Leaf Tropical Foliage (Fiddle Leaf / Monstera Fronds)
     const foliageGeos = [];
-    // Central Stems
     for (let st = 0; st < 6; st++) {
       const stAng = (st * Math.PI * 2) / 6 + 0.2;
       const stStem = new THREE.CylinderGeometry(0.012, 0.022, 0.52, 6);
@@ -459,19 +675,15 @@ export class Building3D {
       stStem.translate(Math.cos(stAng) * 0.08, 0.84, Math.sin(stAng) * 0.08);
       foliageGeos.push(stStem);
     }
-
-    // Arching Organic Fan Leaves (Radially dispersed with natural variation)
     const leafAngles = [0.1, 0.85, 1.6, 2.35, 3.1, 3.85, 4.6, 5.35];
     const leafTilts = [0.65, 0.55, 0.72, 0.58, 0.68, 0.60, 0.75, 0.62];
     const leafLengths = [0.46, 0.52, 0.44, 0.50, 0.48, 0.54, 0.45, 0.51];
     const leafWidths = [0.20, 0.24, 0.19, 0.23, 0.21, 0.25, 0.19, 0.22];
-
     for (let i = 0; i < leafAngles.length; i++) {
       const ang = leafAngles[i];
       const tilt = leafTilts[i];
       const len = leafLengths[i];
       const wid = leafWidths[i];
-
       const leafG = new THREE.BoxGeometry(wid, 0.012, len);
       leafG.rotateX(tilt);
       leafG.rotateY(ang);
@@ -479,29 +691,9 @@ export class Building3D {
       leafG.translate(Math.cos(ang) * dist, 0.86, Math.sin(ang) * dist);
       foliageGeos.push(leafG);
     }
+    this.indoorPlantLeafGeo = BufferGeometryUtils.mergeGeometries(foliageGeos);
 
-    // Center upright tender new leaf shoots
-    const upShoot1 = new THREE.BoxGeometry(0.18, 0.012, 0.48);
-    upShoot1.rotateX(0.22);
-    upShoot1.rotateY(0.4);
-    upShoot1.translate(0.04, 1.05, 0.04);
-    foliageGeos.push(upShoot1);
-
-    const upShoot2 = new THREE.BoxGeometry(0.16, 0.012, 0.42);
-    upShoot2.rotateX(0.26);
-    upShoot2.rotateY(3.4);
-    upShoot2.translate(-0.04, 0.98, -0.04);
-    foliageGeos.push(upShoot2);
-
-    this.indoorPlantFoliageGeo = BufferGeometryUtils.mergeGeometries(foliageGeos);
-
-    // 9. Wall OLED TV
-    this.wallTvFrameGeo = new THREE.BoxGeometry(2.4, 1.25, 0.05);
-    this.wallTvScreenGeo = new THREE.PlaneGeometry(2.32, 1.17);
-
-
-
-    // Generate 100 Rooms Data
+    // Initializing Rooms Data & Systems
     this.roomsData = this.generateRoomsData();
 
     this.createEnvironment();
@@ -509,6 +701,7 @@ export class Building3D {
     this.buildStairwellCores();
     this.buildElevatorBank();
     this.buildRooftopHelipad();
+    this.buildHeroEntrance();
     this.buildGroundExits();
 
     this.updateFacadeCutaway();
@@ -521,21 +714,21 @@ export class Building3D {
       const floorBaseY = (floor - 1) * this.floorHeight;
 
       ROOM_TEMPLATES.forEach((tmpl, idx) => {
-        const roomId = `f${floor}_${tmpl.idSuffix}`;
-        const roomNumber = `${floor}${idx < 9 ? '0' + (idx + 1) : idx + 1}`;
-        const roomName = `Rm ${roomNumber} • ${theme.prefix} ${tmpl.nameSuffix}`;
+        const roomId = 'f' + floor + '_' + tmpl.idSuffix;
+        const roomNumber = '' + floor + (idx < 9 ? '0' + (idx + 1) : idx + 1);
+        const roomName = 'Rm ' + roomNumber + ' — ' + theme.prefix + ' ' + tmpl.nameSuffix;
 
         rooms.push({
           id: roomId,
           floor,
           roomNumber,
           name: roomName,
-          camId: `CAM-${floor}${idx < 9 ? '0' + (idx + 1) : idx + 1}`,
+          camId: 'CAM-' + floor + (idx < 9 ? '0' + (idx + 1) : idx + 1),
           color: floor >= 9 ? 0x9d4edd : (floor >= 5 ? 0x00f0ff : 0x00ff88),
           center: { x: tmpl.centerX, y: floorBaseY, z: tmpl.centerZ },
           bounds: { minX: tmpl.minX, maxX: tmpl.maxX, minZ: tmpl.minZ, maxZ: tmpl.maxZ },
           camPos: { x: tmpl.centerX - 6, y: floorBaseY + 4.5, z: tmpl.centerZ + 6 },
-          camLookAt: { x: tmpl.centerX, y: floorBaseY + 1.0, z: tmpl.centerZ }
+          furnishingType: getRoomFurnishingType(floor, idx)
         });
       });
     }
@@ -543,87 +736,203 @@ export class Building3D {
   }
 
   createEnvironment() {
-    // Grand Architectural Granite Plaza
-    const plazaGeo = new THREE.PlaneGeometry(240, 240);
-    const plaza = new THREE.Mesh(plazaGeo, this.plazaMat);
-    plaza.rotation.x = -Math.PI / 2;
-    plaza.position.y = -0.05;
-    plaza.receiveShadow = true;
-    this.group.add(plaza);
+    const envGroup = this.layers.environment;
 
-    // Elevated Building Podium Curb (Architectural foundation base in light stone)
-    const podiumGeo = new THREE.BoxGeometry(66, 0.35, 54);
-    const podiumMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.5,
-      metalness: 0.1
-    });
-    const podium = new THREE.Mesh(podiumGeo, podiumMat);
-    podium.position.set(0, -0.175, 0);
+    // 1. Broad Executive Campus Plaza Ground Plane
+    const groundGeo = new THREE.PlaneGeometry(260, 260);
+    const ground = new THREE.Mesh(groundGeo, this.plazaMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    envGroup.add(ground);
+
+    // 2. Elevated Building Foundation Podium Curb in Precast Concrete
+    const podiumGeo = new THREE.BoxGeometry(66, 0.5, 54);
+    const podium = new THREE.Mesh(podiumGeo, this.concreteMat);
+    podium.position.set(0, -0.25, 0);
     podium.receiveShadow = true;
-    this.group.add(podium);
+    envGroup.add(podium);
 
-    // Subtle modern architectural grid lines (Clean light blueprint style)
-    const grid = new THREE.GridHelper(240, 48, 0x94a3b8, 0xcbd5e1);
-    grid.position.y = 0.01;
-    this.group.add(grid);
+    // 3. Vehicular Drop-Off Loop Roadway with Striping
+    const roadInnerR = 14;
+    const roadOuterR = 21;
+    const roadCurveGeo = new THREE.RingGeometry(roadInnerR, roadOuterR, 48, 1, 0, Math.PI);
+    const roadCurve = new THREE.Mesh(roadCurveGeo, this.asphaltMat);
+    roadCurve.rotation.x = -Math.PI / 2;
+    roadCurve.rotation.z = Math.PI;
+    roadCurve.position.set(0, 0.01, 35);
+    roadCurve.receiveShadow = true;
+    envGroup.add(roadCurve);
 
-    this.createMusterZone(-38, 0, 'MUSTER ZONE A (WEST)');
-    this.createMusterZone(38, 0, 'MUSTER ZONE B (EAST)');
-    this.createMusterZone(0, 36, 'MUSTER ZONE C (SOUTH)');
-  }
+    const straightW = roadOuterR - roadInnerR;
+    const straightL = 42;
+    const roadStrW = new THREE.Mesh(new THREE.PlaneGeometry(straightW, straightL), this.asphaltMat);
+    roadStrW.rotation.x = -Math.PI / 2;
+    roadStrW.position.set(-17.5, 0.01, 56);
+    roadStrW.receiveShadow = true;
+    envGroup.add(roadStrW);
 
-  createMusterZone(x, z, label) {
-    // 1. Dual Concentric Safety Boundary Rings
-    const outerRing = new THREE.Mesh(
-      new THREE.RingGeometry(4.8, 5.4, 32),
-      new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 0.85, side: THREE.DoubleSide })
-    );
-    outerRing.rotation.x = -Math.PI / 2;
-    outerRing.position.set(x, 0.03, z);
-    this.group.add(outerRing);
+    const roadStrE = new THREE.Mesh(new THREE.PlaneGeometry(straightW, straightL), this.asphaltMat);
+    roadStrE.rotation.x = -Math.PI / 2;
+    roadStrE.position.set(17.5, 0.01, 56);
+    roadStrE.receiveShadow = true;
+    envGroup.add(roadStrE);
 
-    const innerDisc = new THREE.Mesh(
-      new THREE.CircleGeometry(1.8, 24),
-      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.5 })
-    );
-    innerDisc.rotation.x = -Math.PI / 2;
-    innerDisc.position.set(x, 0.028, z);
-    this.group.add(innerDisc);
+    // 4. Landscaped Planters with Manicured Evergreen Hedges
+    const planterGeos = [];
+    const hedgeGeos = [];
+    const planterBoxes = [
+      { x: -22, z: 28, w: 9, d: 2.8 },
+      { x: 22, z: 28, w: 9, d: 2.8 },
+      { x: -38, z: 12, w: 2.8, d: 14 },
+      { x: 38, z: 12, w: 2.8, d: 14 },
+      { x: -38, z: -12, w: 2.8, d: 14 },
+      { x: 38, z: -12, w: 2.8, d: 14 }
+    ];
 
-    const innerRing = new THREE.Mesh(
-      new THREE.RingGeometry(1.6, 1.8, 24),
-      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
-    );
-    innerRing.rotation.x = -Math.PI / 2;
-    innerRing.position.set(x, 0.031, z);
-    this.group.add(innerRing);
+    planterBoxes.forEach(box => {
+      const pG = new THREE.BoxGeometry(box.w, 0.55, box.d);
+      pG.translate(box.x, 0.275, box.z);
+      planterGeos.push(pG);
 
-    // 2. 3D Architectural Emergency Assembly Point Totem / Monolith
-    const totemY = 1.8;
-    const totemPillar = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 3.6, 0.35),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.8 })
-    );
-    totemPillar.position.set(x, totemY, z + (z >= 0 ? 5.6 : -5.6));
-    this.group.add(totemPillar);
+      const hG = new THREE.BoxGeometry(box.w - 0.4, 0.65, box.d - 0.4);
+      hG.translate(box.x, 0.55 + 0.325, box.z);
+      hedgeGeos.push(hG);
+    });
 
-    const totemSign = new THREE.Mesh(
-      new THREE.BoxGeometry(0.72, 1.2, 0.36),
-      new THREE.MeshStandardMaterial({ color: 0x059669, emissive: 0x10b981, emissiveIntensity: 1.4 })
-    );
-    totemSign.position.set(x, totemY + 0.8, z + (z >= 0 ? 5.6 : -5.6));
-    this.group.add(totemSign);
+    if (planterGeos.length > 0) {
+      const mergedPlanters = BufferGeometryUtils.mergeGeometries(planterGeos);
+      const planterMesh = new THREE.Mesh(mergedPlanters, this.concreteMat);
+      planterMesh.castShadow = true;
+      planterMesh.receiveShadow = true;
+      envGroup.add(planterMesh);
+    }
+
+    if (hedgeGeos.length > 0) {
+      const mergedHedges = BufferGeometryUtils.mergeGeometries(hedgeGeos);
+      const hedgeMesh = new THREE.Mesh(mergedHedges, this.foliageMat);
+      hedgeMesh.castShadow = true;
+      hedgeMesh.receiveShadow = true;
+      envGroup.add(hedgeMesh);
+    }
+
+    // 5. Specimen Shade Trees
+    const treePositions = [
+      { x: -24, z: 34 }, { x: 24, z: 34 },
+      { x: -38, z: 24 }, { x: 38, z: 24 },
+      { x: -38, z: -24 }, { x: 38, z: -24 },
+      { x: -14, z: 52 }, { x: 14, z: 52 }
+    ];
+
+    const trunkGeos = [];
+    const foliageClustGeos = [];
+    const trunkBase = new THREE.CylinderGeometry(0.18, 0.26, 3.2, 8);
+    const crownBase1 = new THREE.SphereGeometry(1.6, 8, 8);
+    const crownBase2 = new THREE.SphereGeometry(1.2, 8, 8);
+
+    treePositions.forEach(tp => {
+      const tr = trunkBase.clone();
+      tr.translate(tp.x, 1.6, tp.z);
+      trunkGeos.push(tr);
+
+      const cr1 = crownBase1.clone();
+      cr1.scale(1.1, 0.85, 1.1);
+      cr1.translate(tp.x, 3.6, tp.z);
+      foliageClustGeos.push(cr1);
+
+      const cr2 = crownBase2.clone();
+      cr2.translate(tp.x + 0.3, 4.4, tp.z - 0.2);
+      foliageClustGeos.push(cr2);
+    });
+
+    if (trunkGeos.length > 0) {
+      const trunkMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(trunkGeos), this.trunkMat);
+      trunkMesh.castShadow = true;
+      envGroup.add(trunkMesh);
+    }
+
+    if (foliageClustGeos.length > 0) {
+      const foliageMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(foliageClustGeos), this.foliageMat);
+      foliageMesh.castShadow = true;
+      envGroup.add(foliageMesh);
+    }
+
+    // 6. Stainless Security Bollards along Drop-off Curb
+    const bollardGeos = [];
+    const bollardBase = new THREE.CylinderGeometry(0.11, 0.11, 0.9, 14);
+    for (let bx = -14; bx <= 14; bx += 2.8) {
+      const b = bollardBase.clone();
+      b.translate(bx, 0.45, 27.2);
+      bollardGeos.push(b);
+    }
+    if (bollardGeos.length > 0) {
+      const bollardMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGeos), this.bollardMat);
+      bollardMesh.castShadow = true;
+      envGroup.add(bollardMesh);
+    }
+
+    // 7. Executive Teak Plaza Benches
+    const benchGeos = [];
+    const benchPositions = [
+      { x: -16, z: 27.4, rot: 0 },
+      { x: 16, z: 27.4, rot: 0 },
+      { x: -35, z: 12, rot: Math.PI / 2 },
+      { x: 35, z: 12, rot: -Math.PI / 2 }
+    ];
+
+    benchPositions.forEach(bp => {
+      const bG = new THREE.BoxGeometry(2.4, 0.46, 0.65);
+      bG.rotateY(bp.rot);
+      bG.translate(bp.x, 0.23, bp.z);
+      benchGeos.push(bG);
+    });
+
+    if (benchGeos.length > 0) {
+      const benchMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(benchGeos), this.benchWoodMat);
+      benchMesh.castShadow = true;
+      envGroup.add(benchMesh);
+    }
+
+    // 8. Campus Identity Totem Monolith
+    const totemGeo = new THREE.BoxGeometry(0.75, 4.6, 1.4);
+    const totemMesh = new THREE.Mesh(totemGeo, this.columnMat);
+    totemMesh.position.set(-18, 2.3, 42);
+    totemMesh.castShadow = true;
+    envGroup.add(totemMesh);
 
     const totemBeacon = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.18, 0.35, 16),
-      new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 2.0 })
+      new THREE.BoxGeometry(0.77, 0.18, 1.42),
+      this.screenDisplayCyanMat
     );
-    totemBeacon.position.set(x, 3.75, z + (z >= 0 ? 5.6 : -5.6));
-    this.group.add(totemBeacon);
+    totemBeacon.position.set(-18, 4.4, 42);
+    envGroup.add(totemBeacon);
   }
 
   buildAllFloors() {
+    // 4 Solid Architectural Corner Piers (Massive, anchoring all 4 corners)
+    const cornerGeos = [];
+    const totalH = this.totalFloors * this.floorHeight;
+    const cornerSize = 1.2;
+    const cornerCorners = [
+      { x: -29.5, z: 23.5 },
+      { x: 29.5, z: 23.5 },
+      { x: -29.5, z: -23.5 },
+      { x: 29.5, z: -23.5 }
+    ];
+
+    cornerCorners.forEach(c => {
+      const cg = new THREE.BoxGeometry(cornerSize, totalH + 0.6, cornerSize);
+      cg.translate(c.x, (totalH + 0.6) / 2, c.z);
+      cornerGeos.push(cg);
+    });
+
+    if (cornerGeos.length > 0) {
+      const cornerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cornerGeos), this.precastFacadeMat);
+      cornerMesh.castShadow = true;
+      cornerMesh.receiveShadow = true;
+      this.layers.structure.add(cornerMesh);
+    }
+
     for (let f = 1; f <= this.totalFloors; f++) {
       this.buildFloor(f);
     }
@@ -634,20 +943,17 @@ export class Building3D {
     const baseY = (floorNum - 1) * this.floorHeight;
     const slabW = 60;
     const slabD = 48;
-    // Clear floor-to-ceiling architectural height:
-    // Floor-to-floor height is 3.8m. Slabs are 0.35m thick.
-    // Distance from floor surface (baseY + 0.175) to ceiling soffit (baseY + 3.625) = 3.45m.
-    // We set 3.46m so walls, pillars and lintels firmly connect into the ceiling slab with zero gap!
     const wallH = 3.46;
     const wallCenterY = baseY + 0.175 + wallH / 2;
 
-    // Architectural Floor Slab with Real Textures
-    // L9-L10: Rich Wood Parquet | L3-L8: Slate Carpet Tile | L1-L2: Polished Marble Tile
+    // 1. Architectural Floor Slab
     let floorMat;
     if (floorNum >= 9) {
       floorMat = this.woodFloorMat;
     } else if (floorNum >= 3) {
       floorMat = this.carpetFloorMat;
+    } else if (floorNum === 1) {
+      floorMat = this.terrazzoMat;
     } else {
       floorMat = this.tileFloorMat;
     }
@@ -658,16 +964,10 @@ export class Building3D {
     slab.receiveShadow = true;
     group.add(slab);
 
-    // Glowing Cyan Edge Contour Lines (Cyber/Digital Twin feel)
-    const edgeGeo = new THREE.EdgesGeometry(slabGeo);
-    const edgeLine = new THREE.LineSegments(
-      edgeGeo,
-      new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 })
-    );
-    edgeLine.position.copy(slab.position);
-    group.add(edgeLine);
+    // Architectural floor slab is structurally grounded and clean (no protruding external beams or wireframe lines)
+    // Exterior spandrels are managed cleanly inside the facade envelope groups.
 
-    // Executive Charcoal Corridor Runner with Luminous Edge Guidance
+    // 3. Executive Charcoal Corridor Runner with Luminous Edge Guidance
     const runnerGeo = new THREE.PlaneGeometry(50, 1.6);
     const runnerMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
@@ -680,7 +980,6 @@ export class Building3D {
     runner.receiveShadow = true;
     group.add(runner);
 
-    // Cyan Photoluminescent Safety Inlay Guidance Lines
     const guideGeo = new THREE.PlaneGeometry(50, 0.05);
     const guideMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75 });
     for (const gz of [-0.78, 0.78]) {
@@ -690,7 +989,7 @@ export class Building3D {
       group.add(guide);
     }
 
-    // Crisp Matte White Partition Dividing Walls (Connects 100% floor to ceiling) - Merged into 1 draw call!
+    // 4. Crisp Matte White Partition Dividing Walls
     const divGeos = [];
     const divGeoBase = new THREE.BoxGeometry(0.35, wallH, 20.8);
     const dividers = [-15.0, -6.0, 3.0, 14.0];
@@ -704,12 +1003,15 @@ export class Building3D {
     if (divGeos.length > 0) {
       const mergedDivGeo = BufferGeometryUtils.mergeGeometries(divGeos);
       const divMesh = new THREE.Mesh(mergedDivGeo, this.whiteWallMat);
+      divMesh.castShadow = true;
+      divMesh.receiveShadow = true;
+      divMesh.userData = { floor: floorNum, architecturalLayer: 'INTERIOR_ARCHITECTURE' };
       group.add(divMesh);
     }
 
-    // Slim Architectural Structural Columns (Connects seamlessly to ceiling slab) - Merged into 1 draw call!
+    // 5. Structural Concrete Columns
     const colGeos = [];
-    const colGeoBase = new THREE.BoxGeometry(0.38, wallH, 0.38);
+    const colGeoBase = new THREE.BoxGeometry(0.42, wallH, 0.42);
     const colXPositions = [-24.5, -15.0, -6.0, 3.0, 14.0, 24.5];
     const colZPositions = [23.5, 2.6, -2.6, -23.5];
     for (const cx of colXPositions) {
@@ -721,16 +1023,18 @@ export class Building3D {
     }
     if (colGeos.length > 0) {
       const mergedColGeo = BufferGeometryUtils.mergeGeometries(colGeos);
-      const colMesh = new THREE.Mesh(mergedColGeo, this.columnMat);
+      const colMesh = new THREE.Mesh(mergedColGeo, this.concreteMat);
+      colMesh.castShadow = true;
+      colMesh.receiveShadow = true;
       group.add(colMesh);
     }
 
-    // Diverse Architectural Room Furnishings per Floor - 100% High Performance Instanced Rendering!
+    // 6. Instanced Room Furnishings per Floor
     this.buildFloorFurnishingsInstanced(group, floorNum, baseY);
 
     const roomCentersX = [-19.5, -10.5, -1.5, 8.5, 19.0];
 
-    // Recessed Glowing Ceiling Light Fixtures (Mounted flush against ceiling slab) - Merged into 1 draw call!
+    // 7. Recessed Ceiling Light Fixtures
     const lightGeos = [];
     const lightGeoBase = new THREE.BoxGeometry(4.2, 0.04, 1.4);
     for (const zPos of [12.5, -12.5]) {
@@ -746,10 +1050,10 @@ export class Building3D {
       group.add(lightMesh);
     }
 
-    // Modern Suspended Acoustic Ceiling Grid along Corridor (z = -2.5 to 2.5)
+    // Suspended Acoustic Ceiling Grid along Corridor
     const ceilGeo = new THREE.PlaneGeometry(50, 5.0);
     const ceilMesh = new THREE.Mesh(ceilGeo, this.ceilingMat);
-    ceilMesh.rotation.x = Math.PI / 2; // Facing downward into corridor
+    ceilMesh.rotation.x = Math.PI / 2;
     ceilMesh.position.set(0, baseY + 3.61, 0);
     group.add(ceilMesh);
 
@@ -770,36 +1074,37 @@ export class Building3D {
       }
     }
 
-    // Suspended Illuminated International Exit Signs at East & West Corridor Ends
-    // West Corridor Sign: Arrow points strictly LEFT (◄ EXIT) towards West Stairwell Core (-28)
+    // Suspended Illuminated Exit Signs (Clamped below ceiling void; no roof penetration)
     const exitSignGeo = new THREE.BoxGeometry(0.88, 0.44, 0.04);
     const exitWest = new THREE.Mesh(exitSignGeo, this.exitSignLeftMat);
-    exitWest.position.set(-24.2, baseY + 3.12, 0);
+    exitWest.position.set(-24.2, baseY + 2.85, 0);
     group.add(exitWest);
 
-    // Twin Suspension Rods & Mounting Top Bar for West Sign
-    const rodGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.38, 8);
-    const rodW1 = new THREE.Mesh(rodGeo, this.columnMat);
-    rodW1.position.set(-24.2 - 0.32, baseY + 3.42, 0);
-    group.add(rodW1);
-    const rodW2 = new THREE.Mesh(rodGeo, this.columnMat);
-    rodW2.position.set(-24.2 + 0.32, baseY + 3.42, 0);
-    group.add(rodW2);
+    if (floorNum < this.totalFloors) {
+      const rodGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.22, 8);
+      const rodW1 = new THREE.Mesh(rodGeo, this.columnMat);
+      rodW1.position.set(-24.2 - 0.32, baseY + 3.05, 0);
+      group.add(rodW1);
+      const rodW2 = new THREE.Mesh(rodGeo, this.columnMat);
+      rodW2.position.set(-24.2 + 0.32, baseY + 3.05, 0);
+      group.add(rodW2);
+    }
 
-    // East Corridor Sign: Arrow points strictly RIGHT (EXIT ►) towards East Stairwell Core (+28)
     const exitEast = new THREE.Mesh(exitSignGeo, this.exitSignRightMat);
-    exitEast.position.set(24.2, baseY + 3.12, 0);
+    exitEast.position.set(24.2, baseY + 2.85, 0);
     group.add(exitEast);
 
-    // Twin Suspension Rods & Mounting Top Bar for East Sign
-    const rodE1 = new THREE.Mesh(rodGeo, this.columnMat);
-    rodE1.position.set(24.2 - 0.32, baseY + 3.42, 0);
-    group.add(rodE1);
-    const rodE2 = new THREE.Mesh(rodGeo, this.columnMat);
-    rodE2.position.set(24.2 + 0.32, baseY + 3.42, 0);
-    group.add(rodE2);
+    if (floorNum < this.totalFloors) {
+      const rodGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.22, 8);
+      const rodE1 = new THREE.Mesh(rodGeo, this.columnMat);
+      rodE1.position.set(24.2 - 0.32, baseY + 3.05, 0);
+      group.add(rodE1);
+      const rodE2 = new THREE.Mesh(rodGeo, this.columnMat);
+      rodE2.position.set(24.2 + 0.32, baseY + 3.05, 0);
+      group.add(rodE2);
+    }
 
-    // Corridor Balustrades (Along open front cutaway edge at z = 2.4) - Merged into 1 draw call!
+    // Corridor Balustrades along open front edge
     const balGeos = [];
     const balGeoBase = new THREE.BoxGeometry(6.5, 1.1, 0.08);
     const balXPositions = [-22, -13, -4, 5, 14, 22];
@@ -814,80 +1119,290 @@ export class Building3D {
       group.add(balMesh);
     }
 
-    // === Architectural Glass Curtain Walls ===
-    // 1. Left Wing Front Glass Curtain (x: -30 to -3.5, z = 24) - Always present in Cutaway View (Exact original look!)
-    this.createFacadeCurtainWall(group, baseY, -30, -3.5, 24, wallH);
+    // === Permanent Structural Architectural Envelope (Shear Walls & Service Rear Facade) ===
+    // 1. West End Architectural Shear Wall (x = -30) with punched ribbon vision slots
+    this.createArchitecturalEndWall(group, baseY, -30, -24, -3.2, wallH, true);
+    this.createArchitecturalEndWall(group, baseY, -30, 3.2, 24, wallH, true);
 
-    // 2. Full Façade Group (Shown ONLY in Full Façade mode; completely hidden in Cutaway View)
+    // 2. East End Architectural Shear Wall (x = +30) with punched ribbon vision slots
+    this.createArchitecturalEndWall(group, baseY, 30, -24, -3.2, wallH, false);
+    this.createArchitecturalEndWall(group, baseY, 30, 3.2, 24, wallH, false);
+
+    // 3. Rear North Architectural Facade (z = -24) with solid MEP service core & punched window bays
+    this.createRearArchitecturalFacade(group, baseY, -24, wallH);
+
+    // === Dynamic Front Facade Group (Full Exterior / Cutaway Section) ===
+    // Slices away cleanly in Cutaway Section (C) for complete 10-floor interior digital-twin inspection
     const facadeFloorGroup = new THREE.Group();
     facadeFloorGroup.userData = { floor: floorNum };
 
-    // Front Right Wing (x: -3.5 to 30, z = 24)
-    this.createFacadeCurtainWall(facadeFloorGroup, baseY, -3.5, 30, 24, wallH);
-
-    // Rear North Glass Facade (x: -30 to 30, z = -24)
-    this.createFacadeCurtainWall(facadeFloorGroup, baseY, -30, 30, -24, wallH);
-
-    // West End Glass Facade (x = -30, flanking stairwell tower)
-    this.createFacadeCurtainWallZ(facadeFloorGroup, baseY, -30, -24, -3.2, wallH);
-    this.createFacadeCurtainWallZ(facadeFloorGroup, baseY, -30, 3.2, 24, wallH);
-
-    // East End Glass Facade (x = +30, flanking stairwell tower)
-    this.createFacadeCurtainWallZ(facadeFloorGroup, baseY, 30, -24, -3.2, wallH);
-    this.createFacadeCurtainWallZ(facadeFloorGroup, baseY, 30, 3.2, 24, wallH);
+    this.createFrontArchitecturalFacade(facadeFloorGroup, baseY, 24, wallH, floorNum);
 
     this.facadeCutawayGroup.add(facadeFloorGroup);
 
-    // Back Accent Walls (Floor to Ceiling)
+    // Back Accent Walls
     this.createCaramelBackWall(group, baseY, 2.6, wallH, true, floorNum);
     this.createCaramelBackWall(group, baseY, -2.6, wallH, false, floorNum);
   }
 
-  createFacadeCurtainWall(targetGroup, baseY, x1, x2, z, height) {
-    const span = Math.abs(x2 - x1);
-    const midX = (x1 + x2) / 2;
+  // === Architectural End Wall: Solid Precast Shear Wall with Punched Ribbon Vision Glazing ===
+  createArchitecturalEndWall(targetGroup, baseY, x, z1, z2, height, isWest) {
+    const minZ = Math.min(z1, z2);
+    const maxZ = Math.max(z1, z2);
+    const midZ = (minZ + maxZ) / 2;
+    const wallY = baseY + 0.175 + height / 2;
+    const wallThick = 0.38;
+    const wallX = x + (x > 0 ? -wallThick / 2 : wallThick / 2);
 
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(span, height, 0.08), this.glassMat);
-    glass.position.set(midX, baseY + 0.175 + height / 2, z);
+    const solidGeos = [];
+    const spandrelGeos = [];
+    const glassGeos = [];
+    const mullionGeos = [];
+
+    // Ribbon Vision Glazing Window aperture in middle section of wing
+    // zSpan is ~20.8m. Window aperture: midZ - 3.6 to midZ + 3.6 (7.2m width)
+    const winMinZ = midZ - 3.6;
+    const winMaxZ = midZ + 3.6;
+    const winH = 2.0; // 2m high vision window
+    const winSillY = baseY + 0.175 + 0.95; // 0.95m sill height above floor
+
+    // 1. Solid precast shear wall outer zone (towards corner)
+    const spanOuter = Math.abs(maxZ - winMaxZ);
+    if (spanOuter > 0.1) {
+      const gOuter = new THREE.BoxGeometry(wallThick, height, spanOuter);
+      gOuter.translate(wallX, wallY, (maxZ + winMaxZ) / 2);
+      solidGeos.push(gOuter);
+    }
+
+    // 2. Solid precast shear wall inner zone (towards stair core)
+    const spanInner = Math.abs(winMinZ - minZ);
+    if (spanInner > 0.1) {
+      const gInner = new THREE.BoxGeometry(wallThick, height, spanInner);
+      gInner.translate(wallX, wallY, (winMinZ + minZ) / 2);
+      solidGeos.push(gInner);
+    }
+
+    // 3. Spandrel wall panel beneath the window sill
+    const gSpandrel = new THREE.BoxGeometry(wallThick, 0.95, winMaxZ - winMinZ);
+    gSpandrel.translate(wallX, baseY + 0.175 + 0.95 / 2, midZ);
+    solidGeos.push(gSpandrel);
+
+    // 4. Header wall panel above the window
+    const headerH = height - (0.95 + winH);
+    if (headerH > 0.05) {
+      const gHeader = new THREE.BoxGeometry(wallThick, headerH, winMaxZ - winMinZ);
+      gHeader.translate(wallX, baseY + 0.175 + 0.95 + winH + headerH / 2, midZ);
+      solidGeos.push(gHeader);
+    }
+
+    // 5. Recessed Vision Glazing in Window Aperture
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.06, winH, winMaxZ - winMinZ), this.glassExteriorMat);
+    glass.position.set(wallX, winSillY + winH / 2, midZ);
     targetGroup.add(glass);
 
-    const mullionGeos = [];
-    const mullionBase = new THREE.BoxGeometry(0.18, height, 0.3);
-    const minX = Math.min(x1, x2);
-    const maxX = Math.max(x1, x2);
-    for (let mx = minX; mx <= maxX + 0.1; mx += 4.5) {
-      const g = mullionBase.clone();
-      g.translate(mx, baseY + 0.175 + height / 2, z);
-      mullionGeos.push(g);
+    // 6. Architectural Dark Aluminum Mullions & Perimeter Window Frame
+    const frameSurround = new THREE.BoxGeometry(wallThick + 0.06, 0.10, winMaxZ - winMinZ);
+    frameSurround.translate(wallX, winSillY, midZ);
+    mullionGeos.push(frameSurround);
+
+    const frameHeader = new THREE.BoxGeometry(wallThick + 0.06, 0.10, winMaxZ - winMinZ);
+    frameHeader.translate(wallX, winSillY + winH, midZ);
+    mullionGeos.push(frameHeader);
+
+    for (let mz = winMinZ + 2.4; mz < winMaxZ - 0.2; mz += 2.4) {
+      const vm = new THREE.BoxGeometry(wallThick + 0.08, winH, 0.12);
+      vm.translate(wallX, winSillY + winH / 2, mz);
+      mullionGeos.push(vm);
+    }
+
+    // Merge & add
+    if (solidGeos.length > 0) {
+      const solidMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(solidGeos), this.precastFacadeMat);
+      solidMesh.castShadow = true;
+      solidMesh.receiveShadow = true;
+      targetGroup.add(solidMesh);
     }
     if (mullionGeos.length > 0) {
-      const mergedMullions = BufferGeometryUtils.mergeGeometries(mullionGeos);
-      const mullionMesh = new THREE.Mesh(mergedMullions, this.mullionMat);
-      targetGroup.add(mullionMesh);
+      const mullMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(mullionGeos), this.mullionMat);
+      mullMesh.castShadow = true;
+      targetGroup.add(mullMesh);
     }
   }
 
-  createFacadeCurtainWallZ(targetGroup, baseY, x, z1, z2, height) {
-    const span = Math.abs(z2 - z1);
-    const midZ = (z1 + z2) / 2;
-
-    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.08, height, span), this.glassMat);
-    glass.position.set(x, baseY + 0.175 + height / 2, midZ);
-    targetGroup.add(glass);
-
+  // === Rear North Architectural Facade: Solid MEP Service Core + Alternating Ribbon Bays ===
+  createRearArchitecturalFacade(targetGroup, baseY, z, height) {
+    const wallY = baseY + 0.175 + height / 2;
+    const solidGeos = [];
     const mullionGeos = [];
-    const mullionBase = new THREE.BoxGeometry(0.3, height, 0.18);
-    const minZ = Math.min(z1, z2);
-    const maxZ = Math.max(z1, z2);
-    for (let mz = minZ; mz <= maxZ + 0.1; mz += 4.0) {
-      const g = mullionBase.clone();
-      g.translate(x, baseY + 0.175 + height / 2, mz);
-      mullionGeos.push(g);
+    const glassMat = this.glassExteriorMat;
+
+    // 1. Solid Central MEP & Elevator Service Core Tower Wall (x: -4.0 to 6.2)
+    const coreW = 10.2;
+    const coreMidX = 1.1;
+    const coreWall = new THREE.BoxGeometry(coreW, height, 0.40);
+    coreWall.translate(coreMidX, wallY, z + 0.20);
+    solidGeos.push(coreWall);
+
+    // 2. Corner Solid Shear Zones (x: -30 to -24, and 24 to 30)
+    const cornerW = 6.0;
+    const cWest = new THREE.BoxGeometry(cornerW, height, 0.40);
+    cWest.translate(-27.0, wallY, z + 0.20);
+    solidGeos.push(cWest);
+
+    const cEast = new THREE.BoxGeometry(cornerW, height, 0.40);
+    cEast.translate(27.0, wallY, z + 0.20);
+    solidGeos.push(cEast);
+
+    // 3. Office Window Bays: West Bay (x: -24 to -4.0, span 20m) & East Bay (x: 6.2 to 24, span 17.8m)
+    const bays = [
+      { minX: -24, maxX: -4.0 },
+      { minX: 6.2, maxX: 24 }
+    ];
+
+    bays.forEach(bay => {
+      const span = bay.maxX - bay.minX;
+      const midX = (bay.minX + bay.maxX) / 2;
+      const winH = 2.1;
+      const winSillY = baseY + 0.175 + 0.90;
+
+      // Spandrel wall panel under sill
+      const sp = new THREE.BoxGeometry(span, 0.90, 0.35);
+      sp.translate(midX, baseY + 0.175 + 0.45, z + 0.18);
+      solidGeos.push(sp);
+
+      // Header panel above window
+      const hH = height - (0.90 + winH);
+      if (hH > 0.05) {
+        const hd = new THREE.BoxGeometry(span, hH, 0.35);
+        hd.translate(midX, baseY + 0.175 + 0.90 + winH + hH / 2, z + 0.18);
+        solidGeos.push(hd);
+      }
+
+      // Recessed vision glass
+      const gl = new THREE.Mesh(new THREE.BoxGeometry(span, winH, 0.06), glassMat);
+      gl.position.set(midX, winSillY + winH / 2, z + 0.18);
+      targetGroup.add(gl);
+
+      // Window frames and mullions
+      const sillF = new THREE.BoxGeometry(span, 0.08, 0.20);
+      sillF.translate(midX, winSillY, z + 0.18);
+      mullionGeos.push(sillF);
+
+      const headF = new THREE.BoxGeometry(span, 0.08, 0.20);
+      headF.translate(midX, winSillY + winH, z + 0.18);
+      mullionGeos.push(headF);
+
+      for (let mx = bay.minX + 3.2; mx < bay.maxX - 0.2; mx += 3.2) {
+        const vm = new THREE.BoxGeometry(0.14, winH, 0.22);
+        vm.translate(mx, winSillY + winH / 2, z + 0.18);
+        mullionGeos.push(vm);
+      }
+    });
+
+    if (solidGeos.length > 0) {
+      const solidMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(solidGeos), this.precastFacadeMat);
+      solidMesh.castShadow = true;
+      solidMesh.receiveShadow = true;
+      targetGroup.add(solidMesh);
     }
     if (mullionGeos.length > 0) {
-      const mergedMullions = BufferGeometryUtils.mergeGeometries(mullionGeos);
-      const mullionMesh = new THREE.Mesh(mergedMullions, this.mullionMat);
-      targetGroup.add(mullionMesh);
+      const mullMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(mullionGeos), this.mullionMat);
+      mullMesh.castShadow = true;
+      targetGroup.add(mullMesh);
+    }
+  }
+
+  // === Front Primary Architectural Facade: Clean, Minimal, Coherent ===
+  createFrontArchitecturalFacade(targetGroup, baseY, z, height, floorNum) {
+    const isGround = floorNum === 1;
+    const isExterior = this.facadeMode === 'FULL';
+    const glassMat = isExterior ? this.glassExteriorMat : this.glassMat;
+
+    // Structural Pilasters dividing facade into clean 6-bay architectural rhythm
+    // Piers terminate flush inside corner piers (x: -29.4 to 29.4)
+    const pilasterX = [-29.4, -19.6, -9.8, 0, 9.8, 19.6, 29.4];
+    const pilasterGeos = [];
+    const pBase = new THREE.BoxGeometry(0.60, height, 0.28);
+    pilasterX.forEach(px => {
+      const p = pBase.clone();
+      p.translate(px, baseY + 0.175 + height / 2, z - 0.14);
+      pilasterGeos.push(p);
+    });
+
+    if (pilasterGeos.length > 0) {
+      const pilasterMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(pilasterGeos), this.precastFacadeMat);
+      pilasterMesh.castShadow = true;
+      pilasterMesh.receiveShadow = true;
+      targetGroup.add(pilasterMesh);
+    }
+
+    // Facade Bays between pilasters
+    for (let i = 0; i < pilasterX.length - 1; i++) {
+      const x1 = pilasterX[i] + 0.30;
+      const x2 = pilasterX[i + 1] - 0.30;
+      const span = x2 - x1;
+      const midX = (x1 + x2) / 2;
+
+      // Clean horizontal spandrel fascia band strictly between pilasters (no protrusion)
+      const spandrel = new THREE.Mesh(new THREE.BoxGeometry(span, 0.55, 0.12), this.spandrelMat);
+      spandrel.position.set(midX, baseY + 0.175 + 0.275, z - 0.12);
+      targetGroup.add(spandrel);
+
+      if (isGround && (i === 2 || i === 3)) {
+        // Ground Floor Recessed Double-Door Entrance Portal
+        if (i === 2) {
+          // Centered grand entrance spanning across center
+          const portalW = span * 2 + 0.60;
+          const portalMidX = 0;
+          const portalSurround = new THREE.Mesh(new THREE.BoxGeometry(portalW, height, 0.35), this.columnMat);
+          portalSurround.position.set(portalMidX, baseY + 0.175 + height / 2, z - 0.18);
+          targetGroup.add(portalSurround);
+
+          const doorGlass = new THREE.Mesh(new THREE.BoxGeometry(portalW - 1.2, 2.7, 0.08), glassMat);
+          doorGlass.position.set(portalMidX, baseY + 0.175 + 1.35, z - 0.18);
+          targetGroup.add(doorGlass);
+
+          // Stainless door pull rails
+          const pullGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.2, 8);
+          const pullL = new THREE.Mesh(pullGeo, this.spandrelMat);
+          pullL.position.set(portalMidX - 0.5, baseY + 0.175 + 1.2, z - 0.12);
+          targetGroup.add(pullL);
+          const pullR = new THREE.Mesh(pullGeo, this.spandrelMat);
+          pullR.position.set(portalMidX + 0.5, baseY + 0.175 + 1.2, z - 0.12);
+          targetGroup.add(pullR);
+
+          // Cantilevered Entrance Canopy (extends 2.6m outward)
+          const canopy = new THREE.Mesh(new THREE.BoxGeometry(portalW + 1.0, 0.14, 2.6), this.columnMat);
+          canopy.position.set(portalMidX, baseY + 0.175 + 3.1, z + 1.15);
+          targetGroup.add(canopy);
+
+          const canopyGlow = new THREE.Mesh(new THREE.PlaneGeometry(portalW + 0.6, 2.0), this.ceilingLightMat);
+          canopyGlow.rotation.x = Math.PI / 2;
+          canopyGlow.position.set(portalMidX, baseY + 0.175 + 3.02, z + 1.15);
+          targetGroup.add(canopyGlow);
+        }
+      } else {
+        // Standard Clean Modern Architectural Vision Glazing
+        const winH = height - 0.55;
+        const winY = baseY + 0.175 + 0.55 + winH / 2;
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(span, winH, 0.06), glassMat);
+        glass.position.set(midX, winY, z - 0.16);
+        targetGroup.add(glass);
+
+        // Slim architectural division mullions (clean 3-pane ratio per bay)
+        const paneW = span / 3;
+        for (let m = 1; m < 3; m++) {
+          const mx = x1 + m * paneW;
+          const mull = new THREE.Mesh(new THREE.BoxGeometry(0.08, winH, 0.10), this.mullionMat);
+          mull.position.set(mx, winY, z - 0.15);
+          targetGroup.add(mull);
+        }
+
+        // Horizontal transom bar at 2.2m
+        const transom = new THREE.Mesh(new THREE.BoxGeometry(span, 0.08, 0.10), this.mullionMat);
+        transom.position.set(midX, baseY + 0.175 + 2.2, z - 0.15);
+        targetGroup.add(transom);
+      }
     }
   }
 
@@ -906,7 +1421,6 @@ export class Building3D {
     const plaqueGeos = [];
     const plaqueBadgeGeos = [];
 
-    // Wall Segment 1
     const seg1G = new THREE.BoxGeometry(3.0, wallH, 0.35);
     seg1G.translate(-23.5, wallCenterY, z);
     caramelGeos.push(seg1G);
@@ -915,7 +1429,6 @@ export class Building3D {
     bb1.translate(-23.5, baseY + 0.175 + 0.07, z);
     baseboardGeos.push(bb1);
 
-    // Wall Spans between doors
     for (let i = 0; i < doorXPositions.length - 1; i++) {
       const x1 = doorXPositions[i] + doorW / 2;
       const x2 = doorXPositions[i + 1] - doorW / 2;
@@ -931,7 +1444,6 @@ export class Building3D {
       baseboardGeos.push(bb);
     }
 
-    // End Wall Segment
     const segEndG = new THREE.BoxGeometry(3.0, wallH, 0.35);
     segEndG.translate(23.0, wallCenterY, z);
     caramelGeos.push(segEndG);
@@ -940,7 +1452,6 @@ export class Building3D {
     bbEnd.translate(23.0, baseY + 0.175 + 0.07, z);
     baseboardGeos.push(bbEnd);
 
-    // Door Openings, Lintels, Frames, Leaves, Vision Panels, Handles, Plaques
     const jambBase = new THREE.BoxGeometry(0.1, doorH, 0.36);
     const topFrameBase = new THREE.BoxGeometry(doorW, 0.08, 0.36);
     const doorLeafBase = new THREE.BoxGeometry(0.95, doorH - 0.08, 0.06);
@@ -951,12 +1462,10 @@ export class Building3D {
     const lintelBase = new THREE.BoxGeometry(doorW, headerH, 0.35);
 
     doorXPositions.forEach((doorX) => {
-      // 1. Lintel
       const lintelG = lintelBase.clone();
       lintelG.translate(doorX, baseY + 0.175 + doorH + headerH / 2, z);
       caramelGeos.push(lintelG);
 
-      // 2. Door Frame Jambs
       const lJambG = jambBase.clone();
       lJambG.translate(doorX - doorW / 2 + 0.05, baseY + 0.175 + doorH / 2, z);
       frameGeos.push(lJambG);
@@ -965,27 +1474,22 @@ export class Building3D {
       rJambG.translate(doorX + doorW / 2 - 0.05, baseY + 0.175 + doorH / 2, z);
       frameGeos.push(rJambG);
 
-      // 3. Top Frame
       const topFrameG = topFrameBase.clone();
       topFrameG.translate(doorX, baseY + 0.175 + doorH + 0.04, z);
       frameGeos.push(topFrameG);
 
-      // 4. Door Leaf
       const doorLeafG = doorLeafBase.clone();
       doorLeafG.translate(doorX - doorW / 2 + 0.52, baseY + 0.175 + (doorH - 0.08) / 2, z);
       frameGeos.push(doorLeafG);
 
-      // 5. Glass Vision Panel
       const glassG = glassVisionBase.clone();
       glassG.translate(doorX - doorW / 2 + 0.62, baseY + 0.175 + 1.2, z);
       glassGeos.push(glassG);
 
-      // 6. Handle
       const handleG = handleBase.clone();
       handleG.translate(doorX - doorW / 2 + 0.9, baseY + 0.175 + 0.95, z);
       handleGeos.push(handleG);
 
-      // 7. Electronic Room Plaque with illuminated status indicator
       const signSide = doorX + doorW / 2 + 0.45;
       const plaqueG = plaqueBase.clone();
       plaqueG.translate(signSide, baseY + 0.175 + 1.45, z + (isSouth ? -0.19 : 0.19));
@@ -1019,7 +1523,7 @@ export class Building3D {
     }
   }
 
-
+  // === ARCHITECTURAL REALISTIC STAIRS & DUAL-MODE ENCLOSURE ===
   buildStairwellCores() {
     const totalH = this.totalFloors * this.floorHeight;
     this.createStairwellCore(-28, 0, totalH, 'WEST EMERGENCY CORE A');
@@ -1027,541 +1531,1036 @@ export class Building3D {
   }
 
   createStairwellCore(x, z, totalH, label) {
-    // 1. Transparent Architectural Glass Curtain Tower (Encloses upper floors L2-L10, leaving L1 open to exit lobby)
-    const groundClearance = this.floorHeight; // 3.8m
-    const upperCoreH = totalH - groundClearance;
-    const coreGeo = new THREE.BoxGeometry(5.2, upperCoreH, 6.4);
-    const coreMat = new THREE.MeshStandardMaterial({
-      color: 0x93c5fd,
-      transparent: true,
-      opacity: 0.22,
-      roughness: 0.12,
-      metalness: 0.5
-    });
-    const core = new THREE.Mesh(coreGeo, coreMat);
-    core.position.set(x, groundClearance + upperCoreH / 2, z);
-    this.stairsGroup.add(core);
+    const isWest = x < 0;
 
-    // 2. Heavy Structural Steel Corner Columns (4 corners of the stairwell tower)
-    const colGeo = new THREE.BoxGeometry(0.24, totalH, 0.24);
-    for (const cx of [x - 2.5, x + 2.5]) {
-      for (const cz of [z - 3.1, z + 3.1]) {
-        const col = new THREE.Mesh(colGeo, this.columnMat);
-        col.position.set(cx, totalH / 2, cz);
-        this.stairsGroup.add(col);
-      }
+    // 1. Solid Architectural Precast Concrete Core Enclosure (Hero Exterior Tower)
+    const shaftW = 5.6;
+    const shaftD = 6.8;
+    const wallThick = 0.28;
+
+    // Exterior Wall (West or East outer face)
+    const extWallGeo = new THREE.BoxGeometry(wallThick, totalH, shaftD);
+    const extWallX = isWest ? x - shaftW / 2 + wallThick / 2 : x + shaftW / 2 - wallThick / 2;
+    const extWall = new THREE.Mesh(extWallGeo, this.precastFacadeMat);
+    extWall.position.set(extWallX, totalH / 2, z - 1.2);
+    extWall.castShadow = true;
+    extWall.receiveShadow = true;
+    extWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
+    this.facadeCutawayGroup.add(extWall);
+
+    // North & South Return Walls
+    const northWallGeo = new THREE.BoxGeometry(shaftW, totalH, wallThick);
+    const northWall = new THREE.Mesh(northWallGeo, this.precastFacadeMat);
+    northWall.position.set(x, totalH / 2, z - 1.2 - shaftD / 2 + wallThick / 2);
+    northWall.castShadow = true;
+    northWall.receiveShadow = true;
+    this.stairsGroup.add(northWall);
+
+    const southWallGeo = new THREE.BoxGeometry(shaftW, totalH, wallThick);
+    const southWall = new THREE.Mesh(southWallGeo, this.precastFacadeMat);
+    southWall.position.set(x, totalH / 2, z - 1.2 + shaftD / 2 - wallThick / 2);
+    southWall.castShadow = true;
+    southWall.receiveShadow = true;
+    southWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
+    this.facadeCutawayGroup.add(southWall);
+
+    // Interior Shaft Wall facing central corridor (with Doorway Openings at every floor)
+    const intWallGeo = new THREE.BoxGeometry(wallThick, totalH, shaftD);
+    const intWallX = isWest ? x + shaftW / 2 - wallThick / 2 : x - shaftW / 2 + wallThick / 2;
+    const intWall = new THREE.Mesh(intWallGeo, this.stairWallMat);
+    intWall.position.set(intWallX, totalH / 2, z - 1.2);
+    intWall.receiveShadow = true;
+    this.stairsGroup.add(intWall);
+
+    // Architectural Slit Glazing Windows on Exterior Face
+    for (let f = 1; f <= this.totalFloors; f++) {
+      const flY = (f - 1) * this.floorHeight;
+      const slitGeo = new THREE.BoxGeometry(0.12, 2.4, 0.45);
+      const slitMesh = new THREE.Mesh(slitGeo, this.glassExteriorMat);
+      slitMesh.position.set(extWallX + (isWest ? -0.1 : 0.1), flY + 1.9, z - 1.2);
+      slitMesh.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(slitMesh);
     }
 
+    // Geometry Collectors for High-Speed Merged Meshing
+    const stringerGeos = [];
     const treadGeos = [];
+    const riserGeos = [];
     const nosingGeos = [];
     const landingGeos = [];
     const railingGeos = [];
+    const doorFrameGeos = [];
+    const doorLeafGeos = [];
+    const pushBarGeos = [];
+    const exitSignGeos = [];
+    const bulkheadGeos = [];
 
-    const isWest = x < 0;
-    const flight1X = isWest ? x + 0.85 : x - 0.85; // Inner flight
-    const flight2X = isWest ? x - 0.85 : x + 0.85; // Outer flight
+    // Flight Positions matching exact CrowdOptimizer navigation waypoints
+    const flight1X = isWest ? x + 0.95 : x - 0.95; // West: -27.05, East: 27.05
+    const flight2X = isWest ? x - 0.95 : x + 0.95; // West: -28.95, East: 28.95
+    const flightWidth = 1.40;
+    const riserCount = 11;
+    const riserH = 1.90 / riserCount; // 172.7 mm code-compliant riser
+    const treadRunZ = 2.00 / (riserCount - 1); // 200 mm run with 50 mm nosing overhang
 
-    const treadBase = new THREE.BoxGeometry(1.35, 0.14, 0.28);
-    const nosingBase = new THREE.BoxGeometry(1.35, 0.035, 0.05);
-    const postBase = new THREE.BoxGeometry(0.04, 0.9, 0.04);
+    const flightZ_Start = -0.75;
+    const flightZ_End = -2.75;
+    const flightLength = Math.hypot(flightZ_End - flightZ_Start, 1.90);
+    const pitchAngle = Math.atan2(1.90, Math.abs(flightZ_End - flightZ_Start)); // ~43.5 deg
+
+    // Reusable Element Prototypes
+    const stringerBase = new THREE.BoxGeometry(flightWidth, 0.16, flightLength);
+    const riserBase = new THREE.BoxGeometry(flightWidth, riserH, 0.04);
+    const treadBase = new THREE.BoxGeometry(flightWidth, 0.045, 0.28);
+    const nosingBase = new THREE.BoxGeometry(flightWidth, 0.02, 0.04);
+    const postBase = new THREE.BoxGeometry(0.035, 0.90, 0.035);
+    const railBarBase = new THREE.BoxGeometry(0.04, 0.04, flightLength + 0.2);
 
     for (let f = 1; f <= this.totalFloors; f++) {
       const flY = (f - 1) * this.floorHeight;
 
-      // A. Main Floor Level Landing (Connects to Corridor Door at z = 0)
-      const floorLanding = new THREE.BoxGeometry(3.6, 0.22, 1.8);
-      floorLanding.translate(x, flY + 0.11, z);
+      // A. Floor Landing Slab (Clean connection to corridor & fire door)
+      const floorLanding = new THREE.BoxGeometry(3.8, 0.22, 1.8);
+      floorLanding.translate(x, flY + 0.11, 0.0);
       landingGeos.push(floorLanding);
 
-      // B. Mid-Flight Intermediate Landing (Switchback at North End)
-      const midLanding = new THREE.BoxGeometry(3.6, 0.18, 1.3);
-      midLanding.translate(x, flY + 1.9, z - 2.75);
+      if (f < this.totalFloors) {
+      // B. Intermediate Mid-Landing Slab (Structural switchback landing)
+      const midLanding = new THREE.BoxGeometry(3.8, 0.22, 1.8);
+      midLanding.translate(x, flY + 1.9 + 0.11, -3.25);
       landingGeos.push(midLanding);
 
-      // C. Flight 1 Treads (Inner flight: descends from z = -0.85 down to z = -2.65, y = flY + 1.9)
-      const stepsCount = 8;
-      for (let s = 0; s < stepsCount; s++) {
-        const stepY = flY + 3.8 - (s + 1) * (1.9 / stepsCount);
-        const stepZ = -0.85 - s * (1.75 / (stepsCount - 1));
+      // Mid-Landing Support Beam Underneath
+      const midBeam = new THREE.BoxGeometry(3.8, 0.35, 0.24);
+      midBeam.translate(x, flY + 1.9 - 0.175, -4.0);
+      landingGeos.push(midBeam);
 
-        const tr = treadBase.clone();
-        tr.translate(flight1X, stepY, stepZ);
-        treadGeos.push(tr);
+      // C. Flight 1: Upper Landing (flY + 3.8) descending to Mid-Landing (flY + 1.9)
+      const str1 = stringerBase.clone();
+      str1.rotateX(-pitchAngle);
+      str1.translate(flight1X, flY + 2.85 - 0.08, -1.75);
+      stringerGeos.push(str1);
 
-        const ns = nosingBase.clone();
-        ns.translate(flight1X, stepY + 0.07, stepZ + 0.13);
-        nosingGeos.push(ns);
+      for (let s = 0; s < riserCount; s++) {
+        const stepY = flY + 3.8 - (s + 1) * riserH;
+        const stepZ = flightZ_Start - s * treadRunZ;
 
+        // Solid Closed Riser
+        const rG = riserBase.clone();
+        rG.translate(flight1X, stepY + riserH / 2, stepZ + 0.10);
+        riserGeos.push(rG);
+
+        // Tread Slab
+        const tG = treadBase.clone();
+        tG.translate(flight1X, stepY + riserH, stepZ);
+        treadGeos.push(tG);
+
+        // Anti-Slip Photoluminescent Nosing Strip
+        const nG = nosingBase.clone();
+        nG.translate(flight1X, stepY + riserH + 0.015, stepZ + 0.12);
+        nosingGeos.push(nG);
+
+        // Baluster Posts every 2 steps
         if (s % 2 === 0) {
           const postL = postBase.clone();
-          postL.translate(flight1X - 0.65, stepY + 0.52, stepZ);
+          postL.translate(flight1X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
           railingGeos.push(postL);
 
           const postR = postBase.clone();
-          postR.translate(flight1X + 0.65, stepY + 0.52, stepZ);
+          postR.translate(flight1X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
           railingGeos.push(postR);
         }
       }
 
-      // Continuous Sloped Handrail Bar for Flight 1
-      const handrail1 = new THREE.BoxGeometry(0.05, 0.05, 2.2);
-      handrail1.rotateX(0.72);
-      handrail1.translate(flight1X - 0.65, flY + 2.85 + 0.45, z - 1.72);
-      railingGeos.push(handrail1);
+      // Sloped Handrail 1 (0.90 m above pitch line)
+      const rail1L = railBarBase.clone();
+      rail1L.rotateX(-pitchAngle);
+      rail1L.translate(flight1X - flightWidth / 2 + 0.04, flY + 2.85 + 0.90, -1.75);
+      railingGeos.push(rail1L);
 
-      // D. Flight 2 Treads (Outer flight: descends from z = -2.65 down to z = -0.85, y = flY + 0.175)
-      for (let s = 0; s < stepsCount; s++) {
-        const stepY = flY + 1.9 - (s + 1) * (1.725 / stepsCount);
-        const stepZ = -2.65 + s * (1.75 / (stepsCount - 1));
+      const rail1R = railBarBase.clone();
+      rail1R.rotateX(-pitchAngle);
+      rail1R.translate(flight1X + flightWidth / 2 - 0.04, flY + 2.85 + 0.90, -1.75);
+      railingGeos.push(rail1R);
 
-        const tr = treadBase.clone();
-        tr.translate(flight2X, stepY, stepZ);
-        treadGeos.push(tr);
+      // D. Flight 2: Mid-Landing (flY + 1.9) descending to Lower Landing (flY)
+      const str2 = stringerBase.clone();
+      str2.rotateX(pitchAngle);
+      str2.translate(flight2X, flY + 0.95 - 0.08, -1.75);
+      stringerGeos.push(str2);
 
-        const ns = nosingBase.clone();
-        ns.translate(flight2X, stepY + 0.07, stepZ - 0.13);
-        nosingGeos.push(ns);
+      for (let s = 0; s < riserCount; s++) {
+        const stepY = flY + 1.9 - (s + 1) * riserH;
+        const stepZ = flightZ_End + s * treadRunZ;
 
+        // Solid Closed Riser
+        const rG = riserBase.clone();
+        rG.translate(flight2X, stepY + riserH / 2, stepZ - 0.10);
+        riserGeos.push(rG);
+
+        // Tread Slab
+        const tG = treadBase.clone();
+        tG.translate(flight2X, stepY + riserH, stepZ);
+        treadGeos.push(tG);
+
+        // Anti-Slip Nosing Strip
+        const nG = nosingBase.clone();
+        nG.translate(flight2X, stepY + riserH + 0.015, stepZ - 0.12);
+        nosingGeos.push(nG);
+
+        // Baluster Posts every 2 steps
         if (s % 2 === 0) {
           const postL = postBase.clone();
-          postL.translate(flight2X - 0.65, stepY + 0.52, stepZ);
+          postL.translate(flight2X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
           railingGeos.push(postL);
 
           const postR = postBase.clone();
-          postR.translate(flight2X + 0.65, stepY + 0.52, stepZ);
+          postR.translate(flight2X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
           railingGeos.push(postR);
         }
       }
 
-      // Continuous Sloped Handrail Bar for Flight 2
-      const handrail2 = new THREE.BoxGeometry(0.05, 0.05, 2.2);
-      handrail2.rotateX(-0.72);
-      handrail2.translate(flight2X + 0.65, flY + 1.05 + 0.45, z - 1.72);
-      railingGeos.push(handrail2);
+      // Sloped Handrail 2 (0.90 m above pitch line)
+      const rail2L = railBarBase.clone();
+      rail2L.rotateX(pitchAngle);
+      rail2L.translate(flight2X - flightWidth / 2 + 0.04, flY + 0.95 + 0.90, -1.75);
+      railingGeos.push(rail2L);
 
-      // Safety Guardrail along Mid-Landing back wall
-      const midGuard = new THREE.BoxGeometry(3.6, 0.9, 0.04);
-      midGuard.translate(x, flY + 1.9 + 0.45, z - 3.35);
-      railingGeos.push(midGuard);
+      const rail2R = railBarBase.clone();
+      rail2R.rotateX(pitchAngle);
+      rail2R.translate(flight2X + flightWidth / 2 - 0.04, flY + 0.95 + 0.90, -1.75);
+      railingGeos.push(rail2R);
+
+      // E. Mid-Landing Safety Guardrails (1.10 m height with intermediate safety rails)
+      const guardMidBack = new THREE.BoxGeometry(3.8, 1.10, 0.04);
+      guardMidBack.translate(x, flY + 1.9 + 0.55, -4.15);
+      railingGeos.push(guardMidBack);
+
+      const guardMidSide = new THREE.BoxGeometry(0.04, 1.10, 1.8);
+      guardMidSide.translate(isWest ? x - 1.9 : x + 1.9, flY + 1.9 + 0.55, -3.25);
+      railingGeos.push(guardMidSide);
+
+      // Central Stair Well Divider Guardrail (between Flight 1 & Flight 2)
+      const guardCentral = new THREE.BoxGeometry(0.04, 1.10, 2.4);
+      guardCentral.translate(x, flY + 1.9 + 0.55, -1.75);
+      railingGeos.push(guardCentral);
+
+      }
+
+      // F. Fire-Rated Stair Entry Doors & Frames at Corridor Connection (x = ±25.4, z = 0.0)
+      const doorX = isWest ? -25.4 : 25.4;
+      const dFrameGeo = new THREE.BoxGeometry(0.14, 2.25, 1.25);
+      dFrameGeo.translate(doorX, flY + 1.125, 0.0);
+      doorFrameGeos.push(dFrameGeo);
+
+      const dLeafGeo = new THREE.BoxGeometry(0.05, 2.15, 0.95);
+      dLeafGeo.translate(doorX, flY + 1.075, 0.0);
+      doorLeafGeos.push(dLeafGeo);
+
+      const pushBarGeo = new THREE.BoxGeometry(0.08, 0.06, 0.85);
+      pushBarGeo.translate(doorX + (isWest ? 0.04 : -0.04), flY + 0.95, 0.0);
+      pushBarGeos.push(pushBarGeo);
+
+      // Illuminated Green Running-Man Emergency Exit Sign above Door Header
+      const exSignG = new THREE.BoxGeometry(0.08, 0.32, 0.75);
+      exSignG.translate(doorX, flY + 2.45, 0.0);
+      exitSignGeos.push(exSignG);
+
+      // Emergency Bulkhead Light Fixture on Stair Landing Wall
+      const bulkG = new THREE.BoxGeometry(0.28, 0.14, 0.08);
+      bulkG.translate(x, flY + 2.45, 0.85);
+      bulkheadGeos.push(bulkG);
+    }
+
+    // Add Batched Geometry Meshes to stairsGroup
+    if (stringerGeos.length > 0) {
+      const stringerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(stringerGeos), this.concreteMat);
+      stringerMesh.castShadow = true;
+      stringerMesh.receiveShadow = true;
+      this.stairsGroup.add(stringerMesh);
     }
 
     if (landingGeos.length > 0) {
-      this.stairsGroup.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(landingGeos), this.tileFloorMat));
+      const landingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(landingGeos), this.tileFloorMat);
+      landingMesh.receiveShadow = true;
+      this.stairsGroup.add(landingMesh);
     }
+
     if (treadGeos.length > 0) {
-      this.stairsGroup.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treadGeos), this.columnMat));
+      const treadMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treadGeos), this.stairTreadMat);
+      treadMesh.castShadow = true;
+      treadMesh.receiveShadow = true;
+      this.stairsGroup.add(treadMesh);
     }
+
+    if (riserGeos.length > 0) {
+      const riserMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(riserGeos), this.columnMat);
+      riserMesh.castShadow = true;
+      riserMesh.receiveShadow = true;
+      this.stairsGroup.add(riserMesh);
+    }
+
     if (nosingGeos.length > 0) {
-      const nosingMat = new THREE.MeshStandardMaterial({
-        color: 0x00ff88,
-        emissive: 0x00ff88,
-        emissiveIntensity: 0.85,
-        roughness: 0.2
-      });
-      this.stairsGroup.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(nosingGeos), nosingMat));
+      const nosingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(nosingGeos), this.antiSlipNosingMat);
+      this.stairsGroup.add(nosingMesh);
     }
+
     if (railingGeos.length > 0) {
-      this.stairsGroup.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(railingGeos), this.railingMat));
+      const railingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(railingGeos), this.railingMat);
+      railingMesh.castShadow = true;
+      this.stairsGroup.add(railingMesh);
+    }
+
+    if (doorFrameGeos.length > 0) {
+      const dFrameMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(doorFrameGeos), this.mullionMat);
+      this.stairsGroup.add(dFrameMesh);
+    }
+
+    if (doorLeafGeos.length > 0) {
+      const dLeafMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(doorLeafGeos), this.fireDoorMat);
+      this.stairsGroup.add(dLeafMesh);
+    }
+
+    if (pushBarGeos.length > 0) {
+      const pushBarMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(pushBarGeos), this.panicBarSilverMat);
+      this.stairsGroup.add(pushBarMesh);
+    }
+
+    if (exitSignGeos.length > 0) {
+      const exSignMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(exitSignGeos), isWest ? this.exitSignLeftMat : this.exitSignRightMat);
+      this.stairsGroup.add(exSignMesh);
+    }
+
+    if (bulkheadGeos.length > 0) {
+      const bulkMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bulkheadGeos), this.stairLightMat);
+      this.stairsGroup.add(bulkMesh);
     }
   }
 
-  // === PANORAMIC GLASS ELEVATOR BANK: Shifted to side wall (z = -1.8), 100% open corridor ===
   buildElevatorBank() {
     const totalH = this.totalFloors * this.floorHeight;
-    const shaftX = [1.2, 3.2, 5.2]; // 3 panoramic glass elevators side-by-side
-    const shaftZ = -1.8; // Set against North side wall, leaving corridor & green runner completely clear!
+    const shaftX = [1.2, 3.2, 5.2];
+    const shaftZ = -1.8;
     const shaftW = 1.7;
-    const shaftD = 1.35;
+    const shaftD = 1.45;
 
     this.elevatorCars = [];
 
-    const frameMat = this.mullionMat;
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x93c5fd,
-      transparent: true,
-      opacity: 0.26,
-      roughness: 0.08,
-      metalness: 0.75
+    // 1. Solid Structural Precast Concrete Elevator Shaft Core Enclosure
+    const coreBack = new THREE.Mesh(new THREE.BoxGeometry(6.6, totalH, 0.35), this.precastFacadeMat);
+    coreBack.position.set(3.2, totalH / 2, shaftZ - shaftD / 2 - 0.175);
+    coreBack.castShadow = true;
+    coreBack.receiveShadow = true;
+    this.elevatorGroup.add(coreBack);
+
+    // Side Enclosure Shear Walls (West and East ends of elevator bank)
+    const coreWest = new THREE.Mesh(new THREE.BoxGeometry(0.35, totalH, shaftD + 0.35), this.precastFacadeMat);
+    coreWest.position.set(0.15, totalH / 2, shaftZ);
+    this.elevatorGroup.add(coreWest);
+
+    const coreEast = new THREE.Mesh(new THREE.BoxGeometry(0.35, totalH, shaftD + 0.35), this.precastFacadeMat);
+    coreEast.position.set(6.25, totalH / 2, shaftZ);
+    this.elevatorGroup.add(coreEast);
+
+    // Dividing Walls between elevator shafts
+    [2.2, 4.2].forEach(divX => {
+      const divWall = new THREE.Mesh(new THREE.BoxGeometry(0.20, totalH, shaftD), this.columnMat);
+      divWall.position.set(divX, totalH / 2, shaftZ);
+      this.elevatorGroup.add(divWall);
     });
 
-    shaftX.forEach((x, idx) => {
-      // 1. Sleek 4 Corner Structural Steel Guide Posts
-      const postGeo = new THREE.BoxGeometry(0.08, totalH, 0.08);
-      [
-        { px: x - shaftW / 2, pz: shaftZ - shaftD / 2 },
-        { px: x + shaftW / 2, pz: shaftZ - shaftD / 2 },
-        { px: x - shaftW / 2, pz: shaftZ + shaftD / 2 },
-        { px: x + shaftW / 2, pz: shaftZ + shaftD / 2 }
-      ].forEach(pos => {
-        const post = new THREE.Mesh(postGeo, frameMat);
-        post.position.set(pos.px, totalH / 2, pos.pz);
-        this.elevatorGroup.add(post);
+    // 2. Elevator Lobby Front Landing Walls, Sliding Doors & Call Panels on EVERY floor
+    const portalMat = this.columnMat;
+    const doorLeafMat = this.spandrelMat; // Brushed metallic finish
+    const indicatorMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.6,
+      roughness: 0.2
+    });
+
+    for (let f = 1; f <= this.totalFloors; f++) {
+      const baseY = (f - 1) * this.floorHeight;
+      const frontZ = shaftZ + shaftD / 2 + 0.10;
+
+      // Solid architectural lobby fascia above doors
+      const fascia = new THREE.Mesh(new THREE.BoxGeometry(6.2, 1.0, 0.22), portalMat);
+      fascia.position.set(3.2, baseY + 0.175 + 2.9, frontZ);
+      this.elevatorGroup.add(fascia);
+
+      // Each of the 3 elevator landing portals
+      shaftX.forEach((sx, idx) => {
+        // Outer dark metallic door portal frame
+        const frameW = 1.45;
+        const frameH = 2.45;
+        const portalFrame = new THREE.Mesh(new THREE.BoxGeometry(frameW, frameH, 0.14), portalMat);
+        portalFrame.position.set(sx, baseY + 0.175 + frameH / 2, frontZ);
+        this.elevatorGroup.add(portalFrame);
+
+        // Center-Opening Two-Panel Sliding Doors in Brushed Stainless Steel
+        const leafW = 0.58;
+        const leafH = 2.30;
+        const leafThick = 0.05;
+
+        // Left door leaf
+        const doorLeft = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
+        doorLeft.position.set(sx - leafW / 2 - 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
+        this.elevatorGroup.add(doorLeft);
+
+        // Right door leaf
+        const doorRight = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
+        doorRight.position.set(sx + leafW / 2 + 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
+        this.elevatorGroup.add(doorRight);
+
+        // Floor Direction / Lantern Display above each door
+        const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.04), indicatorMat);
+        indicator.position.set(sx, baseY + 0.175 + frameH + 0.18, frontZ + 0.06);
+        this.elevatorGroup.add(indicator);
       });
 
-      // 2. Panoramic Glass Shaft Enclosures
-      // Front Observation Glass Facing the Corridor
-      const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(shaftW - 0.1, totalH, 0.03), glassMat);
-      frontGlass.position.set(x, totalH / 2, shaftZ + shaftD / 2);
-      this.elevatorGroup.add(frontGlass);
+      // Illuminated Call Station Button Panel beside center elevator
+      const callPanel = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.35, 0.04), portalMat);
+      callPanel.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.08);
+      this.elevatorGroup.add(callPanel);
 
-      // Left & Right Glass Walls
-      const sideGlassGeo = new THREE.BoxGeometry(0.03, totalH, shaftD - 0.1);
-      const leftGlass = new THREE.Mesh(sideGlassGeo, glassMat);
-      leftGlass.position.set(x - shaftW / 2, totalH / 2, shaftZ);
-      this.elevatorGroup.add(leftGlass);
+      const callButton = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), indicatorMat);
+      callButton.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.11);
+      this.elevatorGroup.add(callButton);
+    }
 
-      const rightGlass = new THREE.Mesh(sideGlassGeo, glassMat);
-      rightGlass.position.set(x + shaftW / 2, totalH / 2, shaftZ);
-      this.elevatorGroup.add(rightGlass);
-
-      // Rear Structural Wall (Flush with North caramel wall)
-      const backWall = new THREE.Mesh(new THREE.BoxGeometry(shaftW, totalH, 0.06), this.columnMat);
-      backWall.position.set(x, totalH / 2, shaftZ - shaftD / 2);
-      this.elevatorGroup.add(backWall);
-
-      // Vertical Counterweight Guide Rails
-      const railGeo = new THREE.BoxGeometry(0.04, totalH, 0.04);
-      const leftRail = new THREE.Mesh(railGeo, frameMat);
-      leftRail.position.set(x - 0.35, totalH / 2, shaftZ - shaftD / 2 + 0.08);
-      this.elevatorGroup.add(leftRail);
-
-      const rightRail = new THREE.Mesh(railGeo, frameMat);
-      rightRail.position.set(x + 0.35, totalH / 2, shaftZ - shaftD / 2 + 0.08);
-      this.elevatorGroup.add(rightRail);
-
-      // 3. Illuminated Panoramic Lift Cabin (Car)
+    // 3. Smooth Animated Elevator Cabs inside the shafts
+    shaftX.forEach((sx, idx) => {
       const carGroup = new THREE.Group();
 
-      // Titanium Floor & Roof Platters
-      const platterGeo = new THREE.BoxGeometry(shaftW - 0.18, 0.12, shaftD - 0.18);
-      const carFloor = new THREE.Mesh(platterGeo, frameMat);
-      carFloor.position.y = 0.06;
+      const carFloor = new THREE.Mesh(new THREE.BoxGeometry(shaftW - 0.22, 0.08, shaftD - 0.22), this.terrazzoMat);
+      carFloor.position.y = 0.04;
       carGroup.add(carFloor);
 
-      const carRoof = new THREE.Mesh(platterGeo, frameMat);
-      carRoof.position.y = 2.38;
+      const carRoof = new THREE.Mesh(new THREE.BoxGeometry(shaftW - 0.22, 0.08, shaftD - 0.22), portalMat);
+      carRoof.position.y = 2.65;
       carGroup.add(carRoof);
 
-      // Car Glowing Interior Downlight (Warm white LED canopy)
-      const lightGeo = new THREE.BoxGeometry(shaftW - 0.32, 0.02, shaftD - 0.32);
-      const carCeilingLight = new THREE.Mesh(lightGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-      carCeilingLight.position.y = 2.32;
-      carGroup.add(carCeilingLight);
+      const carLight = new THREE.Mesh(new THREE.PlaneGeometry(0.75, 0.75), this.ceilingLightMat);
+      carLight.rotation.x = Math.PI / 2;
+      carLight.position.y = 2.63;
+      carGroup.add(carLight);
 
-      // Panoramic Glass Observation Front & Sides
-      const carFrontGlass = new THREE.Mesh(new THREE.BoxGeometry(shaftW - 0.22, 2.2, 0.02), glassMat);
-      carFrontGlass.position.set(0, 1.2, (shaftD - 0.18) / 2);
-      carGroup.add(carFrontGlass);
-
-      const carSideGlassGeo = new THREE.BoxGeometry(0.02, 2.2, shaftD - 0.22);
-      const carLeftGlass = new THREE.Mesh(carSideGlassGeo, glassMat);
-      carLeftGlass.position.set(-(shaftW - 0.18) / 2, 1.2, 0);
-      carGroup.add(carLeftGlass);
-
-      const carRightGlass = new THREE.Mesh(carSideGlassGeo, glassMat);
-      carRightGlass.position.set((shaftW - 0.18) / 2, 1.2, 0);
-      carGroup.add(carRightGlass);
-
-      // Interior Cyan Accent Ambient Bar
-      const accent = new THREE.Mesh(
-        new THREE.BoxGeometry(shaftW - 0.3, 0.04, 0.04),
-        new THREE.MeshBasicMaterial({ color: 0x00f0ff })
+      const carWalls = new THREE.Mesh(
+        new THREE.BoxGeometry(shaftW - 0.24, 2.55, shaftD - 0.24),
+        new THREE.MeshStandardMaterial({
+          color: 0x93c5fd,
+          transparent: true,
+          opacity: 0.35,
+          roughness: 0.1
+        })
       );
-      accent.position.set(0, 0.9, -(shaftD - 0.28) / 2);
-      carGroup.add(accent);
+      carWalls.position.y = 1.35;
+      carGroup.add(carWalls);
 
-      // Initial Cabin Position
-      const initialY = (idx * 3 + 1) * this.floorHeight;
-      carGroup.position.set(x, initialY, shaftZ);
+      const initY = (idx * 3 + 1) * this.floorHeight;
+      carGroup.position.set(sx, initY, shaftZ);
       this.elevatorGroup.add(carGroup);
 
       this.elevatorCars.push({
         mesh: carGroup,
+        y: initY,
         minY: 0.1,
-        maxY: (this.totalFloors - 1) * this.floorHeight + 0.1,
-        speed: 2.2 + idx * 0.9,
-        direction: idx % 2 === 0 ? 1 : -1,
-        y: initialY
+        maxY: (this.totalFloors - 1) * this.floorHeight,
+        speed: 2.5 + idx * 0.8,
+        direction: idx % 2 === 0 ? 1 : -1
       });
-
-      // 4. Per-Floor Landing Doors & Glowing Call Display HUD
-      for (let f = 1; f <= this.totalFloors; f++) {
-        const flY = (f - 1) * this.floorHeight;
-
-        // Structural Floor Trim Ring
-        const ring = new THREE.Mesh(new THREE.BoxGeometry(shaftW + 0.08, 0.16, shaftD + 0.08), frameMat);
-        ring.position.set(x, flY + 0.08, shaftZ);
-        this.elevatorGroup.add(ring);
-
-        // Brushed Metallic Sliding Landing Doors
-        const doorGeo = new THREE.BoxGeometry(0.52, 2.3, 0.04);
-        const leftDoor = new THREE.Mesh(doorGeo, this.elevatorDoorMat);
-        leftDoor.position.set(x - 0.28, flY + 1.15 + 0.16, shaftZ + shaftD / 2 + 0.02);
-        this.elevatorGroup.add(leftDoor);
-
-        const rightDoor = new THREE.Mesh(doorGeo, this.elevatorDoorMat);
-        rightDoor.position.set(x + 0.28, flY + 1.15 + 0.16, shaftZ + shaftD / 2 + 0.02);
-        this.elevatorGroup.add(rightDoor);
-
-        // Digital Floor Indicator HUD Display (Cyan Glowing Header)
-        const display = new THREE.Mesh(
-          new THREE.BoxGeometry(0.48, 0.14, 0.02),
-          new THREE.MeshBasicMaterial({ color: 0x00f0ff })
-        );
-        display.position.set(x, flY + 2.45 + 0.16, shaftZ + shaftD / 2 + 0.03);
-        this.elevatorGroup.add(display);
-
-        // Call Button Indicator
-        const button = new THREE.Mesh(
-          new THREE.BoxGeometry(0.06, 0.14, 0.02),
-          new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-        );
-        button.position.set(x + shaftW / 2 + 0.08, flY + 1.15 + 0.16, shaftZ + shaftD / 2 + 0.02);
-        this.elevatorGroup.add(button);
-      }
     });
   }
 
   buildRooftopHelipad() {
     const roofY = this.totalFloors * this.floorHeight;
+    const slabW = 60;
+    const slabD = 48;
 
-    const roofSlab = new THREE.Mesh(new THREE.BoxGeometry(60, 0.35, 48), this.whiteWallMat);
-    roofSlab.position.set(0, roofY, 0);
+    // 1. Continuous Parapet Wall around Perimeter with Metal Coping Caps
+    const parapetH = 1.3;
+    const parapetThick = 0.35;
+    const parapetGeos = [];
+
+    const pS = new THREE.BoxGeometry(slabW, parapetH, parapetThick);
+    pS.translate(0, roofY + parapetH / 2, 24 - parapetThick / 2);
+    parapetGeos.push(pS);
+
+    const pN = new THREE.BoxGeometry(slabW, parapetH, parapetThick);
+    pN.translate(0, roofY + parapetH / 2, -24 + parapetThick / 2);
+    parapetGeos.push(pN);
+
+    const pW = new THREE.BoxGeometry(parapetThick, parapetH, slabD);
+    pW.translate(-30 + parapetThick / 2, roofY + parapetH / 2, 0);
+    parapetGeos.push(pW);
+
+    const pE = new THREE.BoxGeometry(parapetThick, parapetH, slabD);
+    pE.translate(30 - parapetThick / 2, roofY + parapetH / 2, 0);
+    parapetGeos.push(pE);
+
+    const parapetMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(parapetGeos), this.concreteMat);
+    parapetMesh.castShadow = true;
+    parapetMesh.receiveShadow = true;
+    this.roofGroup.add(parapetMesh);
+
+    // Parapet Metal Coping Cap
+    const copingGeos = [];
+    const copingCapS = new THREE.BoxGeometry(slabW + 0.1, 0.08, parapetThick + 0.1);
+    copingCapS.translate(0, roofY + parapetH + 0.04, 24 - parapetThick / 2);
+    copingGeos.push(copingCapS);
+
+    const copingCapN = new THREE.BoxGeometry(slabW + 0.1, 0.08, parapetThick + 0.1);
+    copingCapN.translate(0, roofY + parapetH + 0.04, -24 + parapetThick / 2);
+    copingGeos.push(copingCapN);
+
+    const copingCapW = new THREE.BoxGeometry(parapetThick + 0.1, 0.08, slabD + 0.1);
+    copingCapW.translate(-30 + parapetThick / 2, roofY + parapetH + 0.04, 0);
+    copingGeos.push(copingCapW);
+
+    const copingCapE = new THREE.BoxGeometry(parapetThick + 0.1, 0.08, slabD + 0.1);
+    copingCapE.translate(30 - parapetThick / 2, roofY + parapetH + 0.04, 0);
+    copingGeos.push(copingCapE);
+
+    const copingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(copingGeos), this.finMat);
+    this.roofGroup.add(copingMesh);
+
+    // Stainless Steel Lightning Rod Masts at Parapet Corners
+    const mastGeo = new THREE.CylinderGeometry(0.02, 0.035, 2.6, 8);
+    const mastCorners = [
+      { x: -29.8, z: 23.8 }, { x: 29.8, z: 23.8 },
+      { x: -29.8, z: -23.8 }, { x: 29.8, z: -23.8 }
+    ];
+    mastCorners.forEach(mc => {
+      const mast = new THREE.Mesh(mastGeo, this.mullionMat);
+      mast.position.set(mc.x, roofY + parapetH + 1.3, mc.z);
+      this.roofGroup.add(mast);
+    });
+
+    // Solid Structural Reinforced Concrete Roof Slab
+    const roofSlab = new THREE.Mesh(new THREE.BoxGeometry(slabW, 0.45, slabD), this.concreteMat);
+    roofSlab.position.set(0, roofY + 0.225, 0);
+    roofSlab.receiveShadow = true;
     this.roofGroup.add(roofSlab);
 
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(8.5, 24), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 }));
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(0, roofY + 0.18, 0);
-    this.roofGroup.add(pad);
+    // 2. Main Waterproofed Roof Membrane Deck
+    const roofDeckGeo = new THREE.PlaneGeometry(slabW - 0.7, slabD - 0.7);
+    const roofDeck = new THREE.Mesh(roofDeckGeo, this.roofMembraneMat);
+    roofDeck.rotation.x = -Math.PI / 2;
+    roofDeck.position.set(0, roofY + 0.455, 0);
+    roofDeck.receiveShadow = true;
+    this.roofGroup.add(roofDeck);
 
-    const padRing = new THREE.Mesh(new THREE.RingGeometry(8.0, 8.4, 24), new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide }));
-    padRing.rotation.x = -Math.PI / 2;
-    padRing.position.set(0, roofY + 0.19, 0);
-    this.roofGroup.add(padRing);
+    // 3. Central Architectural Mechanical Penthouse
+    const phW = 22;
+    const phD = 14;
+    const phH = 4.2;
+
+    // Heavy Concrete Mounting Curb underneath Penthouse in dark architectural slate
+    const phCurb = new THREE.Mesh(new THREE.BoxGeometry(phW + 0.6, 0.45, phD + 0.6), this.columnMat);
+    phCurb.position.set(-6, roofY + 0.4, -4);
+    phCurb.receiveShadow = true;
+    this.roofGroup.add(phCurb);
+
+    const phBodyGeo = new THREE.BoxGeometry(phW, phH, phD);
+    const phMesh = new THREE.Mesh(phBodyGeo, this.spandrelMat);
+    phMesh.position.set(-6, roofY + phH / 2 + 0.45, -4);
+    phMesh.castShadow = true;
+    phMesh.receiveShadow = true;
+    this.roofGroup.add(phMesh);
+
+    // Acoustic Metal Louver Panels on Penthouse Exterior
+    const louverS = new THREE.Mesh(new THREE.PlaneGeometry(phW - 2, phH - 1.2), this.louverMat);
+    louverS.position.set(-6, roofY + phH / 2 + 0.45, -4 + phD / 2 + 0.02);
+    this.roofGroup.add(louverS);
+
+    const louverN = new THREE.Mesh(new THREE.PlaneGeometry(phW - 2, phH - 1.2), this.louverMat);
+    louverN.rotation.y = Math.PI;
+    louverN.position.set(-6, roofY + phH / 2 + 0.45, -4 - phD / 2 - 0.02);
+    this.roofGroup.add(louverN);
+
+    // 4. Dual Industrial Rooftop Package Chillers with Heavy Plinths & Rotating Axial Fans
+    const chillerPositions = [
+      { x: 12, z: -12 },
+      { x: 12, z: -3 }
+    ];
+
+    chillerPositions.forEach(cp => {
+      // Concrete Chiller Mounting Plinth in dark architectural slate
+      const cPlinth = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.45, 4.4), this.columnMat);
+      cPlinth.position.set(cp.x, roofY + 0.4, cp.z);
+      cPlinth.receiveShadow = true;
+      this.roofGroup.add(cPlinth);
+
+      const chBody = new THREE.Mesh(new THREE.BoxGeometry(5.8, 2.2, 3.6), this.hvacUnitMat);
+      chBody.position.set(cp.x, roofY + 1.1 + 0.45, cp.z);
+      chBody.castShadow = true;
+      chBody.receiveShadow = true;
+      this.roofGroup.add(chBody);
+
+      // Louver grilles along chiller sides
+      const chLouver = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 1.8), this.louverMat);
+      chLouver.position.set(cp.x, roofY + 1.1 + 0.45, cp.z + 1.82);
+      this.roofGroup.add(chLouver);
+
+      // Rotating Twin Axial Ventilation Fans
+      for (const fx of [-1.5, 1.5]) {
+        const fanCowl = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.85, 0.85, 0.4, 16),
+          this.columnMat
+        );
+        fanCowl.position.set(cp.x + fx, roofY + 2.4 + 0.45, cp.z);
+        this.roofGroup.add(fanCowl);
+
+        const fanBlade = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 0.05, 0.22),
+          this.finMat
+        );
+        fanBlade.position.set(cp.x + fx, roofY + 2.5 + 0.45, cp.z);
+        this.roofGroup.add(fanBlade);
+
+        this.hvacFans.push({
+          mesh: fanBlade,
+          speed: 8.5 + fx * 1.5
+        });
+      }
+    });
+
+    // 5. Galvanized Roof Maintenance Walkway Grating Paths
+    const walkwayGeos = [];
+    const ww1 = new THREE.BoxGeometry(1.2, 0.03, 18);
+    ww1.translate(5.8, roofY + 0.47, -7);
+    walkwayGeos.push(ww1);
+
+    const ww2 = new THREE.BoxGeometry(14, 0.03, 1.2);
+    ww2.translate(13, roofY + 0.47, 6);
+    walkwayGeos.push(ww2);
+
+    const wwMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(walkwayGeos), this.walkwayGratingMat);
+    wwMesh.receiveShadow = true;
+    this.roofGroup.add(wwMesh);
+
+    // 6. Rooftop Helipad
+    const heliX = 14;
+    const heliZ = 12;
+    const heliRadius = 7.8;
+
+    const padOctagon = new THREE.CylinderGeometry(heliRadius, heliRadius, 0.16, 8);
+    const padMesh = new THREE.Mesh(padOctagon, this.concreteMat);
+    padMesh.position.set(heliX, roofY + 0.54, heliZ);
+    padMesh.receiveShadow = true;
+    this.roofGroup.add(padMesh);
+
+    // Circular Luminous Touchdown Perimeter Ring
+    const ringGeo = new THREE.RingGeometry(heliRadius - 1.2, heliRadius - 0.7, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffea00, side: THREE.DoubleSide });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = -Math.PI / 2;
+    ringMesh.position.set(heliX, roofY + 0.63, heliZ);
+    this.roofGroup.add(ringMesh);
+
+    // Giant 'H' Landing Identification Marker in Shaded Titanium
+    const barGeoV = new THREE.PlaneGeometry(0.7, 4.4);
+    const barGeoH = new THREE.PlaneGeometry(2.4, 0.7);
+    const hMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.65, metalness: 0.05, side: THREE.DoubleSide });
+
+    const hBarL = new THREE.Mesh(barGeoV, hMat);
+    hBarL.rotation.x = -Math.PI / 2;
+    hBarL.position.set(heliX - 1.2, roofY + 0.635, heliZ);
+    this.roofGroup.add(hBarL);
+
+    const hBarR = new THREE.Mesh(barGeoV, hMat);
+    hBarR.rotation.x = -Math.PI / 2;
+    hBarR.position.set(heliX + 1.2, roofY + 0.635, heliZ);
+    this.roofGroup.add(hBarR);
+
+    const hBarM = new THREE.Mesh(barGeoH, hMat);
+    hBarM.rotation.x = -Math.PI / 2;
+    hBarM.position.set(heliX, roofY + 0.635, heliZ);
+    this.roofGroup.add(hBarM);
   }
 
+  buildHeroEntrance() {
+    const entranceGroup = new THREE.Group();
+    const portalH = 5.2;
+
+    // 1. Massive Double-Height Architectural Portal Frame in Dark Granite
+    const portalMat = this.columnMat;
+    const lPillar = new THREE.Mesh(new THREE.BoxGeometry(1.4, portalH, 1.4), portalMat);
+    lPillar.position.set(-7, portalH / 2, 24.2);
+    lPillar.castShadow = true;
+    entranceGroup.add(lPillar);
+
+    const rPillar = new THREE.Mesh(new THREE.BoxGeometry(1.4, portalH, 1.4), portalMat);
+    rPillar.position.set(7, portalH / 2, 24.2);
+    rPillar.castShadow = true;
+    entranceGroup.add(rPillar);
+
+    const lintel = new THREE.Mesh(new THREE.BoxGeometry(15.4, 1.2, 1.4), portalMat);
+    lintel.position.set(0, portalH - 0.6, 24.2);
+    lintel.castShadow = true;
+    entranceGroup.add(lintel);
+
+    // 2. Backlit Building Identity Signage
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(9.6, 0.55, 0.08),
+      this.columnMat
+    );
+    signBoard.position.set(0, portalH - 0.6, 24.95);
+    entranceGroup.add(signBoard);
+
+    const signLuminous = new THREE.Mesh(
+      new THREE.BoxGeometry(8.8, 0.38, 0.04),
+      new THREE.MeshStandardMaterial({
+        color: 0x00f0ff,
+        emissive: 0x00d4e6,
+        emissiveIntensity: 1.6,
+        roughness: 0.2
+      })
+    );
+    signLuminous.position.set(0, portalH - 0.6, 25.0);
+    entranceGroup.add(signLuminous);
+
+    // 3. Deep Cantilevered Entrance Canopy with Tension Tie Rods
+    const canopyW = 16.0;
+    const canopyD = 5.8;
+    const canopyH = 0.25;
+
+    const canopySlab = new THREE.Mesh(
+      new THREE.BoxGeometry(canopyW, canopyH, canopyD),
+      this.spandrelMat
+    );
+    canopySlab.position.set(0, 4.4, 24.2 + canopyD / 2);
+    canopySlab.castShadow = true;
+    canopySlab.receiveShadow = true;
+    entranceGroup.add(canopySlab);
+
+    // Stainless Steel Tension Rods anchoring Canopy
+    const rodGeo = new THREE.CylinderGeometry(0.035, 0.035, 5.2, 12);
+    rodGeo.rotateX(0.78);
+
+    const rodL = new THREE.Mesh(rodGeo, this.bollardMat);
+    rodL.position.set(-6.8, 6.2, 25.8);
+    entranceGroup.add(rodL);
+
+    const rodR = new THREE.Mesh(rodGeo, this.bollardMat);
+    rodR.position.set(6.8, 6.2, 25.8);
+    entranceGroup.add(rodR);
+
+    // Underside Recessed LED Downlights
+    for (let lx = -6.0; lx <= 6.0; lx += 3.0) {
+      for (let lz = 25.5; lz <= 28.5; lz += 1.5) {
+        const spot = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.04, 16), this.downlightMat);
+        spot.position.set(lx, 4.26, lz);
+        entranceGroup.add(spot);
+      }
+    }
+
+    // 4. Central Revolving Glass Entry Drum + Automated Sliding Doors
+    const drumR = 1.4;
+    const drumGeo = new THREE.CylinderGeometry(drumR, drumR, 3.4, 24, 1, true);
+    const drumMat = new THREE.MeshStandardMaterial({
+      color: 0x93c5fd,
+      transparent: true,
+      opacity: 0.35,
+      roughness: 0.08
+    });
+    const drumMesh = new THREE.Mesh(drumGeo, drumMat);
+    drumMesh.position.set(0, 1.7, 24.2);
+    entranceGroup.add(drumMesh);
+
+    // Rotating 3-Wing Glass Leaves
+    const wingGeo = new THREE.BoxGeometry(drumR - 0.05, 3.2, 0.04);
+    for (let w = 0; w < 3; w++) {
+      const wing = new THREE.Mesh(wingGeo, this.mullionMat);
+      wing.rotation.y = (w * Math.PI * 2) / 3;
+      wing.position.set(
+        Math.cos((w * Math.PI * 2) / 3) * (drumR / 2),
+        1.7,
+        24.2 + Math.sin((w * Math.PI * 2) / 3) * (drumR / 2)
+      );
+      entranceGroup.add(wing);
+    }
+
+    // Flanking Automated Sliding Glass Doors
+    const doorLeafGeo = new THREE.BoxGeometry(1.6, 3.4, 0.06);
+    const doorL = new THREE.Mesh(doorLeafGeo, drumMat);
+    doorL.position.set(-3.2, 1.7, 24.2);
+    entranceGroup.add(doorL);
+
+    const doorR = new THREE.Mesh(doorLeafGeo, drumMat);
+    doorR.position.set(3.2, 1.7, 24.2);
+    entranceGroup.add(doorR);
+
+    // 5. Dark Charcoal Granite Entrance Threshold Apron
+    const apronGeo = new THREE.BoxGeometry(14.0, 0.06, 6.5);
+    const apronMat = new THREE.MeshStandardMaterial({
+      color: 0x090d16,
+      roughness: 0.25,
+      metalness: 0.3
+    });
+    const apron = new THREE.Mesh(apronGeo, apronMat);
+    apron.position.set(0, 0.03, 25.5);
+    apron.receiveShadow = true;
+    entranceGroup.add(apron);
+
+    this.layers.architecture.add(entranceGroup);
+  }
 
   buildGroundExits() {
     const exits = [
-      { id: 'exit_west', name: 'West Emergency Exit A', x: -29, z: 0, rot: -Math.PI / 2, width: 5.2, musterX: -38, musterZ: 0, signMat: this.exitPortalSignMatWest },
-      { id: 'exit_east', name: 'East Emergency Exit B', x: 29, z: 0, rot: Math.PI / 2, width: 5.2, musterX: 38, musterZ: 0, signMat: this.exitPortalSignMatEast },
-      { id: 'exit_south', name: 'South Grand Plaza Exit', x: 0, z: 23, rot: 0, width: 8.5, musterX: 0, musterZ: 36, signMat: this.exitPortalSignMatSouth }
+      {
+        id: 'exit_west',
+        name: 'EXIT A (WEST CORE)',
+        x: -29.2,
+        y: 0.0,
+        z: 0.0,
+        rotY: Math.PI / 2,
+        musterX: -38,
+        musterZ: 0,
+        signMat: this.exitPortalSignMatWest
+      },
+      {
+        id: 'exit_east',
+        name: 'EXIT B (EAST CORE)',
+        x: 29.2,
+        y: 0.0,
+        z: 0.0,
+        rotY: -Math.PI / 2,
+        musterX: 38,
+        musterZ: 0,
+        signMat: this.exitPortalSignMatEast
+      },
+      {
+        id: 'exit_south',
+        name: 'EXIT C (SOUTH PLAZA GATE)',
+        x: 0.0,
+        y: 0.0,
+        z: 23.5,
+        rotY: 0,
+        musterX: 0,
+        musterZ: 36,
+        signMat: this.exitPortalSignMatSouth
+      }
     ];
 
+    const portalW = 3.6;
+    const portalH = 3.4;
+    const postThick = 0.38;
+
     exits.forEach(ex => {
-      // Create local coordinate space for each exit
-      // Local +Z points OUTSIDE towards the muster zone; Local -Z points INSIDE into the building
-      // Local X is across the doorway width; Local Y is vertical
       const exitGroup = new THREE.Group();
-      exitGroup.position.set(ex.x, 0, ex.z);
-      exitGroup.rotation.y = ex.rot;
-      this.group.add(exitGroup);
+      exitGroup.position.set(ex.x, ex.y, ex.z);
+      exitGroup.rotation.y = ex.rotY;
 
-      const jambW = 0.45;
-      const doorH = 2.65;
-      const portalH = 3.6;
-      const portalD = 0.55;
-      const doorOpenW = ex.width - jambW * 2; // e.g. 4.3m wide clear walk-through opening!
+      // 1. Heavy Steel Portal Frame
+      const postGeo = new THREE.BoxGeometry(postThick, portalH, postThick);
+      const postL = new THREE.Mesh(postGeo, this.columnMat);
+      postL.position.set(-portalW / 2 + postThick / 2, portalH / 2, 0);
+      postL.castShadow = true;
+      exitGroup.add(postL);
 
-      // 1. Heavy Architectural Portal Frame (Left & Right Jambs - CENTER IS 100% OPEN!)
-      const jambGeo = new THREE.BoxGeometry(jambW, portalH, portalD);
-      const leftJamb = new THREE.Mesh(jambGeo, this.columnMat);
-      leftJamb.position.set(-ex.width / 2 + jambW / 2, portalH / 2, 0);
-      exitGroup.add(leftJamb);
+      const postR = new THREE.Mesh(postGeo, this.columnMat);
+      postR.position.set(portalW / 2 - postThick / 2, portalH / 2, 0);
+      postR.castShadow = true;
+      exitGroup.add(postR);
 
-      const rightJamb = new THREE.Mesh(jambGeo, this.columnMat);
-      rightJamb.position.set(ex.width / 2 - jambW / 2, portalH / 2, 0);
-      exitGroup.add(rightJamb);
+      const lintelGeo = new THREE.BoxGeometry(portalW, postThick, postThick);
+      const lintel = new THREE.Mesh(lintelGeo, this.columnMat);
+      lintel.position.set(0, portalH - postThick / 2, 0);
+      lintel.castShadow = true;
+      exitGroup.add(lintel);
 
-      // Top Transom Header Beam across the opening
-      const headerH = portalH - doorH; // 0.95m
-      const headerGeo = new THREE.BoxGeometry(ex.width, headerH, portalD);
-      const headerBeam = new THREE.Mesh(headerGeo, this.columnMat);
-      headerBeam.position.set(0, doorH + headerH / 2, 0);
-      exitGroup.add(headerBeam);
+      // 2. High-Luminance Emergency Exit Portal Signboard
+      const signGeo = new THREE.BoxGeometry(portalW - 0.2, 0.55, 0.12);
+      const sign = new THREE.Mesh(signGeo, ex.signMat);
+      sign.position.set(0, portalH + 0.32, 0.05);
+      exitGroup.add(sign);
 
-      // 2. Ultra-Bright Double-Sided Illuminated Emergency Exit Signboards
-      const signW = Math.min(doorOpenW + 0.1, 4.4);
-      const signH = 0.65;
-      const signGeo = new THREE.BoxGeometry(signW, signH, 0.08);
+      // 3. Double Panic Fire Doors
+      const doorW = (portalW - postThick * 2 - 0.08) / 2;
+      const doorH = portalH - postThick - 0.06;
+      const doorLeafGeo = new THREE.BoxGeometry(doorW, doorH, 0.08);
 
-      // Exterior Facing Sign (Facing Outside Plaza, +Z)
-      const signExt = new THREE.Mesh(signGeo, ex.signMat);
-      signExt.position.set(0, doorH + headerH / 2, portalD / 2 + 0.05);
-      exitGroup.add(signExt);
+      const dLeft = new THREE.Mesh(doorLeafGeo, this.fireDoorRedMat);
+      dLeft.position.set(-doorW / 2 - 0.02, doorH / 2 + 0.02, 0);
+      exitGroup.add(dLeft);
 
-      // Interior Facing Sign (Facing Inside Corridor/Stairwell, -Z)
-      const signInt = new THREE.Mesh(signGeo, ex.signMat);
-      signInt.position.set(0, doorH + headerH / 2, -portalD / 2 - 0.05);
-      signInt.rotation.y = Math.PI; // Flipped to face into the building!
-      exitGroup.add(signInt);
+      const dRight = new THREE.Mesh(doorLeafGeo, this.fireDoorRedMat);
+      dRight.position.set(doorW / 2 + 0.02, doorH / 2 + 0.02, 0);
+      exitGroup.add(dRight);
 
-      // 3. Green Safety Downward Emergency Floodlight (Washes threshold in safety green!)
-      const floodLight = new THREE.PointLight(0x00ff88, 3.8, 12, 1.2);
-      floodLight.position.set(0, doorH, 0.2);
-      exitGroup.add(floodLight);
+      // Panic Push Bars
+      const barGeo = new THREE.BoxGeometry(doorW - 0.18, 0.08, 0.08);
+      const barL = new THREE.Mesh(barGeo, this.panicBarGreenMat);
+      barL.position.set(-doorW / 2 - 0.02, 1.05, 0.08);
+      exitGroup.add(barL);
 
-      // 4. Caution Hazard Striped Threshold Safety Plate
-      const threshGeo = new THREE.BoxGeometry(doorOpenW + 0.15, 0.03, portalD + 0.5);
-      const thresh = new THREE.Mesh(threshGeo, this.hazardPlateMat);
-      thresh.position.set(0, 0.015, 0);
-      exitGroup.add(thresh);
+      const barR = new THREE.Mesh(barGeo, this.panicBarGreenMat);
+      barR.position.set(doorW / 2 + 0.02, 1.05, 0.08);
+      exitGroup.add(barR);
 
-      // 5. Authentic Double Fire Exit Doors (Wide Open Outward at 82°)
-      const leafW = doorOpenW / 2 - 0.04;
-      const leafH = doorH - 0.06;
-      const leafThick = 0.08;
+      this.layers.architecture.add(exitGroup);
 
-      // --- Left Fire Door Leaf ---
-      const leftPivot = new THREE.Group();
-      leftPivot.position.set(-doorOpenW / 2, 0, portalD / 2);
-      leftPivot.rotation.y = -Math.PI / 2.2; // Swung wide open outward against outside wall
+      // 4. Circular Safety Muster Assembly Zone on Plaza
+      const musterR = 5.2;
+      const musterRingGeo = new THREE.RingGeometry(musterR - 0.45, musterR, 48);
+      const musterRing = new THREE.Mesh(
+        musterRingGeo,
+        new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide })
+      );
+      musterRing.rotation.x = -Math.PI / 2;
+      musterRing.position.set(ex.musterX, 0.02, ex.musterZ);
+      this.layers.environment.add(musterRing);
 
-      const leftSlab = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), this.fireDoorRedMat);
-      leftSlab.position.set(leafW / 2, leafH / 2, 0);
-      leftPivot.add(leftSlab);
+      const innerZone = new THREE.Mesh(
+        new THREE.CircleGeometry(musterR - 0.48, 36),
+        new THREE.MeshBasicMaterial({ color: 0x059669, side: THREE.DoubleSide, transparent: true, opacity: 0.22 })
+      );
+      innerZone.rotation.x = -Math.PI / 2;
+      innerZone.position.set(ex.musterX, 0.015, ex.musterZ);
+      this.layers.environment.add(innerZone);
 
-      // Vision Lite (Inspection Window) on Left Door
-      const winGeo = new THREE.BoxGeometry(0.32, 1.1, leafThick + 0.02);
-      const leftWin = new THREE.Mesh(winGeo, this.glassMat);
-      leftWin.position.set(leafW * 0.65, 1.65, 0);
-      leftPivot.add(leftWin);
-
-      // Stainless Steel Panic Push Crash Bar on Left Door
-      const barBaseL = new THREE.Mesh(new THREE.BoxGeometry(leafW * 0.85, 0.06, 0.06), this.panicBarSilverMat);
-      barBaseL.position.set(leafW * 0.5, 1.05, -leafThick / 2 - 0.04);
-      leftPivot.add(barBaseL);
-
-      const barPadL = new THREE.Mesh(new THREE.BoxGeometry(leafW * 0.45, 0.04, 0.02), this.panicBarGreenMat);
-      barPadL.position.set(leafW * 0.5, 1.05, -leafThick / 2 - 0.075);
-      leftPivot.add(barPadL);
-
-      // Warning Badge on push side
-      const leftBadge = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.21), this.fireDoorDecalMat);
-      leftBadge.position.set(leafW * 0.5, 1.45, -leafThick / 2 - 0.045);
-      leftBadge.rotation.y = Math.PI;
-      leftPivot.add(leftBadge);
-
-      exitGroup.add(leftPivot);
-
-      // --- Right Fire Door Leaf ---
-      const rightPivot = new THREE.Group();
-      rightPivot.position.set(doorOpenW / 2, 0, portalD / 2);
-      rightPivot.rotation.y = Math.PI / 2.2; // Swung wide open outward against outside wall
-
-      const rightSlab = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), this.fireDoorRedMat);
-      rightSlab.position.set(-leafW / 2, leafH / 2, 0);
-      rightPivot.add(rightSlab);
-
-      // Vision Lite (Inspection Window) on Right Door
-      const rightWin = new THREE.Mesh(winGeo, this.glassMat);
-      rightWin.position.set(-leafW * 0.65, 1.65, 0);
-      rightPivot.add(rightWin);
-
-      // Stainless Steel Panic Push Crash Bar on Right Door
-      const barBaseR = new THREE.Mesh(new THREE.BoxGeometry(leafW * 0.85, 0.06, 0.06), this.panicBarSilverMat);
-      barBaseR.position.set(-leafW * 0.5, 1.05, -leafThick / 2 - 0.04);
-      rightPivot.add(barBaseR);
-
-      const barPadR = new THREE.Mesh(new THREE.BoxGeometry(leafW * 0.45, 0.04, 0.02), this.panicBarGreenMat);
-      barPadR.position.set(-leafW * 0.5, 1.05, -leafThick / 2 - 0.075);
-      rightPivot.add(barPadR);
-
-      // Warning Badge on push side
-      const rightBadge = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.21), this.fireDoorDecalMat);
-      rightBadge.position.set(-leafW * 0.5, 1.45, -leafThick / 2 - 0.045);
-      rightBadge.rotation.y = Math.PI;
-      rightPivot.add(rightBadge);
-
-      exitGroup.add(rightPivot);
-
-      // 6. Architectural Cantilevered Entrance Canopy
-      const canopyD = 2.4;
-      const canopyGeo = new THREE.BoxGeometry(ex.width + 0.8, 0.35, canopyD);
-      const canopy = new THREE.Mesh(canopyGeo, this.columnMat);
-      canopy.position.set(0, portalH + 0.175, canopyD / 2 - portalD / 4);
-      exitGroup.add(canopy);
-
-      // Underside Downlights under canopy
-      for (const lx of [-ex.width * 0.28, ex.width * 0.28]) {
-        const dl = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 16), this.downlightMat);
-        dl.position.set(lx, portalH, canopyD / 2);
-        exitGroup.add(dl);
-      }
-
-      // 7. Industrial Strobe Siren Emergency Beacon atop Canopy
-      const beaconBase = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.15, 16), this.columnMat);
-      beaconBase.position.set(0, portalH + 0.35 + 0.075, canopyD / 2);
-      exitGroup.add(beaconBase);
-
-      const beaconMat = new THREE.MeshStandardMaterial({
-        color: 0x00ff88,
-        emissive: 0x00ff88,
-        emissiveIntensity: 2.8,
-        roughness: 0.1
-      });
-      const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.4, 16), beaconMat);
-      beacon.position.set(0, portalH + 0.35 + 0.35, canopyD / 2);
-      exitGroup.add(beacon);
-
-      // 8. High-Visibility Directional Safety Evacuation Runway to Muster Zone
+      // 5. High-Visibility Emergency Runway Guide Path
       const dist = Math.hypot(ex.musterX - ex.x, ex.musterZ - ex.z);
-      const runwayW = 3.6;
-      const runwayGeo = new THREE.PlaneGeometry(dist, runwayW);
+      const runwayW = 2.4;
+      const runwayGeo = new THREE.PlaneGeometry(
+        ex.id === 'exit_south' ? runwayW : dist,
+        ex.id === 'exit_south' ? dist : runwayW
+      );
       const runway = new THREE.Mesh(runwayGeo, this.exitRunwayMat);
       runway.rotation.x = -Math.PI / 2;
       runway.position.set((ex.x + ex.musterX) / 2, 0.02, (ex.z + ex.musterZ) / 2);
-      if (ex.rot === 0) {
-        runway.rotation.z = Math.PI / 2;
-      }
-      this.group.add(runway);
+      this.layers.environment.add(runway);
 
-      // Glowing Cyan Edge Rails
-      const edgeG = new THREE.PlaneGeometry(dist, 0.12);
-      const edgeM = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.9 });
-      const edge1 = new THREE.Mesh(edgeG, edgeM);
-      const edge2 = new THREE.Mesh(edgeG, edgeM);
+      // Runway Edge Lines
+      const edgeGeo = new THREE.PlaneGeometry(
+        ex.id === 'exit_south' ? 0.08 : dist,
+        ex.id === 'exit_south' ? dist : 0.08
+      );
+      const edge1 = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: 0x00ff88 }));
+      const edge2 = new THREE.Mesh(edgeGeo, new THREE.MeshBasicMaterial({ color: 0x00ff88 }));
       edge1.rotation.x = -Math.PI / 2;
       edge2.rotation.x = -Math.PI / 2;
-      if (ex.rot === 0) {
-        edge1.rotation.z = Math.PI / 2;
-        edge2.rotation.z = Math.PI / 2;
+
+      if (ex.id === 'exit_south') {
         edge1.position.set(ex.x - runwayW / 2, 0.025, (ex.z + ex.musterZ) / 2);
         edge2.position.set(ex.x + runwayW / 2, 0.025, (ex.z + ex.musterZ) / 2);
       } else {
         edge1.position.set((ex.x + ex.musterX) / 2, 0.025, ex.z - runwayW / 2);
         edge2.position.set((ex.x + ex.musterX) / 2, 0.025, ex.z + runwayW / 2);
       }
-      this.group.add(edge1);
-      this.group.add(edge2);
+      this.layers.environment.add(edge1);
+      this.layers.environment.add(edge2);
     });
   }
 
+  // === Digital Twin Presentation Modes & Layer Filters ===
+  getElevatorStatus() {
+    if (!this.elevatorCars || this.elevatorCars.length === 0) {
+      return [
+        { shaft: 'Shaft A (West)', floor: '07', dest: '01', direction: 'Moving ↓' },
+        { shaft: 'Shaft B (Center)', floor: '03', dest: '10', direction: 'Moving ↑' },
+        { shaft: 'Shaft C (East)', floor: '05', dest: '01', direction: 'Moving ↓' }
+      ];
+    }
+    const shaftNames = ['Shaft A (West)', 'Shaft B (Center)', 'Shaft C (East)'];
+    return this.elevatorCars.map((car, idx) => {
+      const currentFloor = Math.min(10, Math.max(1, Math.round(car.y / this.floorHeight) + 1));
+      const destFloor = car.direction > 0 ? 10 : 1;
+      return {
+        shaft: shaftNames[idx] || `Shaft ${String.fromCharCode(65 + idx)}`,
+        floor: currentFloor < 10 ? `0${currentFloor}` : `${currentFloor}`,
+        dest: destFloor < 10 ? `0${destFloor}` : `${destFloor}`,
+        direction: car.direction > 0 ? 'Moving ↑' : 'Moving ↓'
+      };
+    });
+  }
+
+  setViewMode(mode) {
+    this.viewMode = mode;
+
+    if (mode === 'FULL_EXTERIOR') {
+      this.facadeMode = 'FULL';
+      this.glassExteriorMat.opacity = 0.72;
+      this.updateFacadeCutaway();
+    } else if (mode === 'TRANSPARENT_FACADE') {
+      this.facadeMode = 'FULL';
+      this.glassExteriorMat.opacity = 0.22;
+      this.updateFacadeCutaway();
+    } else if (mode === 'CUTAWAY') {
+      this.facadeMode = 'CUTAWAY';
+      this.updateFacadeCutaway();
+    } else if (mode === 'SECTIONAL_CUT') {
+      this.facadeMode = 'CUTAWAY';
+      this.updateFacadeCutaway();
+    } else if (mode === 'EXPLODED') {
+      this.setFloorMode('EXPLODED');
+    }
+    return this.viewMode;
+  }
+
+  setLayerVisibility(layerName, isVisible) {
+    if (this.layers[layerName]) {
+      this.layers[layerName].visible = isVisible;
+    }
+  }
+
   toggleFacadeMode() {
-    this.facadeMode = this.facadeMode === 'CUTAWAY' ? 'FULL' : 'CUTAWAY';
+    if (this.facadeMode === 'CUTAWAY') {
+      this.facadeMode = 'FULL';
+      this.viewMode = 'FULL_EXTERIOR';
+      this.targetCutawayProgress = 0.0;
+    } else {
+      this.facadeMode = 'CUTAWAY';
+      this.viewMode = 'CUTAWAY';
+      this.targetCutawayProgress = 1.0;
+    }
     this.updateFacadeCutaway();
     return this.facadeMode;
   }
 
   setFacadeMode(mode) {
     this.facadeMode = mode;
+    if (mode === 'FULL') {
+      this.targetCutawayProgress = 0.0;
+    } else {
+      this.targetCutawayProgress = 1.0;
+    }
     this.updateFacadeCutaway();
   }
 
   updateFacadeCutaway() {
-    const isFull = this.facadeMode === 'FULL';
+    const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
     if (!this.facadeCutawayGroup) return;
 
     const activeMode = this.floorMode || 'ALL';
     this.facadeCutawayGroup.children.forEach(sub => {
-      const fl = sub.userData?.floor || 1;
+      const fl = sub.userData && sub.userData.floor ? sub.userData.floor : 1;
       if (activeMode === 'ALL' || activeMode === 'EXPLODED') {
-        sub.visible = isFull;
+        sub.visible = isShowingFacade;
       } else {
         const targetFloor = parseInt(activeMode, 10);
-        sub.visible = isFull && (fl === targetFloor);
+        sub.visible = isShowingFacade && (fl === targetFloor);
       }
     });
+
+
+  }
+
+  applyCutawayTransition(t) {
+    // t: 0.0 (Full Exterior) to 1.0 (Cutaway)
+    const fade = 1.0 - t;
+    if (this.glassExteriorMat) {
+      this.glassExteriorMat.opacity = 0.72 * fade;
+    }
+    if (this.facadeCutawayGroup) {
+      this.facadeCutawayGroup.visible = t < 0.98;
+    }
+
+    if (t <= 0.02) {
+      if (this.facadeCutawayGroup) this.facadeCutawayGroup.visible = true;
+      if (this.glassExteriorMat) this.glassExteriorMat.opacity = 0.72;
+    }
   }
 
   setFloorMode(mode) {
@@ -1595,44 +2594,58 @@ export class Building3D {
     }
 
     if (this.facadeCutawayGroup) {
+      const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
-        const fl = sub.userData?.floor || 1;
+        const fl = sub.userData && sub.userData.floor ? sub.userData.floor : 1;
         if (mode === 'ALL') {
-          sub.visible = this.facadeMode === 'FULL';
+          sub.visible = isShowingFacade;
           sub.position.y = 0;
         } else if (mode === 'EXPLODED') {
-          sub.visible = this.facadeMode === 'FULL';
+          sub.visible = isShowingFacade;
           sub.position.y = (fl - 1) * 5.0;
         } else {
           const targetFloor = parseInt(mode, 10);
-          sub.visible = this.facadeMode === 'FULL' && (fl === targetFloor);
+          sub.visible = isShowingFacade && (fl === targetFloor);
           sub.position.y = 0;
         }
       });
     }
   }
 
-  // Animate the 3 panoramic glass elevators gliding smoothly between floors
   update(delta) {
-    if (!this.elevatorCars || this.elevatorCars.length === 0) return;
-
-    this.elevatorCars.forEach(car => {
-      car.y += car.speed * car.direction * delta;
-
-      if (car.y >= car.maxY) {
-        car.y = car.maxY;
-        car.direction = -1;
-      } else if (car.y <= car.minY) {
-        car.y = car.minY;
-        car.direction = 1;
+    // Smooth Animated Cutaway Fade Transition
+    if (this.cutawayProgress !== this.targetCutawayProgress) {
+      const step = delta * 3.2; // ~0.3s smooth transition
+      if (this.targetCutawayProgress > this.cutawayProgress) {
+        this.cutawayProgress = Math.min(this.targetCutawayProgress, this.cutawayProgress + step);
+      } else {
+        this.cutawayProgress = Math.max(this.targetCutawayProgress, this.cutawayProgress - step);
       }
+      this.applyCutawayTransition(this.cutawayProgress);
+    }
 
-      car.mesh.position.y = car.y;
-    });
+    if (this.elevatorCars && this.elevatorCars.length > 0) {
+      this.elevatorCars.forEach(car => {
+        car.y += car.speed * car.direction * delta;
+        if (car.y >= car.maxY) {
+          car.y = car.maxY;
+          car.direction = -1;
+        } else if (car.y <= car.minY) {
+          car.y = car.minY;
+          car.direction = 1;
+        }
+        car.mesh.position.y = car.y;
+      });
+    }
+
+    if (this.hvacFans && this.hvacFans.length > 0) {
+      this.hvacFans.forEach(fan => {
+        fan.mesh.rotation.y += fan.speed * delta;
+      });
+    }
   }
 
-  // === Ultra-Fast High-Performance Instanced Room Furnishing (Zero Lag / Pure 60 FPS) ===
-  buildFloorFurnishingsInstanced(group, floorNum, baseY) {
+buildFloorFurnishingsInstanced(group, floorNum, baseY) {
     const dummy = new THREE.Object3D();
 
     const buckets = {
@@ -1675,9 +2688,9 @@ export class Building3D {
       const dispX = x + sin * 0.012;
       const dispZ = z + cos * 0.012;
       if (isOrange) {
-        buckets.displaysOrange.push({ pos: [dispX, y + 0.30, dispZ], rotY });
+        buckets.displaysOrange.push({ pos: [dispX, y, dispZ], rotY });
       } else {
-        buckets.displaysCyan.push({ pos: [dispX, y + 0.30, dispZ], rotY });
+        buckets.displaysCyan.push({ pos: [dispX, y, dispZ], rotY });
       }
     };
 
@@ -1687,16 +2700,16 @@ export class Building3D {
     };
 
     const getRoomRightWallX = (cx) => {
-      if (cx <= -15.0) return -15.0 - 0.20; // x = -15.20 (Room 0/5)
-      if (cx <= -6.0)  return -6.0 - 0.20;  // x = -6.20  (Room 1/6)
-      if (cx <= 3.0)   return 3.0 - 0.20;   // x = 2.80   (Room 2/7 - Boardroom)
-      if (cx <= 14.0)  return 14.0 - 0.20;  // x = 13.80  (Room 3/8)
-      return 24.5 - 0.25;                   // x = 24.25  (Room 4/9)
+      if (cx <= -15.0) return -15.0 - 0.20;
+      if (cx <= -6.0)  return -6.0 - 0.20;
+      if (cx <= 3.0)   return 3.0 - 0.20;
+      if (cx <= 14.0)  return 14.0 - 0.20;
+      return 24.5 - 0.25;
     };
 
     const addWallTv = (cx, cz, isOrange) => {
       const sideWallX = getRoomRightWallX(cx);
-      const rotY = -Math.PI / 2; // Mounted on side divider wall, facing into the room towards the table
+      const rotY = -Math.PI / 2;
       buckets.wallTvs.push({ pos: [sideWallX, baseY + 1.95, cz], rotY });
       const scrX = sideWallX - 0.03;
       if (isOrange) {
@@ -1716,40 +2729,44 @@ export class Building3D {
       switch (type) {
         case 'TECH_WORKSTATIONS': {
           const backSign = cz > 0 ? 1 : -1;
-          // 6 Workstation desk pods (3 rows x 2 columns) with central aisle & generous spacing
-          const deskPods = [
-            { dx: -2.3, dz:  5.2 * backSign }, // Row 1 (Back-Left)
-            { dx:  2.3, dz:  5.2 * backSign }, // Row 1 (Back-Right)
-            { dx: -2.3, dz:  0.0 * backSign }, // Row 2 (Mid-Left)
-            { dx:  2.3, dz:  0.0 * backSign }, // Row 2 (Mid-Right)
-            { dx: -2.3, dz: -5.2 * backSign }, // Row 3 (Front-Left)
-            { dx:  2.3, dz: -5.2 * backSign }, // Row 3 (Front-Right)
+          // 2 Clean, Spacious 2-person workstation pods (total 4 desks per room)
+          // Wide 2.4m central walking aisle directly connecting to doorway!
+          // 1.6m perimeter clearance to side walls!
+          const pods = [
+            { px: cx - 2.2, pz: cz + 1.5 * backSign },
+            { px: cx + 2.2, pz: cz + 1.5 * backSign }
           ];
 
-          deskPods.forEach((pod, podIdx) => {
-            const px = cx + pod.dx;
-            const pz = cz + pod.dz;
-            buckets.workstationDesks.push({ pos: [px, baseY, pz], rotY: 0 });
-            buckets.acousticDividers.push({ pos: [px, baseY + 0.98, pz], rotY: 0 });
+          pods.forEach((pod, podIdx) => {
+            // Desk 1 (Front): faces into the desk
+            const d1Z = pod.pz - 0.42 * backSign;
+            buckets.workstationDesks.push({ pos: [pod.px, baseY, d1Z], rotY: 0 });
 
-            // 4 Workstation Chairs per desk pod
-            addChair(px - 0.85, baseY, pz - 0.90, 0, false);
-            addChair(px + 0.85, baseY, pz - 0.90, 0, false);
-            addChair(px - 0.85, baseY, pz + 0.90, Math.PI, false);
-            addChair(px + 0.85, baseY, pz + 0.90, Math.PI, false);
+            // Chair 1: placed 0.62m away, facing desk squarely
+            const c1RotY = backSign > 0 ? 0 : Math.PI;
+            const c1Z = d1Z - 0.62 * backSign;
+            addChair(pod.px, baseY, c1Z, c1RotY, false);
 
-            // 4 Monitors facing agents
-            const isAlt = podIdx % 2 === 1;
-            addMonitor(px - 0.85, baseY + 0.76, pz - 0.30, 0, isAlt);
-            addMonitor(px + 0.85, baseY + 0.76, pz - 0.30, 0, !isAlt);
-            addMonitor(px - 0.85, baseY + 0.76, pz + 0.30, Math.PI, !isAlt);
-            addMonitor(px + 0.85, baseY + 0.76, pz + 0.30, Math.PI, isAlt);
+            // Monitor 1: on desk facing Chair 1
+            const m1RotY = backSign > 0 ? 0 : Math.PI;
+            addMonitor(pod.px, baseY + 0.74, d1Z, m1RotY, false);
+
+            // Desk 2 (Rear): opposite desk in the pod
+            const d2Z = pod.pz + 0.42 * backSign;
+            buckets.workstationDesks.push({ pos: [pod.px, baseY, d2Z], rotY: 0 });
+
+            // Chair 2: placed 0.62m away facing Desk 2
+            const c2RotY = backSign > 0 ? Math.PI : 0;
+            const c2Z = d2Z + 0.62 * backSign;
+            addChair(pod.px, baseY, c2Z, c2RotY, false);
+
+            // Monitor 2: on desk facing Chair 2
+            const m2RotY = backSign > 0 ? Math.PI : 0;
+            addMonitor(pod.px, baseY + 0.74, d2Z, m2RotY, podIdx % 2 === 1);
           });
 
-          // Elegant architectural indoor plants
-          addPlant(cx - 3.4, cz + 7.2 * backSign);
-          addPlant(cx + 3.4, cz + 7.2 * backSign);
-          addPlant(cx + 3.4, cz - 6.5 * backSign);
+          // Breakout architectural plant in rear zone
+          addPlant(cx, cz - 4.2 * backSign);
           break;
         }
 
@@ -1762,18 +2779,54 @@ export class Building3D {
             buckets.confTablesWood.push({ pos: [cx, baseY, cz], rotY: 0 });
           }
 
-          // Executive Cognac Leather Swivel Chairs
-          for (const dx of [-1.4, 0, 1.4]) {
-            addChair(cx + dx, baseY, cz - 1.15, 0, true);
-            addChair(cx + dx, baseY, cz + 1.15, Math.PI, true);
-          }
-          if (isPres) {
-            addChair(cx - 2.5, baseY, cz, Math.PI / 2, true);
-            addChair(cx + 2.5, baseY, cz, -Math.PI / 2, true);
-          }
+          // 6 Executive Cognac Leather Chairs evenly spaced
+          [-1.2, 0, 1.2].forEach(dx => {
+            addChair(cx + dx, baseY, cz - 0.85, 0, true);
+            addChair(cx + dx, baseY, cz + 0.85, Math.PI, true);
+          });
 
           addWallTv(cx, cz, false);
-          addPlant(cx - 3.0, cz + 1.8);
+          addPlant(cx - 3.2, cz + 2.0);
+          break;
+        }
+
+        case 'EXECUTIVE_OFFICE': {
+          // Executive Desk & Chair
+          buckets.confTablesEspresso.push({ pos: [cx, baseY, cz - 1.0], rotY: 0, scale: [0.55, 1.0, 0.65] });
+          addChair(cx, baseY, cz - 1.65, 0, true);
+          addMonitor(cx, baseY + 0.74, cz - 1.0, 0, false);
+
+          // 2 Visitor Chairs in front of desk
+          addChair(cx - 0.75, baseY, cz - 0.35, Math.PI, false);
+          addChair(cx + 0.75, baseY, cz - 0.35, Math.PI, false);
+
+          addWallTv(cx, cz, true);
+          addPlant(cx + 2.8, cz - 1.8);
+          break;
+        }
+
+        case 'RECEPTION_LOBBY': {
+          // Reception Desk
+          buckets.workstationDesks.push({ pos: [cx, baseY, cz - 0.1], rotY: 0, scale: [1.2, 1, 1] });
+          addChair(cx, baseY, cz - 0.50, 0, false);
+          addMonitor(cx, baseY + 0.74, cz - 0.1, 0, false);
+
+          // Waiting Lounge on side
+          buckets.sectionalSofasSlate.push({ pos: [cx - 2.2, baseY, cz + 1.2], rotY: Math.PI * 0.15, scale: [0.75, 1, 1] });
+          buckets.coffeeTables.push({ pos: [cx - 1.4, baseY, cz + 1.2], rotY: 0, scale: [0.7, 1, 0.7] });
+          addPlant(cx + 2.6, cz + 1.4);
+          break;
+        }
+
+        case 'CAFE_LOUNGE': {
+          const backSign = cz > 0 ? 1 : -1;
+          // 2 widely spaced cafe groupings
+          [1.5 * backSign, -2.5 * backSign].forEach(dz => {
+            buckets.coffeeTables.push({ pos: [cx, baseY, cz + dz], rotY: 0, scale: [0.8, 1.2, 0.8] });
+            addChair(cx - 1.8, baseY, cz + dz, 0, false);
+            addChair(cx + 1.8, baseY, cz + dz, Math.PI, false);
+          });
+          addPlant(cx + 3.0, cz);
           break;
         }
 
@@ -1782,52 +2835,18 @@ export class Building3D {
           const isPent = type === 'LUXURY_PENTHOUSE_LIVING';
           if (isPent) {
             buckets.areaRugsCream.push({ pos: [cx, baseY + 0.015, cz], rotY: 0 });
-            buckets.sectionalSofasSand.push({ pos: [cx, baseY, cz], rotY: 0 });
+            buckets.sectionalSofasSand.push({ pos: [cx, baseY, cz + 1.10], rotY: Math.PI });
           } else {
             buckets.areaRugsSlate.push({ pos: [cx, baseY + 0.015, cz], rotY: 0 });
-            buckets.sectionalSofasSlate.push({ pos: [cx, baseY, cz], rotY: 0 });
+            buckets.sectionalSofasSlate.push({ pos: [cx, baseY, cz + 1.10], rotY: Math.PI });
           }
 
-          buckets.coffeeTables.push({ pos: [cx - 0.10, baseY + 0.17, cz + 0.15], rotY: 0 });
+          buckets.coffeeTables.push({ pos: [cx, baseY, cz], rotY: 0 });
+          addChair(cx - 1.6, baseY, cz - 0.10, Math.PI * 0.45, true);
+          addChair(cx + 1.6, baseY, cz - 0.10, -Math.PI * 0.45, true);
+
           addWallTv(cx, cz, true);
-          addPlant(cx + 2.8, cz - 2.0);
-          break;
-        }
-
-        case 'EXECUTIVE_OFFICE': {
-          buckets.confTablesEspresso.push({ pos: [cx, baseY, cz - 0.45], rotY: 0, scale: [0.65, 1.0, 0.75] });
-          addChair(cx, baseY, cz - 1.05, 0, true);
-          addChair(cx - 0.85, baseY, cz + 0.85, Math.PI, false);
-          addChair(cx + 0.85, baseY, cz + 0.85, Math.PI, false);
-          addMonitor(cx, baseY + 0.76, cz - 0.45, 0, false);
-          buckets.whiteboards.push({ pos: [cx + 3.4, baseY + 1.9, cz], rotY: -Math.PI / 2 });
-          addPlant(cx - 2.8, cz - 1.8);
-          break;
-        }
-
-        case 'RECEPTION_LOBBY': {
-          buckets.workstationDesks.push({ pos: [cx, baseY, cz], rotY: 0 });
-          addChair(cx, baseY, cz - 0.65, 0, false);
-          addMonitor(cx, baseY + 0.76, cz - 0.15, 0, false);
-          buckets.sectionalSofasSlate.push({ pos: [cx - 2.0, baseY, cz + 1.4], rotY: 0, scale: [0.65, 1, 1] });
-          buckets.sectionalSofasSlate.push({ pos: [cx + 2.0, baseY, cz + 1.4], rotY: 0, scale: [0.65, 1, 1] });
-          buckets.coffeeTables.push({ pos: [cx, baseY + 0.18, cz + 1.4], rotY: 0 });
-          addPlant(cx - 2.8, cz);
-          addPlant(cx + 2.8, cz);
-          break;
-        }
-
-        case 'CAFE_LOUNGE': {
-          const backSign = cz > 0 ? 1 : -1;
-          for (const dz of [4.8 * backSign, 0, -4.8 * backSign]) {
-            for (const dx of [-1.5, 1.5]) {
-              buckets.coffeeTables.push({ pos: [cx + dx, baseY + 0.36, cz + dz], rotY: 0 });
-              addChair(cx + dx, baseY, cz + dz - 0.65, 0, false);
-              addChair(cx + dx, baseY, cz + dz + 0.65, Math.PI, false);
-            }
-          }
-          addPlant(cx + 2.8, cz + 6.8 * backSign);
-          addPlant(cx - 2.8, cz - 6.8 * backSign);
+          addPlant(cx + 3.0, cz - 2.0);
           break;
         }
 
@@ -1881,4 +2900,3 @@ export class Building3D {
     mapMesh(buckets.whiteboards, this.wallTvFrameGeo, this.whiteboardMat);
   }
 }
-
