@@ -12,8 +12,8 @@ export class Building3D {
     this.floorHeight = 3.8; // Realistic commercial floor-to-floor height
     this.totalFloors = 10;
     this.floorMode = 'ALL';
-    this.facadeMode = 'CUTAWAY'; // 'CUTAWAY', 'FULL', 'TRANSPARENT'
-    this.viewMode = 'CUTAWAY';
+    this.facadeMode = 'FULL'; // 'FULL' (default Appearance), 'CUTAWAY', 'TRANSPARENT'
+    this.viewMode = 'FULL_EXTERIOR';
 
     // === Layer Subgroups for Professional Digital Twin Layer Filtering ===
     this.layers = {
@@ -49,8 +49,8 @@ export class Building3D {
     this.layers.mep.add(this.roofGroup);
     this.layers.facade.add(this.facadeCutawayGroup);
 
-    this.cutawayProgress = 1.0; // 1.0 = Cutaway (default), 0.0 = Full Exterior
-    this.targetCutawayProgress = 1.0;
+    this.cutawayProgress = 0.0; // 0.0 = Full Exterior (default Appearance), 1.0 = Cutaway (De-appearance)
+    this.targetCutawayProgress = 0.0;
 
     this.hvacFans = []; // For subtle mechanical rotation in update()
     this.stairCoreMeshes = []; // For dual-mode exterior vs inspection toggling

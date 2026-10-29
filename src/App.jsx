@@ -90,7 +90,7 @@ export function App() {
   const [bottlenecks, setBottlenecks] = useState([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simSpeed, setSimSpeed] = useState(1.0);
-  const [facadeMode, setFacadeMode] = useState('CUTAWAY');
+  const [facadeMode, setFacadeMode] = useState('FULL');
   const [activeFloorView, setActiveFloorView] = useState('ALL');
   const [activeTab, setActiveTab] = useState('LIVE_VIEW');
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
