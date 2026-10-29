@@ -6,6 +6,7 @@ import { BottleneckAnalytics } from './components/BottleneckAnalytics';
 import { ControlPanel } from './components/ControlPanel';
 import { RoomModal } from './components/RoomModal';
 import { FireTriggerBubble } from './components/FireTriggerBubble';
+import { GISCommandModal } from './components/GISCommandModal';
 import {
   ShieldAlert,
   Flame,
@@ -17,7 +18,8 @@ import {
   X,
   Users,
   CheckCircle2,
-  Clock
+  Clock,
+  Globe
 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -71,6 +73,8 @@ export function App() {
   const [facadeMode, setFacadeMode] = useState('CUTAWAY');
   const [activeFloorView, setActiveFloorView] = useState('ALL');
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
+  const [isGisOpen, setIsGisOpen] = useState(false);
+  const [is3DGisLayerActive, setIs3DGisLayerActive] = useState(false);
   const [fireBubbleData, setFireBubbleData] = useState(null);
   const [isCctvOpen, setIsCctvOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
@@ -107,6 +111,9 @@ export function App() {
       },
       (newFacadeMode) => {
         setFacadeMode(newFacadeMode);
+      },
+      () => {
+        setIsGisOpen((prev) => !prev);
       }
     );
 
@@ -326,6 +333,28 @@ export function App() {
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           </button>
 
+          {/* GIS Geospatial Command Toggle */}
+          <button
+            onClick={() => {
+              const nextState = !isGisOpen;
+              setIsGisOpen(nextState);
+              if (sceneManagerRef.current) {
+                sceneManagerRef.current.toggleGisLayer(nextState);
+                setIs3DGisLayerActive(nextState);
+              }
+            }}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-hud font-bold tracking-wider flex items-center gap-2 transition-all ${
+              isGisOpen
+                ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,240,255,0.4)]'
+                : 'bg-slate-900/90 border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-white'
+            }`}
+            title="Press 'G' to Toggle GIS Geospatial Command Center"
+          >
+            <Globe className="w-3.5 h-3.5 text-cyan-400" />
+            <span>GIS GEOSPATIAL</span>
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          </button>
+
           {/* Analytics Drawer Toggle */}
           <button
             onClick={() => {
@@ -493,6 +522,21 @@ export function App() {
           </div>
         </div>
       </div>
+
+      {/* GIS Geospatial Command Center Modal */}
+      <GISCommandModal
+        isOpen={isGisOpen}
+        onClose={() => setIsGisOpen(false)}
+        isGisLayerActive={is3DGisLayerActive}
+        onToggle3DGisLayer={() => {
+          if (sceneManagerRef.current) {
+            const active = sceneManagerRef.current.toggleGisLayer();
+            setIs3DGisLayerActive(active);
+          }
+        }}
+        onSetCameraPreset={handleSetCameraPreset}
+        rooms={rooms}
+      />
 
       {/* Interactive Room Inspection Modal (Single-Click) */}
       {activeModalRoomId && (
