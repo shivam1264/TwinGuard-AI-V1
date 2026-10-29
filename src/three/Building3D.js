@@ -66,6 +66,7 @@ export class Building3D {
     this.waterTex = TextureHelper.createWaterCausticsTexture();
     this.treeBarkTex = TextureHelper.createTreeBarkTexture();
     this.treeFoliageTex = TextureHelper.createTreeFoliageTexture();
+    this.treeGrateTex = TextureHelper.createTreeGrateTexture();
     this.tactileTex = TextureHelper.createTactilePaverTexture();
     this.exitSignLeftTex = TextureHelper.createExitSignLeftTexture();
     this.exitSignRightTex = TextureHelper.createExitSignRightTexture();
@@ -145,22 +146,32 @@ export class Building3D {
       metalness: 0.3
     });
 
-    // Architectural 3D Tree Trunk & Foliage Materials
+    // Architectural 3D Tree Trunk, Foliage & Urban Plaza Grate Materials
     this.treeTrunkMat = new THREE.MeshStandardMaterial({
       map: this.treeBarkTex,
-      roughness: 0.88,
+      roughness: 0.92,
       metalness: 0.05
     });
     this.treeFoliageMat = new THREE.MeshStandardMaterial({
       map: this.treeFoliageTex,
       color: 0x2e6b26,
-      roughness: 0.82,
+      roughness: 0.78,
       metalness: 0.02
     });
     this.cypressFoliageMat = new THREE.MeshStandardMaterial({
       map: this.treeFoliageTex,
-      color: 0x1a4519,
-      roughness: 0.88,
+      color: 0x163814,
+      roughness: 0.85,
+      metalness: 0.02
+    });
+    this.treeGrateMat = new THREE.MeshStandardMaterial({
+      map: this.treeGrateTex,
+      roughness: 0.45,
+      metalness: 0.85
+    });
+    this.treeMulchMat = new THREE.MeshStandardMaterial({
+      color: 0x20140c,
+      roughness: 0.95,
       metalness: 0.02
     });
 
@@ -1049,42 +1060,162 @@ export class Building3D {
     waterMesh.position.set(22, 0.18, 24);
     this.group.add(waterMesh);
 
-    // 12. Architectural 3D Trees (Broadleaf Oak Shade Trees & Columnar Cypress Trees)
+    // 12. Architectural 3D Trees (Photorealistic Broadleaf Oak Shade Trees & Italian Cypress Spires)
     const treeTrunkGeos = [];
     const deciduousFoliageGeos = [];
     const cypressFoliageGeos = [];
+    const treeGrateGeos = [];
+    const treeMulchGeos = [];
 
-    // Helper: Add Broadleaf Oak Shade Tree
-    const addDeciduousTree = (tx, tz, scale = 1.0) => {
-      // Wood Trunk with Natural Flare
-      const trunk = new THREE.CylinderGeometry(0.22 * scale, 0.38 * scale, 4.2 * scale, 10);
-      trunk.translate(tx, (4.2 * scale) / 2 + 0.02, tz);
-      treeTrunkGeos.push(trunk);
-
-      // Multi-tier voluminous organic canopy (Clusters of dodecahedrons for realistic leaf masses)
-      const foliageClusters = [
-        { dx: 0, dy: 4.8 * scale, dz: 0, r: 2.2 * scale },
-        { dx: -1.2 * scale, dy: 4.2 * scale, dz: 0.8 * scale, r: 1.6 * scale },
-        { dx: 1.3 * scale, dy: 4.3 * scale, dz: -0.6 * scale, r: 1.7 * scale },
-        { dx: 0.5 * scale, dy: 5.4 * scale, dz: 0.7 * scale, r: 1.5 * scale },
-        { dx: -0.7 * scale, dy: 4.0 * scale, dz: -1.0 * scale, r: 1.4 * scale },
-      ];
-      foliageClusters.forEach(fc => {
-        const cGeo = new THREE.DodecahedronGeometry(fc.r, 1);
-        cGeo.translate(tx + fc.dx, fc.dy + 0.02, tz + fc.dz);
-        deciduousFoliageGeos.push(cGeo);
-      });
+    // Helper: Oriented tapered branch/stem segment between two 3D points
+    const createBranch = (p1, p2, r1, r2, radialSegments = 6) => {
+      const v1 = new THREE.Vector3(...p1);
+      const v2 = new THREE.Vector3(...p2);
+      const dir = new THREE.Vector3().subVectors(v2, v1);
+      const len = dir.length();
+      const geo = new THREE.CylinderGeometry(r2, r1, len, radialSegments);
+      const mid = new THREE.Vector3().addVectors(v1, v2).multiplyScalar(0.5);
+      const up = new THREE.Vector3(0, 1, 0);
+      const quat = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().normalize());
+      geo.applyQuaternion(quat);
+      geo.translate(mid.x, mid.y, mid.z);
+      return geo;
     };
 
-    // Helper: Add Columnar Cypress Tree (Evergreen architectural column)
+    // Helper: Organic ruffled leaf cluster (billowing botanical pod with vertex noise perturbation)
+    const createOrganicPod = (radius, scaleY = 1.0, seed = 1.0) => {
+      const geo = new THREE.IcosahedronGeometry(radius, 2);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const y = pos.getY(i);
+        const z = pos.getZ(i);
+        const noise = Math.sin(x * 3.2 + seed) * 0.14 +
+                      Math.cos(y * 3.8 + z * 2.5 + seed * 1.5) * 0.14 +
+                      Math.sin(z * 4.1 + x * 2.2) * 0.08;
+        pos.setXYZ(i, (x + noise * x) * 1.0, (y + noise * y) * scaleY, (z + noise * z) * 1.0);
+      }
+      geo.computeVertexNormals();
+      return geo;
+    };
+
+    let treeSeedCounter = 10.0;
+
+    // Helper: Add Broadleaf Oak Shade Tree (Architectural specimen with realistic branch scaffold & billowing canopy)
+    const addDeciduousTree = (tx, tz, scale = 1.0) => {
+      const seed = treeSeedCounter++;
+
+      // 1. Root Flare Buttresses (4 organic anchor roots merging into earth)
+      for (let r = 0; r < 4; r++) {
+        const ang = (r * Math.PI) / 2 + 0.35 * Math.sin(seed + r);
+        const rx = Math.cos(ang) * 0.72 * scale;
+        const rz = Math.sin(ang) * 0.72 * scale;
+        treeTrunkGeos.push(createBranch([tx + rx, 0.02, tz + rz], [tx, 0.75 * scale, tz], 0.16 * scale, 0.34 * scale, 6));
+      }
+
+      // 2. Crooked Organic Main Trunk with natural curvature
+      const midTrunkX = tx + 0.14 * scale * Math.sin(seed * 0.7);
+      const midTrunkZ = tz + 0.12 * scale * Math.cos(seed * 0.9);
+      const splitX = tx - 0.08 * scale * Math.cos(seed * 0.8);
+      const splitZ = tz + 0.09 * scale * Math.sin(seed * 0.6);
+
+      treeTrunkGeos.push(createBranch([tx, 0.7 * scale, tz], [midTrunkX, 2.1 * scale, midTrunkZ], 0.35 * scale, 0.27 * scale, 7));
+      treeTrunkGeos.push(createBranch([midTrunkX, 2.1 * scale, midTrunkZ], [splitX, 3.5 * scale, splitZ], 0.27 * scale, 0.21 * scale, 7));
+
+      // 3. Four Major Scaffold Boughs spreading outward & upward
+      const boughs = [
+        { dx:  1.6 * scale, dy: 4.8 * scale, dz:  0.8 * scale, r: 0.12 * scale, sdx:  0.8 * scale, sdz:  0.5 * scale },
+        { dx: -1.7 * scale, dy: 4.7 * scale, dz:  0.7 * scale, r: 0.12 * scale, sdx: -0.7 * scale, sdz:  0.6 * scale },
+        { dx:  0.3 * scale, dy: 4.9 * scale, dz: -1.7 * scale, r: 0.12 * scale, sdx:  0.4 * scale, sdz: -0.7 * scale },
+        { dx: -0.1 * scale, dy: 5.4 * scale, dz:  0.2 * scale, r: 0.13 * scale, sdx: -0.3 * scale, sdz: -0.2 * scale },
+      ];
+
+      boughs.forEach((b) => {
+        const bp = [tx + b.dx, b.dy, tz + b.dz];
+        treeTrunkGeos.push(createBranch([splitX, 3.5 * scale, splitZ], bp, 0.18 * scale, b.r, 6));
+        // Secondary branch offshoot
+        const sbp = [bp[0] + b.sdx, b.dy + 0.9 * scale, bp[2] + b.sdz];
+        treeTrunkGeos.push(createBranch(bp, sbp, b.r, 0.06 * scale, 5));
+      });
+
+      // 4. Multi-Layer Voluminous Billowing Leaf Masses (18 organic perturbed pods)
+      const podLayers = [
+        // Lower Canopy Skirt (broad umbrella spread)
+        { y: 4.5 * scale, count: 7, rDist: 2.2 * scale, pr: 1.55 * scale, scaleY: 0.95 },
+        // Mid Canopy Dome (dense, lush central volume)
+        { y: 5.8 * scale, count: 7, rDist: 1.45 * scale, pr: 1.65 * scale, scaleY: 1.05 },
+        // Crown Apex (lofty sunlit crown tops)
+        { y: 6.9 * scale, count: 4, rDist: 0.55 * scale, pr: 1.45 * scale, scaleY: 1.00 },
+      ];
+
+      podLayers.forEach((l, lIdx) => {
+        for (let p = 0; p < l.count; p++) {
+          const ang = (p / l.count) * Math.PI * 2 + lIdx * 0.9 + (p % 2) * 0.25;
+          const px = tx + Math.cos(ang) * l.rDist;
+          const pz = tz + Math.sin(ang) * l.rDist;
+          const pod = createOrganicPod(l.pr, l.scaleY, seed + lIdx * 3.5 + p);
+          pod.translate(px, l.y, pz);
+          deciduousFoliageGeos.push(pod);
+        }
+      });
+
+      // 5. Urban Cast-Iron Tree Grate or Organic Mulch Bed at Base
+      const isUrbanPlaza = Math.abs(tx) <= 40 && Math.abs(tz) <= 40;
+      if (isUrbanPlaza) {
+        // Cast-Iron Tree Grate
+        const grateGeo = new THREE.PlaneGeometry(2.3 * scale, 2.3 * scale);
+        grateGeo.rotation.x = -Math.PI / 2;
+        grateGeo.translate(tx, 0.035, tz);
+        treeGrateGeos.push(grateGeo);
+
+        // Inner Mulch Soil Earth Bed
+        const mulchGeo = new THREE.CircleGeometry(0.85 * scale, 16);
+        mulchGeo.rotation.x = -Math.PI / 2;
+        mulchGeo.translate(tx, 0.03, tz);
+        treeMulchGeos.push(mulchGeo);
+      } else {
+        // Natural Park Lawn Mulch Ring
+        const mulchGeo = new THREE.RingGeometry(0.25 * scale, 1.7 * scale, 16);
+        mulchGeo.rotation.x = -Math.PI / 2;
+        mulchGeo.translate(tx, 0.025, tz);
+        treeMulchGeos.push(mulchGeo);
+      }
+    };
+
+    // Helper: Add Columnar Italian Cypress Tree (Elegant Mediterranean evergreen spire)
     const addCypressTree = (cx, cz, scale = 1.0) => {
-      const trunk = new THREE.CylinderGeometry(0.14 * scale, 0.22 * scale, 2.0 * scale, 8);
-      trunk.translate(cx, (2.0 * scale) / 2 + 0.02, cz);
+      const seed = treeSeedCounter++;
+
+      // 1. Central Trunk Stem
+      const trunk = new THREE.CylinderGeometry(0.12 * scale, 0.22 * scale, 2.4 * scale, 7);
+      trunk.translate(cx, (2.4 * scale) / 2 + 0.02, cz);
       treeTrunkGeos.push(trunk);
 
-      const cone = new THREE.ConeGeometry(1.1 * scale, 6.2 * scale, 10);
-      cone.translate(cx, 1.8 * scale + (6.2 * scale) / 2 + 0.02, cz);
-      cypressFoliageGeos.push(cone);
+      // 2. Vertically-Overlapping Flame-Shaped Foliage Pods (12 pods)
+      const cypressLayers = [
+        { y: 2.2 * scale, r: 0.72 * scale, count: 3, rDist: 0.28 * scale, scaleY: 1.35 },
+        { y: 3.6 * scale, r: 0.88 * scale, count: 4, rDist: 0.32 * scale, scaleY: 1.45 },
+        { y: 5.0 * scale, r: 0.74 * scale, count: 3, rDist: 0.22 * scale, scaleY: 1.50 },
+        { y: 6.3 * scale, r: 0.54 * scale, count: 1, rDist: 0.00 * scale, scaleY: 1.65 },
+        { y: 7.2 * scale, r: 0.38 * scale, count: 1, rDist: 0.00 * scale, scaleY: 1.70 }
+      ];
+
+      cypressLayers.forEach((l, lIdx) => {
+        for (let p = 0; p < l.count; p++) {
+          const ang = (p / l.count) * Math.PI * 2 + lIdx * 0.8 + (p % 2) * 0.3;
+          const px = cx + Math.cos(ang) * l.rDist;
+          const pz = cz + Math.sin(ang) * l.rDist;
+          const pod = createOrganicPod(l.r, l.scaleY, seed + lIdx * 2.3 + p);
+          pod.translate(px, l.y, pz);
+          cypressFoliageGeos.push(pod);
+        }
+      });
+
+      // 3. Base Mulch Soil Ring
+      const mulchGeo = new THREE.RingGeometry(0.15 * scale, 0.95 * scale, 14);
+      mulchGeo.rotation.x = -Math.PI / 2;
+      mulchGeo.translate(cx, 0.025, cz);
+      treeMulchGeos.push(mulchGeo);
     };
 
     // Tree Layout:
@@ -1128,6 +1259,12 @@ export class Building3D {
     }
     if (cypressFoliageGeos.length > 0) {
       this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cypressFoliageGeos), this.cypressFoliageMat));
+    }
+    if (treeGrateGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treeGrateGeos), this.treeGrateMat));
+    }
+    if (treeMulchGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treeMulchGeos), this.treeMulchMat));
     }
 
     // 13. Modern Park Benches (Teak timber slats with dark steel frames)

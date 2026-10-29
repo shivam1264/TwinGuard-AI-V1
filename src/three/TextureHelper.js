@@ -442,63 +442,144 @@ export class TextureHelper {
     return texture;
   }
 
-  // Natural Vertical Furrowed Tree Bark Texture
+  // Natural Weathered Wood Bark Texture (Furrowed ridges & organic grain)
   static createTreeBarkTexture() {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
+    canvas.width = 512;
+    canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    // Warm deep wood bark base
-    ctx.fillStyle = '#3e2723';
-    ctx.fillRect(0, 0, 256, 256);
+    // Deep weathered oak bark foundation
+    ctx.fillStyle = '#261a12';
+    ctx.fillRect(0, 0, 512, 512);
 
-    // Vertical furrow striations
-    for (let x = 0; x < 256; x += 4) {
-      const shade = Math.floor(Math.random() * 40 - 20);
-      ctx.fillStyle = `rgb(${78 + shade}, ${52 + shade}, ${38 + shade})`;
-      ctx.fillRect(x, 0, 3, 256);
+    // Natural vertical bark ridges with organic waving
+    const barkShades = ['#3a261a', '#4a3222', '#2f1e14', '#523a28', '#1f130b', '#342217'];
+    for (let x = 0; x < 512; x += 3) {
+      const shade = barkShades[Math.floor(Math.random() * barkShades.length)];
+      ctx.fillStyle = shade;
 
-      // Dark furrow crevices
-      if (Math.random() > 0.6) {
-        ctx.fillStyle = 'rgba(20, 10, 5, 0.7)';
-        ctx.fillRect(x + 1, 0, 1.5, 256);
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      let curX = x;
+      for (let y = 0; y <= 512; y += 32) {
+        curX += (Math.random() - 0.5) * 3;
+        ctx.lineTo(curX, y);
+      }
+      ctx.lineTo(curX + 2.5, 512);
+      ctx.lineTo(x + 2.5, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      // Deep shadow fissures
+      if (Math.random() > 0.65) {
+        ctx.fillStyle = 'rgba(10, 5, 2, 0.75)';
+        ctx.fillRect(curX, 0, 1.2, 512);
       }
     }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(2, 6);
-    return texture;
-  }
-
-  // Dappled Organic Foliage Texture (for Tree Canopies)
-  static createTreeFoliageTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#2d5a27';
-    ctx.fillRect(0, 0, 256, 256);
-
-    // Dappled sunlit leaf spots
-    const leafColors = ['#3e7b32', '#4b943d', '#22481d', '#5ba84a', '#1e3d1a', '#68ba54'];
-    for (let i = 0; i < 4000; i++) {
-      const lx = Math.random() * 256;
-      const ly = Math.random() * 256;
-      const lr = 2 + Math.random() * 4;
-      ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)];
-      ctx.beginPath();
-      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
-      ctx.fill();
+    // Subtle lichen & moss flecks
+    ctx.fillStyle = 'rgba(84, 98, 70, 0.35)';
+    for (let i = 0; i < 400; i++) {
+      ctx.fillRect(Math.random() * 512, Math.random() * 512, 3, 3);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(3, 3);
+    texture.repeat.set(2, 4);
+    return texture;
+  }
+
+  // Realistic Multi-Toned Botanical Foliage Texture (Lush leaves with sunlit highlights)
+  static createTreeFoliageTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Deep forest green leaf background
+    ctx.fillStyle = '#1c3d15';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Multi-shade leaf blade layers (dense organic leaf shapes, NO geometric circles)
+    const leafTones = [
+      '#26541d', '#316b25', '#3d822f', '#4b9a39',
+      '#214a19', '#57a842', '#183812', '#64b84c'
+    ];
+
+    for (let i = 0; i < 8500; i++) {
+      const lx = Math.random() * 512;
+      const ly = Math.random() * 512;
+      const lw = 3 + Math.random() * 6;
+      const lh = 5 + Math.random() * 10;
+      const rot = Math.random() * Math.PI;
+
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(rot);
+      ctx.fillStyle = leafTones[Math.floor(Math.random() * leafTones.length)];
+
+      // Elliptical leaf blade with pointed tip
+      ctx.beginPath();
+      ctx.ellipse(0, 0, lw / 2, lh / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Subtle light center rib
+      if (Math.random() > 0.6) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.fillRect(-0.4, -lh / 2, 0.8, lh);
+      }
+      ctx.restore();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    return texture;
+  }
+
+  // Architectural Cast-Iron Tree Grate Texture (Plaza pavement integration)
+  static createTreeGrateTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Dark cast-iron finish
+    ctx.fillStyle = '#1e2530';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Center circular mulch earth hole
+    ctx.fillStyle = '#22150c';
+    ctx.beginPath();
+    ctx.arc(256, 256, 110, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cast-iron concentric ventilation slots
+    ctx.strokeStyle = '#0f141c';
+    ctx.lineWidth = 4;
+    for (let r = 130; r < 240; r += 20) {
+      ctx.beginPath();
+      ctx.arc(256, 256, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Radial drainage ribs
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+      ctx.beginPath();
+      ctx.moveTo(256 + Math.cos(a) * 120, 256 + Math.sin(a) * 120);
+      ctx.lineTo(256 + Math.cos(a) * 240, 256 + Math.sin(a) * 240);
+      ctx.stroke();
+    }
+
+    // Outer border frame
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(6, 6, 500, 500);
+
+    const texture = new THREE.CanvasTexture(canvas);
     return texture;
   }
 
