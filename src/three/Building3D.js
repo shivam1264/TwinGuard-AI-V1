@@ -63,6 +63,10 @@ export class Building3D {
     this.asphaltTex = TextureHelper.createAsphaltRoadTexture();
     this.grassTex = TextureHelper.createGrassLawnTexture();
     this.crosswalkTex = TextureHelper.createCrosswalkTexture();
+    this.waterTex = TextureHelper.createWaterCausticsTexture();
+    this.treeBarkTex = TextureHelper.createTreeBarkTexture();
+    this.treeFoliageTex = TextureHelper.createTreeFoliageTexture();
+    this.tactileTex = TextureHelper.createTactilePaverTexture();
     this.exitSignLeftTex = TextureHelper.createExitSignLeftTexture();
     this.exitSignRightTex = TextureHelper.createExitSignRightTexture();
 
@@ -117,6 +121,95 @@ export class Building3D {
       map: this.crosswalkTex,
       roughness: 0.65,
       metalness: 0.08
+    });
+
+    // Tactile Warning Blister Paver Material
+    this.tactileMat = new THREE.MeshStandardMaterial({
+      map: this.tactileTex,
+      roughness: 0.65,
+      metalness: 0.1
+    });
+
+    // Architectural Reflecting Pool Water & Basalt Coping
+    this.waterMat = new THREE.MeshStandardMaterial({
+      map: this.waterTex,
+      color: 0x0284c7,
+      transparent: true,
+      opacity: 0.78,
+      roughness: 0.04,
+      metalness: 0.2
+    });
+    this.poolCopingMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.35,
+      metalness: 0.3
+    });
+
+    // Architectural 3D Tree Trunk & Foliage Materials
+    this.treeTrunkMat = new THREE.MeshStandardMaterial({
+      map: this.treeBarkTex,
+      roughness: 0.88,
+      metalness: 0.05
+    });
+    this.treeFoliageMat = new THREE.MeshStandardMaterial({
+      map: this.treeFoliageTex,
+      color: 0x2e6b26,
+      roughness: 0.82,
+      metalness: 0.02
+    });
+    this.cypressFoliageMat = new THREE.MeshStandardMaterial({
+      map: this.treeFoliageTex,
+      color: 0x1a4519,
+      roughness: 0.88,
+      metalness: 0.02
+    });
+
+    // Modern Executive & EV Vehicle Materials
+    this.carBodyDarkMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.12,
+      metalness: 0.85
+    });
+    this.carBodyWhiteMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.15,
+      metalness: 0.75
+    });
+    this.carBodyBlueMat = new THREE.MeshStandardMaterial({
+      color: 0x1d4ed8,
+      roughness: 0.14,
+      metalness: 0.82
+    });
+    this.carGlassMat = new THREE.MeshStandardMaterial({
+      color: 0x090d16,
+      transparent: true,
+      opacity: 0.75,
+      roughness: 0.05,
+      metalness: 0.9
+    });
+    this.carWheelMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.6,
+      metalness: 0.3
+    });
+
+    // Modern Park Bench Materials
+    this.benchWoodMat = new THREE.MeshStandardMaterial({
+      color: 0xb45309,
+      roughness: 0.45,
+      metalness: 0.05
+    });
+    this.benchFrameMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.4,
+      metalness: 0.8
+    });
+
+    // High-Visibility Safety Red Fire Hydrant Material
+    this.fireHydrantMat = new THREE.MeshStandardMaterial({
+      color: 0xdc2626,
+      roughness: 0.3,
+      metalness: 0.4
     });
 
     // Architectural Chamfered Concrete Curb Stone
@@ -212,13 +305,13 @@ export class Building3D {
       roughness: 0.3
     });
 
-    // 10. Ultra-Fast Lightweight Standard Glass (ZERO expensive transmission passes!)
+    // 10. Ultra-Fast Architectural Reflective Glass (Full PMREM Sky & Cloud Reflection)
     this.glassMat = new THREE.MeshStandardMaterial({
       color: 0x93c5fd,
       transparent: true,
-      opacity: 0.25,
-      roughness: 0.1,
-      metalness: 0.3
+      opacity: 0.30,
+      roughness: 0.04,
+      metalness: 0.55
     });
 
     this.mullionMat = new THREE.MeshStandardMaterial({
@@ -928,7 +1021,266 @@ export class Building3D {
       this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGlowGeos), this.bollardGlowMat));
     }
 
-    // 11. Dedicated Emergency Assembly Muster Zones
+    // 11. Architectural Water Court / Reflecting Pool (Front Plaza Flank x: 14 to 30, z: 20 to 28)
+    const poolW = 16;
+    const poolD = 7;
+    const poolBorderW = 0.5;
+    const poolCopingGeos = [];
+
+    // Basalt granite pool rim border
+    const copSouth = new THREE.BoxGeometry(poolW + poolBorderW * 2, 0.28, poolBorderW);
+    copSouth.translate(22, 0.14, 27.5);
+    poolCopingGeos.push(copSouth);
+    const copNorth = new THREE.BoxGeometry(poolW + poolBorderW * 2, 0.28, poolBorderW);
+    copNorth.translate(22, 0.14, 20.5);
+    poolCopingGeos.push(copNorth);
+    const copWest = new THREE.BoxGeometry(poolBorderW, 0.28, poolD);
+    copWest.translate(14 - poolBorderW / 2, 0.14, 24);
+    poolCopingGeos.push(copWest);
+    const copEast = new THREE.BoxGeometry(poolBorderW, 0.28, poolD);
+    copEast.translate(30 + poolBorderW / 2, 0.14, 24);
+    poolCopingGeos.push(copEast);
+
+    this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(poolCopingGeos), this.poolCopingMat));
+
+    // Shimmering Pool Water Basin Surface
+    const waterMesh = new THREE.Mesh(new THREE.PlaneGeometry(poolW, poolD), this.waterMat);
+    waterMesh.rotation.x = -Math.PI / 2;
+    waterMesh.position.set(22, 0.18, 24);
+    this.group.add(waterMesh);
+
+    // 12. Architectural 3D Trees (Broadleaf Oak Shade Trees & Columnar Cypress Trees)
+    const treeTrunkGeos = [];
+    const deciduousFoliageGeos = [];
+    const cypressFoliageGeos = [];
+
+    // Helper: Add Broadleaf Oak Shade Tree
+    const addDeciduousTree = (tx, tz, scale = 1.0) => {
+      // Wood Trunk with Natural Flare
+      const trunk = new THREE.CylinderGeometry(0.22 * scale, 0.38 * scale, 4.2 * scale, 10);
+      trunk.translate(tx, (4.2 * scale) / 2 + 0.02, tz);
+      treeTrunkGeos.push(trunk);
+
+      // Multi-tier voluminous organic canopy (Clusters of dodecahedrons for realistic leaf masses)
+      const foliageClusters = [
+        { dx: 0, dy: 4.8 * scale, dz: 0, r: 2.2 * scale },
+        { dx: -1.2 * scale, dy: 4.2 * scale, dz: 0.8 * scale, r: 1.6 * scale },
+        { dx: 1.3 * scale, dy: 4.3 * scale, dz: -0.6 * scale, r: 1.7 * scale },
+        { dx: 0.5 * scale, dy: 5.4 * scale, dz: 0.7 * scale, r: 1.5 * scale },
+        { dx: -0.7 * scale, dy: 4.0 * scale, dz: -1.0 * scale, r: 1.4 * scale },
+      ];
+      foliageClusters.forEach(fc => {
+        const cGeo = new THREE.DodecahedronGeometry(fc.r, 1);
+        cGeo.translate(tx + fc.dx, fc.dy + 0.02, tz + fc.dz);
+        deciduousFoliageGeos.push(cGeo);
+      });
+    };
+
+    // Helper: Add Columnar Cypress Tree (Evergreen architectural column)
+    const addCypressTree = (cx, cz, scale = 1.0) => {
+      const trunk = new THREE.CylinderGeometry(0.14 * scale, 0.22 * scale, 2.0 * scale, 8);
+      trunk.translate(cx, (2.0 * scale) / 2 + 0.02, cz);
+      treeTrunkGeos.push(trunk);
+
+      const cone = new THREE.ConeGeometry(1.1 * scale, 6.2 * scale, 10);
+      cone.translate(cx, 1.8 * scale + (6.2 * scale) / 2 + 0.02, cz);
+      cypressFoliageGeos.push(cone);
+    };
+
+    // Tree Layout:
+    // Placed along South plaza & park
+    addDeciduousTree(-35, 34, 1.1);
+    addDeciduousTree(-22, 34, 0.95);
+    addDeciduousTree(-10, 34, 1.05);
+    addDeciduousTree(36, 34, 1.15);
+
+    // Outer Park Lawn Trees
+    addDeciduousTree(-74, 30, 1.3);
+    addDeciduousTree(-74, -20, 1.25);
+    addDeciduousTree(-74, -45, 1.2);
+    addDeciduousTree(74, 30, 1.3);
+    addDeciduousTree(74, -20, 1.25);
+    addDeciduousTree(74, -45, 1.2);
+    addDeciduousTree(-40, 72, 1.2);
+    addDeciduousTree(0, 72, 1.35);
+    addDeciduousTree(40, 72, 1.2);
+    addDeciduousTree(-40, -72, 1.25);
+    addDeciduousTree(0, -72, 1.3);
+    addDeciduousTree(40, -72, 1.2);
+
+    // Columnar Cypress Trees framing the walkways & building flanks
+    addCypressTree(-16, 26, 1.0);
+    addCypressTree(-12, 26, 0.9);
+    addCypressTree(12, 26, 0.9);
+    addCypressTree(16, 26, 1.0);
+    addCypressTree(-38, -12, 1.05);
+    addCypressTree(-38, 12, 1.05);
+    addCypressTree(38, -12, 1.05);
+    addCypressTree(38, 12, 1.05);
+    addCypressTree(-42, -32, 1.1);
+    addCypressTree(42, -32, 1.1);
+
+    if (treeTrunkGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treeTrunkGeos), this.treeTrunkMat));
+    }
+    if (deciduousFoliageGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(deciduousFoliageGeos), this.treeFoliageMat));
+    }
+    if (cypressFoliageGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cypressFoliageGeos), this.cypressFoliageMat));
+    }
+
+    // 13. Modern Park Benches (Teak timber slats with dark steel frames)
+    const benchWoodGeos = [];
+    const benchSteelGeos = [];
+
+    const addBench = (bx, bz, rotY) => {
+      // Wood Seat Slats
+      for (let s = 0; s < 3; s++) {
+        const slat = new THREE.BoxGeometry(2.2, 0.04, 0.16);
+        slat.translate(0, 0.46, s * 0.18 - 0.18);
+        slat.rotateY(rotY);
+        slat.translate(bx, 0.02, bz);
+        benchWoodGeos.push(slat);
+      }
+      // Wood Backrest Slats
+      for (let b = 0; b < 2; b++) {
+        const slat = new THREE.BoxGeometry(2.2, 0.14, 0.04);
+        slat.translate(0, 0.70 + b * 0.16, -0.32);
+        slat.rotateY(rotY);
+        slat.translate(bx, 0.02, bz);
+        benchWoodGeos.push(slat);
+      }
+      // Steel Legs
+      for (const lx of [-0.95, 0.95]) {
+        const leg = new THREE.BoxGeometry(0.06, 0.85, 0.6);
+        leg.translate(lx, 0.425, -0.05);
+        leg.rotateY(rotY);
+        leg.translate(bx, 0.02, bz);
+        benchSteelGeos.push(leg);
+      }
+    };
+
+    addBench(-28, 30, 0);
+    addBench(-18, 30, 0);
+    addBench(26, 32, Math.PI);
+    addBench(-35, -28, Math.PI / 2);
+    addBench(35, -28, -Math.PI / 2);
+
+    if (benchWoodGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(benchWoodGeos), this.benchWoodMat));
+    }
+    if (benchSteelGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(benchSteelGeos), this.benchFrameMat));
+    }
+
+    // 14. Luxury Executive & EV Vehicles Parked along Curbs
+    const carDarkGeos = [];
+    const carWhiteGeos = [];
+    const carBlueGeos = [];
+    const carGlassGeos = [];
+    const carWheelGeos = [];
+
+    const addCar = (cx, cz, rotY, colorType) => {
+      // Sleek Aerodynamic Lower Body
+      const bodyLower = new THREE.BoxGeometry(2.1, 0.62, 4.6);
+      bodyLower.translate(0, 0.45, 0);
+
+      // Cabin Canopy Upper Body
+      const cabin = new THREE.BoxGeometry(1.85, 0.52, 2.5);
+      cabin.translate(0, 0.95, -0.2);
+
+      const carStructure = BufferGeometryUtils.mergeGeometries([bodyLower, cabin]);
+      carStructure.rotateY(rotY);
+      carStructure.translate(cx, 0.02, cz);
+
+      if (colorType === 'dark') carDarkGeos.push(carStructure);
+      else if (colorType === 'white') carWhiteGeos.push(carStructure);
+      else carBlueGeos.push(carStructure);
+
+      // Dark Privacy Glass Canopy
+      const windshield = new THREE.BoxGeometry(1.88, 0.48, 2.54);
+      windshield.translate(0, 0.95, -0.2);
+      windshield.rotateY(rotY);
+      windshield.translate(cx, 0.02, cz);
+      carGlassGeos.push(windshield);
+
+      // 4 Wheels
+      for (const wx of [-1.02, 1.02]) {
+        for (const wz of [-1.4, 1.4]) {
+          const wheel = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 12);
+          wheel.rotateZ(Math.PI / 2);
+          wheel.translate(wx, 0.34, wz);
+          wheel.rotateY(rotY);
+          wheel.translate(cx, 0.02, cz);
+          carWheelGeos.push(wheel);
+        }
+      }
+    };
+
+    // Parked along South drop-off & perimeter road
+    addCar(-16, 46.5, 0, 'dark');  // Obsidian Executive Sedan
+    addCar(18, 46.5, 0, 'white');   // Pearl White EV Sedan
+    addCar(-53, -15, Math.PI / 2, 'blue'); // Sapphire Blue Luxury Sedan
+    addCar(53, 16, -Math.PI / 2, 'dark');  // Executive Sedan
+    addCar(24, -46.5, Math.PI, 'white');   // EV Crossover
+
+    if (carDarkGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(carDarkGeos), this.carBodyDarkMat));
+    }
+    if (carWhiteGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(carWhiteGeos), this.carBodyWhiteMat));
+    }
+    if (carBlueGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(carBlueGeos), this.carBodyBlueMat));
+    }
+    if (carGlassGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(carGlassGeos), this.carGlassMat));
+    }
+    if (carWheelGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(carWheelGeos), this.carWheelMat));
+    }
+
+    // 15. Industrial Fire Hydrants near Exits (West A, East B, South C)
+    const hydrantGeos = [];
+    const addHydrant = (hx, hz) => {
+      const barrel = new THREE.CylinderGeometry(0.14, 0.16, 0.75, 10);
+      barrel.translate(0, 0.375, 0);
+      const cap = new THREE.SphereGeometry(0.15, 8, 8);
+      cap.translate(0, 0.75, 0);
+      const nozzle1 = new THREE.CylinderGeometry(0.06, 0.06, 0.38, 8);
+      nozzle1.rotateZ(Math.PI / 2);
+      nozzle1.translate(0, 0.52, 0);
+      const hMesh = BufferGeometryUtils.mergeGeometries([barrel, cap, nozzle1]);
+      hMesh.translate(hx, 0.02, hz);
+      hydrantGeos.push(hMesh);
+    };
+
+    addHydrant(-31, 6);  // Near West Exit A
+    addHydrant(31, 6);   // Near East Exit B
+    addHydrant(7.5, 25); // Near South Exit C
+
+    if (hydrantGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(hydrantGeos), this.fireHydrantMat));
+    }
+
+    // 16. Tactile Warning Blister Paver Strips at Crosswalk Approaches
+    const tactileSouth = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 1.2), this.tactileMat);
+    tactileSouth.rotation.x = -Math.PI / 2;
+    tactileSouth.position.set(0, 0.038, 42.4);
+    this.group.add(tactileSouth);
+
+    const tactileWest = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 6.0), this.tactileMat);
+    tactileWest.rotation.x = -Math.PI / 2;
+    tactileWest.position.set(-46.4, 0.038, 0);
+    this.group.add(tactileWest);
+
+    const tactileEast = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 6.0), this.tactileMat);
+    tactileEast.rotation.x = -Math.PI / 2;
+    tactileEast.position.set(46.4, 0.038, 0);
+    this.group.add(tactileEast);
+
+    // 17. Dedicated Emergency Assembly Muster Zones
     this.createMusterZone(-38, 0, 'MUSTER ZONE A (WEST)');
     this.createMusterZone(38, 0, 'MUSTER ZONE B (EAST)');
     this.createMusterZone(0, 36, 'MUSTER ZONE C (SOUTH)');

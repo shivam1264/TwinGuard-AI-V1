@@ -328,90 +328,210 @@ export class TextureHelper {
     return texture;
   }
 
-  // 360-Degree Photorealistic Daylight Sky & Atmospheric Horizon (Equirectangular)
-  static createAtmosphericSkyTexture() {
+  // Authentic Wind-Swept High-Altitude Cirrus & Altocumulus Cloud Layers (ZERO circles)
+  static createNaturalWispyCloudTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048;
     canvas.height = 1024;
     const ctx = canvas.getContext('2d');
 
-    // 1. Vertical Atmospheric Sky & Ground Gradient
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, 1024);
-    skyGrad.addColorStop(0.00, '#1d549f'); // High Zenith Deep Azure Blue
-    skyGrad.addColorStop(0.18, '#2563eb'); // Deep Daylight Sky
-    skyGrad.addColorStop(0.35, '#3b82f6'); // Pure Clear Sky
-    skyGrad.addColorStop(0.44, '#60a5fa'); // Lower Atmospheric Blue
-    skyGrad.addColorStop(0.48, '#93c5fd'); // Soft Horizon Sky Wash
-    skyGrad.addColorStop(0.50, '#dbeafe'); // Horizon Line Atmospheric Mist
-    skyGrad.addColorStop(0.52, '#e2e8f0'); // Warm Daylight Horizon Haze
-    skyGrad.addColorStop(0.55, '#cbd5e1'); // Distant Landscape / Haze Layer
-    skyGrad.addColorStop(0.65, '#94a3b8'); // Distant Ground Tone
-    skyGrad.addColorStop(0.80, '#64748b'); // Ground Reflection
-    skyGrad.addColorStop(1.00, '#334155'); // Deep Base Bounce
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, 2048, 1024);
+    // Transparent background
+    ctx.clearRect(0, 0, 2048, 1024);
 
-    // 2. Soft Natural Solar Glow / Sun Corona (Placed at Azimuth ~60° to match direct sun light)
-    const sunX = 720;
-    const sunY = 320;
-    const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 380);
-    sunGlow.addColorStop(0.00, 'rgba(255, 255, 250, 0.95)');
-    sunGlow.addColorStop(0.08, 'rgba(254, 240, 199, 0.65)');
-    sunGlow.addColorStop(0.25, 'rgba(253, 230, 138, 0.25)');
-    sunGlow.addColorStop(0.60, 'rgba(224, 242, 254, 0.12)');
-    sunGlow.addColorStop(1.00, 'rgba(224, 242, 254, 0.00)');
-    ctx.fillStyle = sunGlow;
-    ctx.fillRect(0, 0, 2048, 1024);
-
-    // 3. Realistic Soft Wispy Clouds (Procedural feathered puffs across the panoramic sky)
-    const drawCloudCluster = (cx, cy, scaleX, scaleY, density) => {
+    // 1. Long horizontal wavy cloud bands (Wind-sheared tropospheric cloud decks - smooth sinusoids, ZERO circles)
+    const drawWispyBand = (baseY, thickness, opacity, freq1, freq2) => {
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(scaleX, scaleY);
-      for (let p = 0; p < 18; p++) {
-        const ox = (Math.random() - 0.5) * 160;
-        const oy = (Math.random() - 0.5) * 45;
-        const r = 25 + Math.random() * 35;
-        const grad = ctx.createRadialGradient(ox, oy, 2, ox, oy, r);
-        const alpha = (0.28 + Math.random() * 0.22) * density;
-        grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-        grad.addColorStop(0.6, `rgba(248, 250, 252, ${alpha * 0.5})`);
-        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(ox, oy, r, 0, Math.PI * 2);
-        ctx.fill();
+      const grad = ctx.createLinearGradient(0, baseY - thickness, 0, baseY + thickness);
+      grad.addColorStop(0.0, 'rgba(255, 255, 255, 0.0)');
+      grad.addColorStop(0.25, `rgba(255, 255, 255, ${opacity * 0.6})`);
+      grad.addColorStop(0.50, `rgba(255, 255, 255, ${opacity})`);
+      grad.addColorStop(0.75, `rgba(255, 255, 255, ${opacity * 0.6})`);
+      grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      for (let x = 0; x <= 2048; x += 16) {
+        const wave = Math.sin(x * freq1) * (thickness * 0.4) + Math.cos(x * freq2) * (thickness * 0.25);
+        ctx.lineTo(x, baseY + wave - thickness * 0.5);
       }
+      ctx.lineTo(2048, baseY + thickness * 0.5);
+      for (let x = 2048; x >= 0; x -= 16) {
+        const wave = Math.sin(x * freq1) * (thickness * 0.4) + Math.cos(x * freq2) * (thickness * 0.25);
+        ctx.lineTo(x, baseY + wave + thickness * 0.5);
+      }
+      ctx.closePath();
+      ctx.fill();
       ctx.restore();
     };
 
-    // Distribute soft cloud formations across the 360 sky
-    const cloudCenters = [
-      { x: 180,  y: 360, sx: 1.4, sy: 0.8, d: 0.85 },
-      { x: 420,  y: 420, sx: 1.8, sy: 0.7, d: 0.70 },
-      { x: 950,  y: 330, sx: 2.2, sy: 0.9, d: 0.90 },
-      { x: 1280, y: 390, sx: 1.6, sy: 0.7, d: 0.75 },
-      { x: 1600, y: 350, sx: 2.0, sy: 0.8, d: 0.80 },
-      { x: 1920, y: 410, sx: 1.5, sy: 0.7, d: 0.70 }
-    ];
-    cloudCenters.forEach(c => drawCloudCluster(c.x, c.y, c.sx, c.sy, c.d));
+    // Layer multiple smooth, natural cloud bands
+    drawWispyBand(220, 50, 0.35, 0.003, 0.007);
+    drawWispyBand(320, 70, 0.42, 0.002, 0.005);
+    drawWispyBand(420, 85, 0.48, 0.0018, 0.004);
+    drawWispyBand(520, 60, 0.30, 0.0025, 0.006);
 
-    // 4. Subtle Distant Horizon Silhouette along the Horizon (y = 512)
-    ctx.fillStyle = 'rgba(100, 116, 139, 0.18)';
-    ctx.beginPath();
-    ctx.moveTo(0, 512);
-    for (let x = 0; x <= 2048; x += 32) {
-      const h = Math.sin(x * 0.008) * 14 + Math.cos(x * 0.02) * 8 + Math.sin(x * 0.04) * 4;
-      ctx.lineTo(x, 508 - Math.max(0, h));
+    // 2. Feathery Cirrus Streamers (Wind-blown ice filaments drawn with smooth cubic Beziers, ZERO circles)
+    ctx.save();
+    for (let i = 0; i < 90; i++) {
+      const startX = Math.random() * 2048;
+      const startY = 140 + Math.random() * 460;
+      const length = 200 + Math.random() * 550;
+      const tilt = Math.random() * 40 - 20;
+
+      const cGrad = ctx.createLinearGradient(startX, startY, startX + length, startY + tilt);
+      cGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.0)');
+      cGrad.addColorStop(0.3, `rgba(255, 255, 255, ${0.15 + Math.random() * 0.25})`);
+      cGrad.addColorStop(0.7, `rgba(255, 255, 255, ${0.10 + Math.random() * 0.20})`);
+      cGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+      ctx.strokeStyle = cGrad;
+      ctx.lineWidth = 4 + Math.random() * 18;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY);
+      ctx.bezierCurveTo(
+        startX + length * 0.33, startY + (Math.random() * 30 - 15),
+        startX + length * 0.66, startY + (Math.random() * 30 - 15),
+        startX + length, startY + tilt
+      );
+      ctx.stroke();
     }
-    ctx.lineTo(2048, 514);
-    ctx.lineTo(0, 514);
-    ctx.closePath();
-    ctx.fill();
+    ctx.restore();
 
     const texture = new THREE.CanvasTexture(canvas);
-    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(1, 1);
     texture.needsUpdate = true;
+    return texture;
+  }
+
+  // Realistic Shimmering Aquatic Caustics (for Plaza Reflecting Water Pool)
+  static createWaterCausticsTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Deep architectural turquoise/cyan pool water base
+    ctx.fillStyle = '#0369a1';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Caustic light refraction rings & voronoi web
+    ctx.strokeStyle = 'rgba(224, 242, 254, 0.45)';
+    ctx.lineWidth = 2.5;
+
+    for (let c = 0; c < 120; c++) {
+      const rx = Math.random() * 512;
+      const ry = Math.random() * 512;
+      const r = 18 + Math.random() * 32;
+
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, r, r * (0.6 + Math.random() * 0.4), Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Interior turquoise glow
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    return texture;
+  }
+
+  // Natural Vertical Furrowed Tree Bark Texture
+  static createTreeBarkTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Warm deep wood bark base
+    ctx.fillStyle = '#3e2723';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Vertical furrow striations
+    for (let x = 0; x < 256; x += 4) {
+      const shade = Math.floor(Math.random() * 40 - 20);
+      ctx.fillStyle = `rgb(${78 + shade}, ${52 + shade}, ${38 + shade})`;
+      ctx.fillRect(x, 0, 3, 256);
+
+      // Dark furrow crevices
+      if (Math.random() > 0.6) {
+        ctx.fillStyle = 'rgba(20, 10, 5, 0.7)';
+        ctx.fillRect(x + 1, 0, 1.5, 256);
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 6);
+    return texture;
+  }
+
+  // Dappled Organic Foliage Texture (for Tree Canopies)
+  static createTreeFoliageTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#2d5a27';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Dappled sunlit leaf spots
+    const leafColors = ['#3e7b32', '#4b943d', '#22481d', '#5ba84a', '#1e3d1a', '#68ba54'];
+    for (let i = 0; i < 4000; i++) {
+      const lx = Math.random() * 256;
+      const ly = Math.random() * 256;
+      const lr = 2 + Math.random() * 4;
+      ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)];
+      ctx.beginPath();
+      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+    return texture;
+  }
+
+  // Tactile Blister Paving for Pedestrian Crosswalk Transitions
+  static createTactilePaverTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Safety yellow ground
+    ctx.fillStyle = '#d97706';
+    ctx.fillRect(0, 0, 256, 256);
+
+    // Blister warning bumps
+    const bumpStep = 32;
+    for (let y = 16; y < 256; y += bumpStep) {
+      for (let x = 16; x < 256; x += bumpStep) {
+        const grad = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, 8);
+        grad.addColorStop(0, '#fef08a');
+        grad.addColorStop(0.7, '#f59e0b');
+        grad.addColorStop(1, '#b45309');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 4);
     return texture;
   }
 

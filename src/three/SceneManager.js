@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { TextureHelper } from './TextureHelper.js';
 import { Building3D } from './Building3D.js';
 import { FireParticles } from './FireParticles.js';
@@ -35,17 +36,10 @@ export class SceneManager {
   initScene() {
     this.scene = new THREE.Scene();
 
-    // Photorealistic 360-Degree Panoramic Daytime Sky & Atmospheric Horizon
-    const skyTexture = TextureHelper.createAtmosphericSkyTexture();
-    this.scene.background = skyTexture;
-    this.scene.environment = skyTexture;
-
-    // Soft Atmospheric Distance Fog (Matches the natural horizon haze color)
-    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0022);
-
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 500);
+    // Set near to 0.4 and far to 18000 for full architectural depth and giant sky vault without z-fighting
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.4, 18000);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -59,6 +53,52 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.05;
 
     this.container.appendChild(this.renderer.domElement);
+
+    // 1. Physically-Based Mathematical Atmospheric Sky Shader (Preetham / Bruneton Model)
+    // 100% Optical Rayleigh & Mie Atmospheric Scattering - Zero Fake Circles, Pure Real Physics!
+    this.sky = new Sky();
+    this.sky.scale.setScalar(9000);
+    this.scene.add(this.sky);
+
+    const sun = new THREE.Vector3();
+    const skyUniforms = this.sky.material.uniforms;
+    skyUniforms['turbidity'].value = 2.5;         // Crisp, pure mountain daylight air
+    skyUniforms['rayleigh'].value = 1.5;          // Natural optical Rayleigh atmospheric blue
+    skyUniforms['mieCoefficient'].value = 0.0035; // Gentle atmospheric Mie aerosol scattering
+    skyUniforms['mieDirectionalG'].value = 0.82;  // Realistic forward solar halo
+
+    const elevation = 32; // 32 degrees daylight elevation
+    const azimuth = 65;   // 65 degrees azimuth (matches the direct sunlight)
+    const phi = THREE.MathUtils.degToRad(90 - elevation);
+    const theta = THREE.MathUtils.degToRad(azimuth);
+    sun.setFromSphericalCoords(1, phi, theta);
+    skyUniforms['sunPosition'].value.copy(sun);
+
+    // 2. High-Altitude Natural Wispy Cloud Dome (Feathery Wind-Swept Bands, ZERO circles)
+    const cloudGeo = new THREE.SphereGeometry(8200, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.45);
+    const cloudTex = TextureHelper.createNaturalWispyCloudTexture();
+    const cloudMat = new THREE.MeshBasicMaterial({
+      map: cloudTex,
+      transparent: true,
+      opacity: 0.55,
+      depthWrite: false,
+      side: THREE.BackSide
+    });
+    this.cloudDome = new THREE.Mesh(cloudGeo, cloudMat);
+    this.scene.add(this.cloudDome);
+
+    // 3. Pre-Filtered Radiance Environment Map (PMREM) for Photorealistic Glass Reflections
+    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+    pmremGenerator.compileEquirectangularShader();
+    const skyScene = new THREE.Scene();
+    skyScene.add(this.sky.clone());
+    skyScene.add(this.cloudDome.clone());
+    const envMap = pmremGenerator.fromScene(skyScene, 0.04);
+    this.scene.environment = envMap.texture;
+    pmremGenerator.dispose();
+
+    // 4. Soft Atmospheric Distance Fog (Blends distant terrain into horizon)
+    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0018);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
