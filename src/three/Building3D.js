@@ -909,30 +909,8 @@ export class Building3D {
   }
 
   buildAllFloors() {
-    // 4 Solid Architectural Corner Piers (Massive, anchoring all 4 corners)
-    const cornerGeos = [];
-    const totalH = this.totalFloors * this.floorHeight;
-    const cornerSize = 1.2;
-    const cornerCorners = [
-      { x: -29.5, z: 23.5 },
-      { x: 29.5, z: 23.5 },
-      { x: -29.5, z: -23.5 },
-      { x: 29.5, z: -23.5 }
-    ];
-
-    cornerCorners.forEach(c => {
-      const cg = new THREE.BoxGeometry(cornerSize, totalH + 0.6, cornerSize);
-      cg.translate(c.x, (totalH + 0.6) / 2, c.z);
-      cornerGeos.push(cg);
-    });
-
-    if (cornerGeos.length > 0) {
-      this.cornerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cornerGeos), this.precastFacadeMat);
-      this.cornerMesh.castShadow = true;
-      this.cornerMesh.receiveShadow = true;
-      this.cornerMesh.userData = { architecturalLayer: 'STRUCTURE' };
-      this.layers.structure.add(this.cornerMesh);
-    }
+        // Architectural Corner Piers are now generated hierarchically per floor inside buildFloor()
+    // so they move seamlessly with their owning floor in Layered / Exploded mode.
 
     for (let f = 1; f <= this.totalFloors; f++) {
       this.buildFloor(f);
@@ -946,6 +924,30 @@ export class Building3D {
     const slabD = 48;
     const wallH = 3.46;
     const wallCenterY = baseY + 0.175 + wallH / 2;
+
+    // 0. Architectural Corner Piers for this Floor Layer
+    const cornerSize = 1.2;
+    const cornerH = (floorNum === this.totalFloors) ? this.floorHeight + 0.6 : this.floorHeight;
+    const cornerCenterY = baseY + cornerH / 2;
+    const cornerCorners = [
+      { x: -29.5, z: 23.5 },
+      { x: 29.5, z: 23.5 },
+      { x: -29.5, z: -23.5 },
+      { x: 29.5, z: -23.5 }
+    ];
+    const cGeos = [];
+    cornerCorners.forEach(c => {
+      const cg = new THREE.BoxGeometry(cornerSize, cornerH, cornerSize);
+      cg.translate(c.x, cornerCenterY, c.z);
+      cGeos.push(cg);
+    });
+    if (cGeos.length > 0) {
+      const cMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cGeos), this.precastFacadeMat);
+      cMesh.castShadow = true;
+      cMesh.receiveShadow = true;
+      cMesh.userData = { floor: floorNum, architecturalLayer: 'STRUCTURE' };
+      group.add(cMesh);
+    }
 
     // 1. Architectural Floor Slab
     let floorMat;
@@ -1524,7 +1526,7 @@ export class Building3D {
     }
   }
 
-  // === ARCHITECTURAL REALISTIC STAIRS & DUAL-MODE ENCLOSURE ===
+    // === ARCHITECTURAL REALISTIC STAIRS & DUAL-MODE ENCLOSURE ===
   buildStairwellCores() {
     const totalH = this.totalFloors * this.floorHeight;
     this.createStairwellCore(-28, 0, totalH, 'WEST EMERGENCY CORE A');
@@ -1533,85 +1535,24 @@ export class Building3D {
 
   createStairwellCore(x, z, totalH, label) {
     const isWest = x < 0;
-
-    // 1. Solid Architectural Precast Concrete Core Enclosure (Hero Exterior Tower)
     const shaftW = 5.6;
     const shaftD = 6.8;
     const wallThick = 0.28;
-
-    // Exterior Wall (West or East outer face)
-    const extWallGeo = new THREE.BoxGeometry(wallThick, totalH, shaftD);
     const extWallX = isWest ? x - shaftW / 2 + wallThick / 2 : x + shaftW / 2 - wallThick / 2;
-    const extWall = new THREE.Mesh(extWallGeo, this.precastFacadeMat);
-    extWall.position.set(extWallX, totalH / 2, z - 1.2);
-    extWall.castShadow = true;
-    extWall.receiveShadow = true;
-    extWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
-    this.facadeCutawayGroup.add(extWall);
-
-    // North & South Return Walls
-    const northWallGeo = new THREE.BoxGeometry(shaftW, totalH, wallThick);
-    const northWall = new THREE.Mesh(northWallGeo, this.precastFacadeMat);
-    northWall.position.set(x, totalH / 2, z - 1.2 - shaftD / 2 + wallThick / 2);
-    northWall.castShadow = true;
-    northWall.receiveShadow = true;
-    northWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
-    this.facadeCutawayGroup.add(northWall);
-
-    const southWallGeo = new THREE.BoxGeometry(shaftW, totalH, wallThick);
-    const southWall = new THREE.Mesh(southWallGeo, this.precastFacadeMat);
-    southWall.position.set(x, totalH / 2, z - 1.2 + shaftD / 2 - wallThick / 2);
-    southWall.castShadow = true;
-    southWall.receiveShadow = true;
-    southWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
-    this.facadeCutawayGroup.add(southWall);
-
-    // Interior Shaft Wall facing central corridor (with Doorway Openings at every floor)
-    const intWallGeo = new THREE.BoxGeometry(wallThick, totalH, shaftD);
     const intWallX = isWest ? x + shaftW / 2 - wallThick / 2 : x - shaftW / 2 + wallThick / 2;
-    const intWall = new THREE.Mesh(intWallGeo, this.stairWallMat);
-    intWall.position.set(intWallX, totalH / 2, z - 1.2);
-    intWall.receiveShadow = true;
-    intWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
-    this.facadeCutawayGroup.add(intWall);
 
-    // Architectural Slit Glazing Windows on Exterior Face
-    for (let f = 1; f <= this.totalFloors; f++) {
-      const flY = (f - 1) * this.floorHeight;
-      const slitGeo = new THREE.BoxGeometry(0.12, 2.4, 0.45);
-      const slitMesh = new THREE.Mesh(slitGeo, this.glassExteriorMat);
-      slitMesh.position.set(extWallX + (isWest ? -0.1 : 0.1), flY + 1.9, z - 1.2);
-      slitMesh.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
-      this.facadeCutawayGroup.add(slitMesh);
-    }
-
-    // Geometry Collectors for High-Speed Merged Meshing
-    const stringerGeos = [];
-    const treadGeos = [];
-    const riserGeos = [];
-    const nosingGeos = [];
-    const landingGeos = [];
-    const railingGeos = [];
-    const doorFrameGeos = [];
-    const doorLeafGeos = [];
-    const pushBarGeos = [];
-    const exitSignGeos = [];
-    const bulkheadGeos = [];
-
-    // Flight Positions matching exact CrowdOptimizer navigation waypoints
-    const flight1X = isWest ? x + 0.95 : x - 0.95; // West: -27.05, East: 27.05
-    const flight2X = isWest ? x - 0.95 : x + 0.95; // West: -28.95, East: 28.95
+    const flight1X = isWest ? x + 0.95 : x - 0.95;
+    const flight2X = isWest ? x - 0.95 : x + 0.95;
     const flightWidth = 1.40;
     const riserCount = 11;
-    const riserH = 1.90 / riserCount; // 172.7 mm code-compliant riser
-    const treadRunZ = 2.00 / (riserCount - 1); // 200 mm run with 50 mm nosing overhang
+    const riserH = 1.90 / riserCount;
+    const treadRunZ = 2.00 / (riserCount - 1);
 
     const flightZ_Start = -0.75;
     const flightZ_End = -2.75;
     const flightLength = Math.hypot(flightZ_End - flightZ_Start, 1.90);
-    const pitchAngle = Math.atan2(1.90, Math.abs(flightZ_End - flightZ_Start)); // ~43.5 deg
+    const pitchAngle = Math.atan2(1.90, Math.abs(flightZ_End - flightZ_Start));
 
-    // Reusable Element Prototypes
     const stringerBase = new THREE.BoxGeometry(flightWidth, 0.16, flightLength);
     const riserBase = new THREE.BoxGeometry(flightWidth, riserH, 0.04);
     const treadBase = new THREE.BoxGeometry(flightWidth, 0.045, 0.28);
@@ -1621,222 +1562,229 @@ export class Building3D {
 
     for (let f = 1; f <= this.totalFloors; f++) {
       const flY = (f - 1) * this.floorHeight;
+      const floorWallH = this.floorHeight;
+      const floorWallCenterY = flY + floorWallH / 2;
+      const group = this.floorGroups[f];
 
-      // A. Floor Landing Slab (Clean connection to corridor & fire door)
+      // A. Per-Floor Stairwell Exterior Enclosure Walls (in facadeCutawayGroup)
+      // Height matches floor height so each floor layer carries its outer envelope cleanly
+      const extWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, floorWallH, shaftD), this.precastFacadeMat);
+      extWall.position.set(extWallX, floorWallCenterY, z - 1.2);
+      extWall.castShadow = true;
+      extWall.receiveShadow = true;
+      extWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(extWall);
+
+      const northWall = new THREE.Mesh(new THREE.BoxGeometry(shaftW, floorWallH, wallThick), this.precastFacadeMat);
+      northWall.position.set(x, floorWallCenterY, z - 1.2 - shaftD / 2 + wallThick / 2);
+      northWall.castShadow = true;
+      northWall.receiveShadow = true;
+      northWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(northWall);
+
+      const southWall = new THREE.Mesh(new THREE.BoxGeometry(shaftW, floorWallH, wallThick), this.precastFacadeMat);
+      southWall.position.set(x, floorWallCenterY, z - 1.2 + shaftD / 2 - wallThick / 2);
+      southWall.castShadow = true;
+      southWall.receiveShadow = true;
+      southWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(southWall);
+
+      const intWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, floorWallH, shaftD), this.stairWallMat);
+      intWall.position.set(intWallX, floorWallCenterY, z - 1.2);
+      intWall.receiveShadow = true;
+      intWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(intWall);
+
+      // Vision slit glazing
+      const slitMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 0.45), this.glassExteriorMat);
+      slitMesh.position.set(extWallX + (isWest ? -0.1 : 0.1), flY + 1.9, z - 1.2);
+      slitMesh.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
+      this.facadeCutawayGroup.add(slitMesh);
+
+      // B. Per-Floor Stair Flights, Landings, Handrails, and Safety Components (in floorGroups[f])
+      const fLandingGeos = [];
+      const fStringerGeos = [];
+      const fRiserGeos = [];
+      const fTreadGeos = [];
+      const fNosingGeos = [];
+      const fRailingGeos = [];
+      const fDoorFrameGeos = [];
+      const fDoorLeafGeos = [];
+      const fPushBarGeos = [];
+      const fExitSignGeos = [];
+      const fBulkheadGeos = [];
+
+      // Floor Landing Slab
       const floorLanding = new THREE.BoxGeometry(3.8, 0.22, 1.8);
       floorLanding.translate(x, flY + 0.11, 0.0);
-      landingGeos.push(floorLanding);
+      fLandingGeos.push(floorLanding);
 
       if (f < this.totalFloors) {
-      // B. Intermediate Mid-Landing Slab (Structural switchback landing)
-      const midLanding = new THREE.BoxGeometry(3.8, 0.22, 1.8);
-      midLanding.translate(x, flY + 1.9 + 0.11, -3.25);
-      landingGeos.push(midLanding);
+        // Intermediate Mid-Landing
+        const midLanding = new THREE.BoxGeometry(3.8, 0.22, 1.8);
+        midLanding.translate(x, flY + 1.9 + 0.11, -3.25);
+        fLandingGeos.push(midLanding);
 
-      // Mid-Landing Support Beam Underneath
-      const midBeam = new THREE.BoxGeometry(3.8, 0.35, 0.24);
-      midBeam.translate(x, flY + 1.9 - 0.175, -4.0);
-      landingGeos.push(midBeam);
+        // Support beam
+        const midBeam = new THREE.BoxGeometry(3.8, 0.35, 0.24);
+        midBeam.translate(x, flY + 1.9 - 0.175, -4.0);
+        fLandingGeos.push(midBeam);
 
-      // C. Flight 1: Upper Landing (flY + 3.8) descending to Mid-Landing (flY + 1.9)
-      const str1 = stringerBase.clone();
-      str1.rotateX(-pitchAngle);
-      str1.translate(flight1X, flY + 2.85 - 0.08, -1.75);
-      stringerGeos.push(str1);
+        // Flight 1: Upper Landing (flY + 3.8) descending to Mid-Landing (flY + 1.9)
+        const str1 = stringerBase.clone();
+        str1.rotateX(-pitchAngle);
+        str1.translate(flight1X, flY + 2.85 - 0.08, -1.75);
+        fStringerGeos.push(str1);
 
-      for (let s = 0; s < riserCount; s++) {
-        const stepY = flY + 3.8 - (s + 1) * riserH;
-        const stepZ = flightZ_Start - s * treadRunZ;
+        for (let s = 0; s < riserCount; s++) {
+          const stepY = flY + 3.8 - (s + 1) * riserH;
+          const stepZ = flightZ_Start - s * treadRunZ;
 
-        // Solid Closed Riser
-        const rG = riserBase.clone();
-        rG.translate(flight1X, stepY + riserH / 2, stepZ + 0.10);
-        riserGeos.push(rG);
+          const rG = riserBase.clone();
+          rG.translate(flight1X, stepY + riserH / 2, stepZ + 0.10);
+          fRiserGeos.push(rG);
 
-        // Tread Slab
-        const tG = treadBase.clone();
-        tG.translate(flight1X, stepY + riserH, stepZ);
-        treadGeos.push(tG);
+          const tG = treadBase.clone();
+          tG.translate(flight1X, stepY + riserH, stepZ);
+          fTreadGeos.push(tG);
 
-        // Anti-Slip Photoluminescent Nosing Strip
-        const nG = nosingBase.clone();
-        nG.translate(flight1X, stepY + riserH + 0.015, stepZ + 0.12);
-        nosingGeos.push(nG);
+          const nG = nosingBase.clone();
+          nG.translate(flight1X, stepY + riserH + 0.015, stepZ + 0.12);
+          fNosingGeos.push(nG);
 
-        // Baluster Posts every 2 steps
-        if (s % 2 === 0) {
-          const postL = postBase.clone();
-          postL.translate(flight1X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
-          railingGeos.push(postL);
+          if (s % 2 === 0) {
+            const postL = postBase.clone();
+            postL.translate(flight1X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
+            fRailingGeos.push(postL);
 
-          const postR = postBase.clone();
-          postR.translate(flight1X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
-          railingGeos.push(postR);
+            const postR = postBase.clone();
+            postR.translate(flight1X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
+            fRailingGeos.push(postR);
+          }
         }
-      }
 
-      // Sloped Handrail 1 (0.90 m above pitch line)
-      const rail1L = railBarBase.clone();
-      rail1L.rotateX(-pitchAngle);
-      rail1L.translate(flight1X - flightWidth / 2 + 0.04, flY + 2.85 + 0.90, -1.75);
-      railingGeos.push(rail1L);
+        const rail1L = railBarBase.clone();
+        rail1L.rotateX(-pitchAngle);
+        rail1L.translate(flight1X - flightWidth / 2 + 0.04, flY + 2.85 + 0.90, -1.75);
+        fRailingGeos.push(rail1L);
 
-      const rail1R = railBarBase.clone();
-      rail1R.rotateX(-pitchAngle);
-      rail1R.translate(flight1X + flightWidth / 2 - 0.04, flY + 2.85 + 0.90, -1.75);
-      railingGeos.push(rail1R);
+        const rail1R = railBarBase.clone();
+        rail1R.rotateX(-pitchAngle);
+        rail1R.translate(flight1X + flightWidth / 2 - 0.04, flY + 2.85 + 0.90, -1.75);
+        fRailingGeos.push(rail1R);
 
-      // D. Flight 2: Mid-Landing (flY + 1.9) descending to Lower Landing (flY)
-      const str2 = stringerBase.clone();
-      str2.rotateX(pitchAngle);
-      str2.translate(flight2X, flY + 0.95 - 0.08, -1.75);
-      stringerGeos.push(str2);
+        // Flight 2: Mid-Landing (flY + 1.9) descending to Lower Landing (flY)
+        const str2 = stringerBase.clone();
+        str2.rotateX(pitchAngle);
+        str2.translate(flight2X, flY + 0.95 - 0.08, -1.75);
+        fStringerGeos.push(str2);
 
-      for (let s = 0; s < riserCount; s++) {
-        const stepY = flY + 1.9 - (s + 1) * riserH;
-        const stepZ = flightZ_End + s * treadRunZ;
+        for (let s = 0; s < riserCount; s++) {
+          const stepY = flY + 1.9 - (s + 1) * riserH;
+          const stepZ = flightZ_End + s * treadRunZ;
 
-        // Solid Closed Riser
-        const rG = riserBase.clone();
-        rG.translate(flight2X, stepY + riserH / 2, stepZ - 0.10);
-        riserGeos.push(rG);
+          const rG = riserBase.clone();
+          rG.translate(flight2X, stepY + riserH / 2, stepZ - 0.10);
+          fRiserGeos.push(rG);
 
-        // Tread Slab
-        const tG = treadBase.clone();
-        tG.translate(flight2X, stepY + riserH, stepZ);
-        treadGeos.push(tG);
+          const tG = treadBase.clone();
+          tG.translate(flight2X, stepY + riserH, stepZ);
+          fTreadGeos.push(tG);
 
-        // Anti-Slip Nosing Strip
-        const nG = nosingBase.clone();
-        nG.translate(flight2X, stepY + riserH + 0.015, stepZ - 0.12);
-        nosingGeos.push(nG);
+          const nG = nosingBase.clone();
+          nG.translate(flight2X, stepY + riserH + 0.015, stepZ - 0.12);
+          fNosingGeos.push(nG);
 
-        // Baluster Posts every 2 steps
-        if (s % 2 === 0) {
-          const postL = postBase.clone();
-          postL.translate(flight2X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
-          railingGeos.push(postL);
+          if (s % 2 === 0) {
+            const postL = postBase.clone();
+            postL.translate(flight2X - flightWidth / 2 + 0.04, stepY + riserH + 0.45, stepZ);
+            fRailingGeos.push(postL);
 
-          const postR = postBase.clone();
-          postR.translate(flight2X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
-          railingGeos.push(postR);
+            const postR = postBase.clone();
+            postR.translate(flight2X + flightWidth / 2 - 0.04, stepY + riserH + 0.45, stepZ);
+            fRailingGeos.push(postR);
+          }
         }
+
+        const rail2L = railBarBase.clone();
+        rail2L.rotateX(pitchAngle);
+        rail2L.translate(flight2X - flightWidth / 2 + 0.04, flY + 0.95 + 0.90, -1.75);
+        fRailingGeos.push(rail2L);
+
+        const rail2R = railBarBase.clone();
+        rail2R.rotateX(pitchAngle);
+        rail2R.translate(flight2X + flightWidth / 2 - 0.04, flY + 0.95 + 0.90, -1.75);
+        fRailingGeos.push(rail2R);
+
+        const guardMidBack = new THREE.BoxGeometry(3.8, 1.10, 0.04);
+        guardMidBack.translate(x, flY + 1.9 + 0.55, -4.15);
+        fRailingGeos.push(guardMidBack);
+
+        const guardMidSide = new THREE.BoxGeometry(0.04, 1.10, 1.8);
+        guardMidSide.translate(isWest ? x - 1.9 : x + 1.9, flY + 1.9 + 0.55, -3.25);
+        fRailingGeos.push(guardMidSide);
+
+        const guardCentral = new THREE.BoxGeometry(0.04, 1.10, 2.4);
+        guardCentral.translate(x, flY + 1.9 + 0.55, -1.75);
+        fRailingGeos.push(guardCentral);
       }
 
-      // Sloped Handrail 2 (0.90 m above pitch line)
-      const rail2L = railBarBase.clone();
-      rail2L.rotateX(pitchAngle);
-      rail2L.translate(flight2X - flightWidth / 2 + 0.04, flY + 0.95 + 0.90, -1.75);
-      railingGeos.push(rail2L);
-
-      const rail2R = railBarBase.clone();
-      rail2R.rotateX(pitchAngle);
-      rail2R.translate(flight2X + flightWidth / 2 - 0.04, flY + 0.95 + 0.90, -1.75);
-      railingGeos.push(rail2R);
-
-      // E. Mid-Landing Safety Guardrails (1.10 m height with intermediate safety rails)
-      const guardMidBack = new THREE.BoxGeometry(3.8, 1.10, 0.04);
-      guardMidBack.translate(x, flY + 1.9 + 0.55, -4.15);
-      railingGeos.push(guardMidBack);
-
-      const guardMidSide = new THREE.BoxGeometry(0.04, 1.10, 1.8);
-      guardMidSide.translate(isWest ? x - 1.9 : x + 1.9, flY + 1.9 + 0.55, -3.25);
-      railingGeos.push(guardMidSide);
-
-      // Central Stair Well Divider Guardrail (between Flight 1 & Flight 2)
-      const guardCentral = new THREE.BoxGeometry(0.04, 1.10, 2.4);
-      guardCentral.translate(x, flY + 1.9 + 0.55, -1.75);
-      railingGeos.push(guardCentral);
-
-      }
-
-      // F. Fire-Rated Stair Entry Doors & Frames at Corridor Connection (x = ±25.4, z = 0.0)
+      // Fire Door & Header
       const doorX = isWest ? -25.4 : 25.4;
       const dFrameGeo = new THREE.BoxGeometry(0.14, 2.25, 1.25);
       dFrameGeo.translate(doorX, flY + 1.125, 0.0);
-      doorFrameGeos.push(dFrameGeo);
+      fDoorFrameGeos.push(dFrameGeo);
 
       const dLeafGeo = new THREE.BoxGeometry(0.05, 2.15, 0.95);
       dLeafGeo.translate(doorX, flY + 1.075, 0.0);
-      doorLeafGeos.push(dLeafGeo);
+      fDoorLeafGeos.push(dLeafGeo);
 
       const pushBarGeo = new THREE.BoxGeometry(0.08, 0.06, 0.85);
       pushBarGeo.translate(doorX + (isWest ? 0.04 : -0.04), flY + 0.95, 0.0);
-      pushBarGeos.push(pushBarGeo);
+      fPushBarGeos.push(pushBarGeo);
 
-      // Illuminated Green Running-Man Emergency Exit Sign above Door Header
       const exSignG = new THREE.BoxGeometry(0.08, 0.32, 0.75);
       exSignG.translate(doorX, flY + 2.45, 0.0);
-      exitSignGeos.push(exSignG);
+      fExitSignGeos.push(exSignG);
 
-      // Emergency Bulkhead Light Fixture on Stair Landing Wall
       const bulkG = new THREE.BoxGeometry(0.28, 0.14, 0.08);
       bulkG.translate(x, flY + 2.45, 0.85);
-      bulkheadGeos.push(bulkG);
-    }
+      fBulkheadGeos.push(bulkG);
 
-    // Add Batched Geometry Meshes to stairsGroup
-    if (stringerGeos.length > 0) {
-      const stringerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(stringerGeos), this.concreteMat);
-      stringerMesh.castShadow = true;
-      stringerMesh.receiveShadow = true;
-      this.stairsGroup.add(stringerMesh);
-    }
-
-    if (landingGeos.length > 0) {
-      const landingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(landingGeos), this.tileFloorMat);
-      landingMesh.receiveShadow = true;
-      this.stairsGroup.add(landingMesh);
-    }
-
-    if (treadGeos.length > 0) {
-      const treadMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(treadGeos), this.stairTreadMat);
-      treadMesh.castShadow = true;
-      treadMesh.receiveShadow = true;
-      this.stairsGroup.add(treadMesh);
-    }
-
-    if (riserGeos.length > 0) {
-      const riserMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(riserGeos), this.columnMat);
-      riserMesh.castShadow = true;
-      riserMesh.receiveShadow = true;
-      this.stairsGroup.add(riserMesh);
-    }
-
-    if (nosingGeos.length > 0) {
-      const nosingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(nosingGeos), this.antiSlipNosingMat);
-      this.stairsGroup.add(nosingMesh);
-    }
-
-    if (railingGeos.length > 0) {
-      const railingMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(railingGeos), this.railingMat);
-      railingMesh.castShadow = true;
-      this.stairsGroup.add(railingMesh);
-    }
-
-    if (doorFrameGeos.length > 0) {
-      const dFrameMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(doorFrameGeos), this.mullionMat);
-      this.stairsGroup.add(dFrameMesh);
-    }
-
-    if (doorLeafGeos.length > 0) {
-      const dLeafMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(doorLeafGeos), this.fireDoorMat);
-      this.stairsGroup.add(dLeafMesh);
-    }
-
-    if (pushBarGeos.length > 0) {
-      const pushBarMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(pushBarGeos), this.panicBarSilverMat);
-      this.stairsGroup.add(pushBarMesh);
-    }
-
-    if (exitSignGeos.length > 0) {
-      const exSignMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(exitSignGeos), isWest ? this.exitSignLeftMat : this.exitSignRightMat);
-      this.stairsGroup.add(exSignMesh);
-    }
-
-    if (bulkheadGeos.length > 0) {
-      const bulkMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bulkheadGeos), this.stairLightMat);
-      this.stairsGroup.add(bulkMesh);
+      // Merge and add directly to floorGroups[f] so stairs move with their owning floor
+      if (fLandingGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fLandingGeos), this.tileFloorMat));
+      }
+      if (fStringerGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fStringerGeos), this.concreteMat));
+      }
+      if (fTreadGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fTreadGeos), this.stairTreadMat));
+      }
+      if (fRiserGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fRiserGeos), this.columnMat));
+      }
+      if (fNosingGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fNosingGeos), this.antiSlipNosingMat));
+      }
+      if (fRailingGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fRailingGeos), this.railingMat));
+      }
+      if (fDoorFrameGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fDoorFrameGeos), this.mullionMat));
+      }
+      if (fDoorLeafGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fDoorLeafGeos), this.fireDoorMat));
+      }
+      if (fPushBarGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fPushBarGeos), this.panicBarSilverMat));
+      }
+      if (fExitSignGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fExitSignGeos), isWest ? this.exitSignLeftMat : this.exitSignRightMat));
+      }
+      if (fBulkheadGeos.length > 0) {
+        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fBulkheadGeos), this.stairLightMat));
+      }
     }
   }
 
@@ -1848,33 +1796,8 @@ export class Building3D {
     const shaftD = 1.45;
 
     this.elevatorCars = [];
-
-    // 1. Solid Structural Precast Concrete Elevator Shaft Core Enclosure
-    const coreBack = new THREE.Mesh(new THREE.BoxGeometry(6.6, totalH, 0.35), this.precastFacadeMat);
-    coreBack.position.set(3.2, totalH / 2, shaftZ - shaftD / 2 - 0.175);
-    coreBack.castShadow = true;
-    coreBack.receiveShadow = true;
-    this.elevatorGroup.add(coreBack);
-
-    // Side Enclosure Shear Walls (West and East ends of elevator bank)
-    const coreWest = new THREE.Mesh(new THREE.BoxGeometry(0.35, totalH, shaftD + 0.35), this.precastFacadeMat);
-    coreWest.position.set(0.15, totalH / 2, shaftZ);
-    this.elevatorGroup.add(coreWest);
-
-    const coreEast = new THREE.Mesh(new THREE.BoxGeometry(0.35, totalH, shaftD + 0.35), this.precastFacadeMat);
-    coreEast.position.set(6.25, totalH / 2, shaftZ);
-    this.elevatorGroup.add(coreEast);
-
-    // Dividing Walls between elevator shafts
-    [2.2, 4.2].forEach(divX => {
-      const divWall = new THREE.Mesh(new THREE.BoxGeometry(0.20, totalH, shaftD), this.columnMat);
-      divWall.position.set(divX, totalH / 2, shaftZ);
-      this.elevatorGroup.add(divWall);
-    });
-
-    // 2. Elevator Lobby Front Landing Walls, Sliding Doors & Call Panels on EVERY floor
     const portalMat = this.columnMat;
-    const doorLeafMat = this.spandrelMat; // Brushed metallic finish
+    const doorLeafMat = this.spandrelMat;
     const indicatorMat = new THREE.MeshStandardMaterial({
       color: 0x00f0ff,
       emissive: 0x00f0ff,
@@ -1882,56 +1805,75 @@ export class Building3D {
       roughness: 0.2
     });
 
+    // 1. Hierarchical Elevator Core Walls & Lobby Doors per Floor Layer
     for (let f = 1; f <= this.totalFloors; f++) {
+      const group = this.floorGroups[f];
       const baseY = (f - 1) * this.floorHeight;
       const frontZ = shaftZ + shaftD / 2 + 0.10;
+      const coreH = this.floorHeight;
+      const coreCenterY = baseY + coreH / 2;
+
+      // Shaft Shear Walls for Floor f
+      const coreBack = new THREE.Mesh(new THREE.BoxGeometry(6.6, coreH, 0.35), this.precastFacadeMat);
+      coreBack.position.set(3.2, coreCenterY, shaftZ - shaftD / 2 - 0.175);
+      coreBack.castShadow = true;
+      coreBack.receiveShadow = true;
+      group.add(coreBack);
+
+      const coreWest = new THREE.Mesh(new THREE.BoxGeometry(0.35, coreH, shaftD + 0.35), this.precastFacadeMat);
+      coreWest.position.set(0.15, coreCenterY, shaftZ);
+      group.add(coreWest);
+
+      const coreEast = new THREE.Mesh(new THREE.BoxGeometry(0.35, coreH, shaftD + 0.35), this.precastFacadeMat);
+      coreEast.position.set(6.25, coreCenterY, shaftZ);
+      group.add(coreEast);
+
+      [2.2, 4.2].forEach(divX => {
+        const divWall = new THREE.Mesh(new THREE.BoxGeometry(0.20, coreH, shaftD), this.columnMat);
+        divWall.position.set(divX, coreCenterY, shaftZ);
+        group.add(divWall);
+      });
 
       // Solid architectural lobby fascia above doors
       const fascia = new THREE.Mesh(new THREE.BoxGeometry(6.2, 1.0, 0.22), portalMat);
       fascia.position.set(3.2, baseY + 0.175 + 2.9, frontZ);
-      this.elevatorGroup.add(fascia);
+      group.add(fascia);
 
-      // Each of the 3 elevator landing portals
+      // 3 Elevator Landing Portals, Sliding Doors & Lanterns for Floor f
       shaftX.forEach((sx, idx) => {
-        // Outer dark metallic door portal frame
         const frameW = 1.45;
         const frameH = 2.45;
         const portalFrame = new THREE.Mesh(new THREE.BoxGeometry(frameW, frameH, 0.14), portalMat);
         portalFrame.position.set(sx, baseY + 0.175 + frameH / 2, frontZ);
-        this.elevatorGroup.add(portalFrame);
+        group.add(portalFrame);
 
-        // Center-Opening Two-Panel Sliding Doors in Brushed Stainless Steel
         const leafW = 0.58;
         const leafH = 2.30;
         const leafThick = 0.05;
 
-        // Left door leaf
         const doorLeft = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
         doorLeft.position.set(sx - leafW / 2 - 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
-        this.elevatorGroup.add(doorLeft);
+        group.add(doorLeft);
 
-        // Right door leaf
         const doorRight = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
         doorRight.position.set(sx + leafW / 2 + 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
-        this.elevatorGroup.add(doorRight);
+        group.add(doorRight);
 
-        // Floor Direction / Lantern Display above each door
         const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.04), indicatorMat);
         indicator.position.set(sx, baseY + 0.175 + frameH + 0.18, frontZ + 0.06);
-        this.elevatorGroup.add(indicator);
+        group.add(indicator);
       });
 
-      // Illuminated Call Station Button Panel beside center elevator
       const callPanel = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.35, 0.04), portalMat);
       callPanel.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.08);
-      this.elevatorGroup.add(callPanel);
+      group.add(callPanel);
 
       const callButton = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), indicatorMat);
       callButton.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.11);
-      this.elevatorGroup.add(callButton);
+      group.add(callButton);
     }
 
-    // 3. Smooth Animated Elevator Cabs inside the shafts
+    // 2. Animated Elevator Cabs inside the Shafts
     shaftX.forEach((sx, idx) => {
       const carGroup = new THREE.Group();
 
@@ -1969,7 +1911,7 @@ export class Building3D {
         y: initY,
         minY: 0.1,
         maxY: (this.totalFloors - 1) * this.floorHeight,
-        speed: 2.5 + idx * 0.8,
+        speed: 3.5 + idx * 0.8,
         direction: idx % 2 === 0 ? 1 : -1
       });
     });
@@ -2566,67 +2508,45 @@ export class Building3D {
     }
   }
 
-  setFloorMode(mode) {
+    setFloorMode(mode) {
     this.floorMode = mode;
 
     for (let f = 1; f <= this.totalFloors; f++) {
       const group = this.floorGroups[f];
 
       if (mode === 'ALL') {
-        if (this.cornerMesh) this.cornerMesh.visible = true;
         group.visible = true;
         group.position.y = 0;
         this.roofGroup.visible = true;
         this.roofGroup.position.y = 0;
-        this.stairsGroup.visible = true;
-        this.elevatorGroup.visible = true;
       } else if (mode === 'EXPLODED') {
-        if (this.cornerMesh) this.cornerMesh.visible = false;
         group.visible = true;
         group.position.y = (f - 1) * 5.0;
         this.roofGroup.visible = true;
         this.roofGroup.position.y = (this.totalFloors - 1) * 5.0;
-        // In Exploded BIM view, hide continuous 38m shafts so floors hover cleanly as architectural layers
-        this.stairsGroup.visible = false;
-        this.elevatorGroup.visible = false;
       } else {
-        if (this.cornerMesh) this.cornerMesh.visible = false;
         const targetFloor = parseInt(mode, 10);
         group.visible = (f === targetFloor);
         group.position.y = 0;
         this.roofGroup.visible = false;
-        // In single-floor isolated view, hide 38m continuous vertical shafts so they don't form a dangling pillar below the floor
-        this.stairsGroup.visible = false;
-        this.elevatorGroup.visible = false;
       }
     }
 
     if (this.facadeCutawayGroup) {
       const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
-        const hasFloor = (sub.userData && sub.userData.floor !== undefined);
-        const fl = hasFloor ? sub.userData.floor : 1;
+        const fl = (sub.userData && sub.userData.floor !== undefined) ? sub.userData.floor : 1;
 
         if (mode === 'ALL') {
           sub.visible = isShowingFacade;
           sub.position.y = 0;
         } else if (mode === 'EXPLODED') {
-          if (hasFloor) {
-            sub.visible = isShowingFacade;
-            sub.position.y = (fl - 1) * 5.0;
-          } else {
-            // Hide monolithic continuous 38m stair exterior walls in exploded view
-            sub.visible = false;
-          }
+          sub.visible = isShowingFacade;
+          sub.position.y = (fl - 1) * 5.0;
         } else {
           const targetFloor = parseInt(mode, 10);
-          if (hasFloor && fl === targetFloor) {
-            sub.visible = isShowingFacade;
-            sub.position.y = 0;
-          } else {
-            // Hide all other floors and monolithic walls
-            sub.visible = false;
-          }
+          sub.visible = isShowingFacade && (fl === targetFloor);
+          sub.position.y = 0;
         }
       });
     }

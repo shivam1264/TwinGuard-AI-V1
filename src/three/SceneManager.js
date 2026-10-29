@@ -594,7 +594,7 @@ export class SceneManager {
     this.isSimulating = true;
   }
 
-  reset(rooms) {
+  reset(rooms = null) {
     this.isSimulating = false;
     this.elapsedSeconds = 0;
     this._lastStatsUpdate = 0;
@@ -602,7 +602,8 @@ export class SceneManager {
     this._lastElapsedSec = -1;
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
-    this.agentCrowd.spawnAgentsForRooms(rooms);
+    const targetRooms = rooms || (this.building ? this.building.roomsData : []);
+    this.agentCrowd.spawnAgentsForRooms(targetRooms);
   }
 
   animate = () => {
