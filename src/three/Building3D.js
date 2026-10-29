@@ -1601,12 +1601,60 @@ export class Building3D {
     // 17. Dedicated Emergency Assembly Muster Zones
     this.createMusterZone(-38, 0, 'MUSTER ZONE A (WEST)');
     this.createMusterZone(38, 0, 'MUSTER ZONE B (EAST)');
-    
+    this.createMusterZone(0, 36, 'MUSTER ZONE C (SOUTH)');
+  }
 
+  createMusterZone(x, z, label) {
+    // 1. Dual Concentric Safety Boundary Rings
+    const outerRing = new THREE.Mesh(
+      new THREE.RingGeometry(4.8, 5.4, 32),
+      new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 0.85, side: THREE.DoubleSide })
+    );
+    outerRing.rotation.x = -Math.PI / 2;
+    outerRing.position.set(x, 0.03, z);
+    this.group.add(outerRing);
 
-        // Architectural Corner Piers are now generated hierarchically per floor inside buildFloor()
-    // so they move seamlessly with their owning floor in Layered / Exploded mode.
+    const innerDisc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.8, 24),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.5 })
+    );
+    innerDisc.rotation.x = -Math.PI / 2;
+    innerDisc.position.set(x, 0.028, z);
+    this.group.add(innerDisc);
 
+    const innerRing = new THREE.Mesh(
+      new THREE.RingGeometry(1.6, 1.8, 24),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
+    );
+    innerRing.rotation.x = -Math.PI / 2;
+    innerRing.position.set(x, 0.031, z);
+    this.group.add(innerRing);
+
+    // 2. 3D Architectural Emergency Assembly Point Totem / Monolith
+    const totemY = 1.8;
+    const totemPillar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 3.6, 0.35),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.8 })
+    );
+    totemPillar.position.set(x, totemY, z + (z >= 0 ? 5.6 : -5.6));
+    this.group.add(totemPillar);
+
+    const totemSign = new THREE.Mesh(
+      new THREE.BoxGeometry(0.72, 1.2, 0.36),
+      new THREE.MeshStandardMaterial({ color: 0x059669, emissive: 0x10b981, emissiveIntensity: 1.4 })
+    );
+    totemSign.position.set(x, totemY + 0.8, z + (z >= 0 ? 5.6 : -5.6));
+    this.group.add(totemSign);
+
+    const totemBeacon = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.18, 0.35, 16),
+      new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff88, emissiveIntensity: 2.0 })
+    );
+    totemBeacon.position.set(x, 3.75, z + (z >= 0 ? 5.6 : -5.6));
+    this.group.add(totemBeacon);
+  }
+
+  buildAllFloors() {
     for (let f = 1; f <= this.totalFloors; f++) {
       this.buildFloor(f);
     }
