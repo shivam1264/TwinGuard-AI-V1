@@ -421,7 +421,6 @@ export class Building3D {
       roughness: 0.08,
       metalness: 0.75
     });
-    });
 
     this.mullionMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
@@ -1602,147 +1601,9 @@ export class Building3D {
     // 17. Dedicated Emergency Assembly Muster Zones
     this.createMusterZone(-38, 0, 'MUSTER ZONE A (WEST)');
     this.createMusterZone(38, 0, 'MUSTER ZONE B (EAST)');
-    this.createMusterZone(0, 36, 'MUSTER ZONE C (SOUTH)');
-  }
+    
 
 
-    const roadStrE = new THREE.Mesh(new THREE.PlaneGeometry(straightW, straightL), this.asphaltMat);
-    roadStrE.rotation.x = -Math.PI / 2;
-    roadStrE.position.set(17.5, 0.01, 56);
-    roadStrE.receiveShadow = true;
-    envGroup.add(roadStrE);
-
-    // 4. Landscaped Planters with Manicured Evergreen Hedges
-    const planterGeos = [];
-    const hedgeGeos = [];
-    const planterBoxes = [
-      { x: -22, z: 28, w: 9, d: 2.8 },
-      { x: 22, z: 28, w: 9, d: 2.8 },
-      { x: -38, z: 12, w: 2.8, d: 14 },
-      { x: 38, z: 12, w: 2.8, d: 14 },
-      { x: -38, z: -12, w: 2.8, d: 14 },
-      { x: 38, z: -12, w: 2.8, d: 14 }
-    ];
-
-    planterBoxes.forEach(box => {
-      const pG = new THREE.BoxGeometry(box.w, 0.55, box.d);
-      pG.translate(box.x, 0.275, box.z);
-      planterGeos.push(pG);
-
-      const hG = new THREE.BoxGeometry(box.w - 0.4, 0.65, box.d - 0.4);
-      hG.translate(box.x, 0.55 + 0.325, box.z);
-      hedgeGeos.push(hG);
-    });
-
-    if (planterGeos.length > 0) {
-      const mergedPlanters = BufferGeometryUtils.mergeGeometries(planterGeos);
-      const planterMesh = new THREE.Mesh(mergedPlanters, this.concreteMat);
-      planterMesh.castShadow = true;
-      planterMesh.receiveShadow = true;
-      envGroup.add(planterMesh);
-    }
-
-    if (hedgeGeos.length > 0) {
-      const mergedHedges = BufferGeometryUtils.mergeGeometries(hedgeGeos);
-      const hedgeMesh = new THREE.Mesh(mergedHedges, this.foliageMat);
-      hedgeMesh.castShadow = true;
-      hedgeMesh.receiveShadow = true;
-      envGroup.add(hedgeMesh);
-    }
-
-    // 5. Specimen Shade Trees
-    const treePositions = [
-      { x: -24, z: 34 }, { x: 24, z: 34 },
-      { x: -38, z: 24 }, { x: 38, z: 24 },
-      { x: -38, z: -24 }, { x: 38, z: -24 },
-      { x: -14, z: 52 }, { x: 14, z: 52 }
-    ];
-
-    const trunkGeos = [];
-    const foliageClustGeos = [];
-    const trunkBase = new THREE.CylinderGeometry(0.18, 0.26, 3.2, 8);
-    const crownBase1 = new THREE.SphereGeometry(1.6, 8, 8);
-    const crownBase2 = new THREE.SphereGeometry(1.2, 8, 8);
-
-    treePositions.forEach(tp => {
-      const tr = trunkBase.clone();
-      tr.translate(tp.x, 1.6, tp.z);
-      trunkGeos.push(tr);
-
-      const cr1 = crownBase1.clone();
-      cr1.scale(1.1, 0.85, 1.1);
-      cr1.translate(tp.x, 3.6, tp.z);
-      foliageClustGeos.push(cr1);
-
-      const cr2 = crownBase2.clone();
-      cr2.translate(tp.x + 0.3, 4.4, tp.z - 0.2);
-      foliageClustGeos.push(cr2);
-    });
-
-    if (trunkGeos.length > 0) {
-      const trunkMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(trunkGeos), this.trunkMat);
-      trunkMesh.castShadow = true;
-      envGroup.add(trunkMesh);
-    }
-
-    if (foliageClustGeos.length > 0) {
-      const foliageMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(foliageClustGeos), this.foliageMat);
-      foliageMesh.castShadow = true;
-      envGroup.add(foliageMesh);
-    }
-
-    // 6. Stainless Security Bollards along Drop-off Curb
-    const bollardGeos = [];
-    const bollardBase = new THREE.CylinderGeometry(0.11, 0.11, 0.9, 14);
-    for (let bx = -14; bx <= 14; bx += 2.8) {
-      const b = bollardBase.clone();
-      b.translate(bx, 0.45, 27.2);
-      bollardGeos.push(b);
-    }
-    if (bollardGeos.length > 0) {
-      const bollardMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGeos), this.bollardMat);
-      bollardMesh.castShadow = true;
-      envGroup.add(bollardMesh);
-    }
-
-    // 7. Executive Teak Plaza Benches
-    const benchGeos = [];
-    const benchPositions = [
-      { x: -16, z: 27.4, rot: 0 },
-      { x: 16, z: 27.4, rot: 0 },
-      { x: -35, z: 12, rot: Math.PI / 2 },
-      { x: 35, z: 12, rot: -Math.PI / 2 }
-    ];
-
-    benchPositions.forEach(bp => {
-      const bG = new THREE.BoxGeometry(2.4, 0.46, 0.65);
-      bG.rotateY(bp.rot);
-      bG.translate(bp.x, 0.23, bp.z);
-      benchGeos.push(bG);
-    });
-
-    if (benchGeos.length > 0) {
-      const benchMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(benchGeos), this.benchWoodMat);
-      benchMesh.castShadow = true;
-      envGroup.add(benchMesh);
-    }
-
-    // 8. Campus Identity Totem Monolith
-    const totemGeo = new THREE.BoxGeometry(0.75, 4.6, 1.4);
-    const totemMesh = new THREE.Mesh(totemGeo, this.columnMat);
-    totemMesh.position.set(-18, 2.3, 42);
-    totemMesh.castShadow = true;
-    envGroup.add(totemMesh);
-
-    const totemBeacon = new THREE.Mesh(
-      new THREE.BoxGeometry(0.77, 0.18, 1.42),
-      this.screenDisplayCyanMat
-    );
-    totemBeacon.position.set(-18, 4.4, 42);
-    envGroup.add(totemBeacon);
-  }
-
-  buildAllFloors() {
         // Architectural Corner Piers are now generated hierarchically per floor inside buildFloor()
     // so they move seamlessly with their owning floor in Layered / Exploded mode.
 
