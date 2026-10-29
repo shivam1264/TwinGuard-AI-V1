@@ -12,16 +12,14 @@ import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
 import { NavigationGraph } from '../simulation/NavigationGraph.js';
 import { RouteOptimizationEngine } from '../simulation/RouteOptimizationEngine.js';
 import { ScenarioEngine } from '../simulation/ScenarioEngine.js';
-import { GIS_MUSTER_ZONES, GIS_ORIGIN } from '../simulation/GISCoordinateSystem.js';
 
 export class SceneManager {
-  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onGisToggle) {
+  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange) {
     this.container = containerElement;
     this.onStatsUpdate = onStatsUpdate;
     this.onRoomSelect = onRoomSelect;
     this.onRoomDoubleTap = onRoomDoubleTap;
     this.onFacadeModeChange = onFacadeModeChange;
-    this.onGisToggle = onGisToggle;
 
     this.simSpeed = 1.0;
     this.isSimulating = false;
@@ -181,21 +179,6 @@ export class SceneManager {
 
     this.showRouteOverlays = true;
     this.showExitBadges = true;
-
-    this.initGisLayer();
-  }
-
-  initGisLayer() {
-    this.gisGroup = new THREE.Group();
-    this.gisGroup.visible = false;
-    this.scene.add(this.gisGroup);
-    this.gisBeacons = [];
-  }
-
-  toggleGisLayer(forceState = null) {
-    if (!this.gisGroup) return false;
-    this.gisGroup.visible = forceState !== null ? forceState : !this.gisGroup.visible;
-    return this.gisGroup.visible;
   }
 
   initKeyboardControls() {
@@ -221,10 +204,6 @@ export class SceneManager {
         this.setCameraPreset('HERO_VIEW');
       } else if ((key === 'c' || key === 'C') && !e.altKey && !e.ctrlKey && !e.metaKey) {
         this.toggleFacadeMode();
-      } else if ((key === 'g' || key === 'G') && !e.altKey && !e.ctrlKey && !e.metaKey) {
-        if (this.onGisToggle) {
-          this.onGisToggle();
-        }
       }
     };
 
@@ -462,9 +441,6 @@ export class SceneManager {
       const baseY = (fl - 1) * this.building.floorHeight;
       this.camera.position.set(32, baseY + 14, 36);
       this.controls.target.set(0, baseY + 1.5, 0);
-    } else if (presetName === 'GIS_SATELLITE') {
-      this.camera.position.set(0, 155, 45);
-      this.controls.target.set(0, 0, 0);
     } else if (presetName === 'FOCUS_HYDRANT') {
       this.camera.position.set(24, 12, 54);
       this.controls.target.set(24, 0.5, 38);

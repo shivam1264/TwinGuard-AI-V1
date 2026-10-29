@@ -1,11 +1,10 @@
-// Comprehensive Automated Verification Suite for GIS & Evacuation System
+// Comprehensive Automated Verification Suite for TwinGuard Evacuation System
 import { NavigationGraph, EDGE_STATUS } from '../src/simulation/NavigationGraph.js';
 import { RouteOptimizationEngine } from '../src/simulation/RouteOptimizationEngine.js';
 import { ScenarioEngine, INCIDENT_TYPES } from '../src/simulation/ScenarioEngine.js';
-import { localToGeodetic, geodeticToLocal, GIS_ORIGIN, GIS_MUSTER_ZONES } from '../src/simulation/GISCoordinateSystem.js';
 
 console.log('=======================================================');
-console.log('🚀 RUNNING MASTER EVACUATION & GIS VERIFICATION SUITE');
+console.log('🚀 RUNNING MASTER EVACUATION VERIFICATION SUITE');
 console.log('=======================================================\n');
 
 let totalTests = 0;
@@ -23,25 +22,7 @@ function assert(condition, testName) {
 }
 
 // -------------------------------------------------------------------
-// TEST 1: GIS Coordinate Transformation
-// -------------------------------------------------------------------
-console.log('--- Test Suite 1: Geodetic & Local Coordinate System ---');
-const originLocal = geodeticToLocal(GIS_ORIGIN.latitude, GIS_ORIGIN.longitude, GIS_ORIGIN.elevationMsl);
-assert(Math.abs(originLocal.x) < 0.001 && Math.abs(originLocal.y) < 0.001 && Math.abs(originLocal.z) < 0.001,
-  'GIS Origin converts to local (0, 0, 0)');
-
-const testLocal = { x: 50.0, y: 15.2, z: -30.0 };
-const geo = localToGeodetic(testLocal.x, testLocal.y, testLocal.z);
-const roundTrip = geodeticToLocal(geo.latitude, geo.longitude, geo.elevationMsl);
-assert(Math.abs(roundTrip.x - testLocal.x) < 0.01 &&
-       Math.abs(roundTrip.y - testLocal.y) < 0.01 &&
-       Math.abs(roundTrip.z - testLocal.z) < 0.01,
-  'Local <-> Geodetic round-trip accuracy within 1cm');
-
-assert(GIS_MUSTER_ZONES.length === 2, 'Verified 2 Outdoor Assembly Muster Zones');
-
-// -------------------------------------------------------------------
-// TEST 2: Navigation Graph Completeness & Connectivity
+// TEST 1: Navigation Graph Completeness & Connectivity
 // -------------------------------------------------------------------
 console.log('\n--- Test Suite 2: 10-Storey Navigation Graph Completeness ---');
 const navGraph = new NavigationGraph(10, 3.8);
