@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Globe,
   MapPin,
@@ -19,8 +19,48 @@ import {
   Activity,
   Maximize2,
   Clock,
-  Flame
+  Flame,
+  Search,
+  RotateCcw
 } from 'lucide-react';
+
+// Real-World Geographic Datum Coordinates (Cyber City High-Rise Tech Hub)
+const TOWER_COORDS = [28.4986, 77.0878]; // Latitude, Longitude
+
+// Real Geospatial Urban Infrastructure Assets
+const GIS_ASSETS = {
+  hydrants: [
+    { id: 'H-101', name: 'Hydrant #H-101 (South Plaza)', coords: [28.4982, 77.0881], pressure: '125 PSI', dist: '24m', main: '250mm Cast Iron', status: 'Operational' },
+    { id: 'H-102', name: 'Hydrant #H-102 (North Access)', coords: [28.4991, 77.0875], pressure: '118 PSI', dist: '58m', main: '200mm Ductile', status: 'Operational' },
+    { id: 'H-103', name: 'Hydrant #H-103 (West Perimeter)', coords: [28.4986, 77.0871], pressure: '110 PSI', dist: '46m', main: '200mm Ductile', status: 'Operational' }
+  ],
+  musterZones: [
+    { id: 'M-A', name: 'Muster Zone A (South Plaza)', coords: [28.4978, 77.0876], cap: 350, type: 'Primary Safe Zone', status: 'Upwind • Clear' },
+    { id: 'M-B', name: 'Muster Zone B (North-East Park)', coords: [28.4993, 77.0884], cap: 250, type: 'Secondary Safe Zone', status: 'Clear' }
+  ],
+  fireStation: {
+    name: 'Fire Station #07 (Cyber City)',
+    coords: [28.4935, 77.0845],
+    dist: '1.4 km',
+    route: 'South Boulevard via Sector 4 Flyover'
+  },
+  hospital: {
+    name: 'Metro Trauma Center Hospital',
+    coords: [28.5035, 77.0915],
+    dist: '1.8 km',
+    beds: '28 Critical Care Beds'
+  }
+};
+
+// Road Inbound Route Path for Fire Engines (Real coordinate waypoints)
+const INBOUND_ROUTE_COORDS = [
+  [28.4935, 77.0845], // Fire Station 07
+  [28.4948, 77.0852],
+  [28.4962, 77.0862],
+  [28.4975, 77.0872],
+  [28.4980, 77.0876],
+  [28.4982, 77.0880]  // Tower South Ingress Gate
+];
 
 export const GISCommandModal = ({
   isOpen,
@@ -30,17 +70,22 @@ export const GISCommandModal = ({
   onSetCameraPreset,
   rooms = []
 }) => {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const layersRef = useRef({});
+
   const [activeTab, setActiveTab] = useState('dispatch'); // 'dispatch', 'hydrants', 'dispersion'
-  const [mapMode, setMapMode] = useState('vector'); // 'vector', 'satellite'
+  const [mapProvider, setMapProvider] = useState('satellite'); // 'satellite', 'dark', 'street'
   const [showPlume, setShowPlume] = useState(true);
   const [showHydrants, setShowHydrants] = useState(true);
   const [showGeoFences, setShowGeoFences] = useState(true);
   const [showInboundRoute, setShowInboundRoute] = useState(true);
   const [etaSeconds, setEtaSeconds] = useState(205); // ~3m 25s
+  const [isLeafletReady, setIsLeafletReady] = useState(false);
 
   const hasAnyFire = rooms.some(r => r.hasFire);
 
-  // Live ETA countdown simulation for incoming fire apparatus
+  // Live ETA countdown simulation for incoming fire engine
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => {
@@ -48,6 +93,315 @@ export const GISCommandModal = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
+
+  // Initialize Real Leaflet GIS Map
+  useEffect(() => {
+    if (!isOpen || !mapContainerRef.current) return;
+
+    // Wait until Leaflet is available on window
+    const checkLeaflet = () => {
+      if (typeof window !== 'undefined' && window.L) {
+        initLeafletMap(window.L);
+        setIsLeafletReady(true);
+      } else {
+        setTimeout(checkLeaflet, 100);
+      }
+    };
+
+    checkLeaflet();
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [isOpen]);
+
+  // Leaflet map construction
+  const initLeafletMap = (L) => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const map = L.map(mapContainerRef.current, {
+      center: TOWER_COORDS,
+      zoom: 17,
+      zoomControl: false,
+      attributionControl: false
+    });
+
+    mapInstanceRef.current = map;
+
+    // Custom Zoom Control top-right
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    // 1. Tile Layers (Real GIS providers)
+    const satelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19, attribution: 'Esri World Imagery' }
+    );
+
+    const darkLayer = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      { maxZoom: 19, subdomains: 'abcd', attribution: 'CartoDB Dark Matter' }
+    );
+
+    const streetLayer = L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: 'OpenStreetMap' }
+    );
+
+    // Initial base tile
+    if (mapProvider === 'satellite') satelliteLayer.addTo(map);
+    else if (mapProvider === 'dark') darkLayer.addTo(map);
+    else streetLayer.addTo(map);
+
+    layersRef.current.satellite = satelliteLayer;
+    layersRef.current.dark = darkLayer;
+    layersRef.current.street = streetLayer;
+
+    // 2. Geofence Concentric Rings around TwinGuard Tower
+    const geofenceGroup = L.layerGroup();
+    // 30m Hazard Ring
+    L.circle(TOWER_COORDS, {
+      radius: 30,
+      color: '#f97316',
+      fillColor: '#f97316',
+      fillOpacity: 0.18,
+      weight: 2,
+      dashArray: '6, 6'
+    }).bindTooltip('30m Immediate Hazard Geofence', { permanent: false, direction: 'top' }).addTo(geofenceGroup);
+
+    // 70m Triage Buffer Ring
+    L.circle(TOWER_COORDS, {
+      radius: 70,
+      color: '#06b6d4',
+      fillColor: '#06b6d4',
+      fillOpacity: 0.10,
+      weight: 1.8,
+      dashArray: '4, 4'
+    }).bindTooltip('70m Safe Triage & Assembly Buffer', { permanent: false, direction: 'top' }).addTo(geofenceGroup);
+
+    // 120m Outer Perimeter Cordon Ring
+    L.circle(TOWER_COORDS, {
+      radius: 120,
+      color: '#3b82f6',
+      fillColor: '#3b82f6',
+      fillOpacity: 0.04,
+      weight: 1.5,
+      dashArray: '8, 6'
+    }).bindTooltip('120m Outer Traffic & Incident Cordon', { permanent: false, direction: 'top' }).addTo(geofenceGroup);
+
+    if (showGeoFences) geofenceGroup.addTo(map);
+    layersRef.current.geofences = geofenceGroup;
+
+    // 3. Central TwinGuard Skyscraper Marker & Building Footprint
+    const towerIcon = L.divIcon({
+      className: 'custom-gis-pin',
+      html: `
+        <div style="background: rgba(2, 132, 199, 0.95); border: 2px solid #38bdf8; border-radius: 8px; padding: 4px 8px; color: white; font-family: monospace; font-size: 11px; font-weight: bold; box-shadow: 0 0 20px #0284c7; text-align: center; white-space: nowrap;">
+          🏢 TWINGUARD HQ (10-STOREY)
+        </div>
+      `,
+      iconSize: [160, 30],
+      iconAnchor: [80, 15]
+    });
+
+    L.marker(TOWER_COORDS, { icon: towerIcon })
+      .bindPopup(`
+        <div style="font-family: sans-serif; font-size: 12px; color: #0f172a; padding: 4px;">
+          <b style="color: #0284c7; font-size: 13px;">TwinGuard Cyber Skyscraper</b><br/>
+          <b>Floors:</b> 10 Levels (100 Rooms)<br/>
+          <b>GPS:</b> 28.4986° N, 77.0878° E<br/>
+          <b>Status:</b> ${hasAnyFire ? '<span style="color:red;font-weight:bold;">FIRE ALERT ACTIVE</span>' : '<span style="color:green;font-weight:bold;">NORMAL OPERATION</span>'}<br/>
+          <b>Datum:</b> WGS-84 / UTM 43N
+        </div>
+      `)
+      .addTo(map);
+
+    // Building Footprint Polygon (3D projection boundary on map)
+    const deltaLat = 0.00035;
+    const deltaLon = 0.00045;
+    const towerFootprint = [
+      [TOWER_COORDS[0] - deltaLat, TOWER_COORDS[1] - deltaLon],
+      [TOWER_COORDS[0] + deltaLat, TOWER_COORDS[1] - deltaLon],
+      [TOWER_COORDS[0] + deltaLat, TOWER_COORDS[1] + deltaLon],
+      [TOWER_COORDS[0] - deltaLat, TOWER_COORDS[1] + deltaLon]
+    ];
+    L.polygon(towerFootprint, {
+      color: '#38bdf8',
+      fillColor: '#0284c7',
+      fillOpacity: 0.35,
+      weight: 2
+    }).addTo(map);
+
+    // 4. Municipal Fire Hydrant Markers
+    const hydrantsGroup = L.layerGroup();
+    GIS_ASSETS.hydrants.forEach(h => {
+      const hydIcon = L.divIcon({
+        className: 'custom-hyd-pin',
+        html: `
+          <div style="background: #ef4444; border: 2px solid white; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px #ef4444; color: white; font-weight: bold; font-size: 11px;">
+            💧
+          </div>
+        `,
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+
+      L.marker(h.coords, { icon: hydIcon })
+        .bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px; color: #0f172a;">
+            <b style="color: #dc2626;">${h.name}</b><br/>
+            <b>Pressure:</b> ${h.pressure}<br/>
+            <b>Main Pipe:</b> ${h.main}<br/>
+            <b>Distance:</b> ${h.dist}<br/>
+            <b>Status:</b> ${h.status}
+          </div>
+        `)
+        .addTo(hydrantsGroup);
+    });
+
+    if (showHydrants) hydrantsGroup.addTo(map);
+    layersRef.current.hydrants = hydrantsGroup;
+
+    // 5. Emergency Assembly Muster Zones
+    GIS_ASSETS.musterZones.forEach(m => {
+      const musterIcon = L.divIcon({
+        className: 'custom-muster-pin',
+        html: `
+          <div style="background: #10b981; border: 2px solid white; border-radius: 6px; padding: 2px 6px; color: white; font-family: monospace; font-size: 10px; font-weight: bold; box-shadow: 0 0 12px #10b981; white-space: nowrap;">
+            🟢 ${m.name}
+          </div>
+        `,
+        iconSize: [120, 24],
+        iconAnchor: [60, 12]
+      });
+
+      L.marker(m.coords, { icon: musterIcon })
+        .bindPopup(`
+          <div style="font-family: sans-serif; font-size: 12px; color: #0f172a;">
+            <b style="color: #059669;">${m.name}</b><br/>
+            <b>Safe Capacity:</b> ${m.cap} Persons<br/>
+            <b>Type:</b> ${m.type}<br/>
+            <b>Wind Vector Status:</b> ${m.status}
+          </div>
+        `)
+        .addTo(map);
+    });
+
+    // 6. Nearest Fire Station & Hospital
+    const fsIcon = L.divIcon({
+      className: 'custom-fs-pin',
+      html: `
+        <div style="background: #b91c1c; border: 2px solid #f87171; border-radius: 6px; padding: 2px 6px; color: white; font-family: monospace; font-size: 10px; font-weight: bold; box-shadow: 0 0 15px #b91c1c; white-space: nowrap;">
+          🚒 FIRE STATION #07 (1.4 km)
+        </div>
+      `,
+      iconSize: [140, 24],
+      iconAnchor: [70, 12]
+    });
+    L.marker(GIS_ASSETS.fireStation.coords, { icon: fsIcon })
+      .bindPopup(`<b>${GIS_ASSETS.fireStation.name}</b><br/>Distance: ${GIS_ASSETS.fireStation.dist}<br/>Dispatched: Engine 07 & Ladder`)
+      .addTo(map);
+
+    const hospIcon = L.divIcon({
+      className: 'custom-hosp-pin',
+      html: `
+        <div style="background: #047857; border: 2px solid #34d399; border-radius: 6px; padding: 2px 6px; color: white; font-family: monospace; font-size: 10px; font-weight: bold; box-shadow: 0 0 15px #047857; white-space: nowrap;">
+          🏥 TRAUMA CENTER (1.8 km)
+        </div>
+      `,
+      iconSize: [140, 24],
+      iconAnchor: [70, 12]
+    });
+    L.marker(GIS_ASSETS.hospital.coords, { icon: hospIcon })
+      .bindPopup(`<b>${GIS_ASSETS.hospital.name}</b><br/>Emergency Capacity: ${GIS_ASSETS.hospital.beds}`)
+      .addTo(map);
+
+    // 7. Inbound Fire Truck Route Polyline
+    const routeGroup = L.layerGroup();
+    L.polyline(INBOUND_ROUTE_COORDS, {
+      color: '#ef4444',
+      weight: 5,
+      opacity: 0.9,
+      dashArray: '8, 8'
+    }).addTo(routeGroup);
+
+    if (showInboundRoute) routeGroup.addTo(map);
+    layersRef.current.route = routeGroup;
+
+    // 8. Downwind Smoke Hazard Plume Polygon (drifting South-East from Tower)
+    const plumeGroup = L.layerGroup();
+    const plumeCoords = [
+      TOWER_COORDS,
+      [TOWER_COORDS[0] - 0.0018, TOWER_COORDS[1] + 0.0028],
+      [TOWER_COORDS[0] - 0.0032, TOWER_COORDS[1] + 0.0018],
+      TOWER_COORDS
+    ];
+    L.polygon(plumeCoords, {
+      color: '#f97316',
+      fillColor: '#ef4444',
+      fillOpacity: 0.28,
+      weight: 1.5,
+      dashArray: '5, 5'
+    }).bindTooltip('Downwind Smoke Dispersion Sector (Avoid Evacuation Here!)', { permanent: false }).addTo(plumeGroup);
+
+    if (showPlume && hasAnyFire) plumeGroup.addTo(map);
+    layersRef.current.plume = plumeGroup;
+
+    // Invalidate size to ensure 100% container fit
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 150);
+  };
+
+  // Dynamic Tile Layer Switching
+  const handleTileSwitch = (provider) => {
+    setMapProvider(provider);
+    if (!mapInstanceRef.current || !layersRef.current.satellite) return;
+
+    const map = mapInstanceRef.current;
+    map.removeLayer(layersRef.current.satellite);
+    map.removeLayer(layersRef.current.dark);
+    map.removeLayer(layersRef.current.street);
+
+    if (provider === 'satellite') layersRef.current.satellite.addTo(map);
+    else if (provider === 'dark') layersRef.current.dark.addTo(map);
+    else layersRef.current.street.addTo(map);
+  };
+
+  // Dynamic Layer Toggles
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    if (layersRef.current.geofences) {
+      if (showGeoFences) map.addLayer(layersRef.current.geofences);
+      else map.removeLayer(layersRef.current.geofences);
+    }
+    if (layersRef.current.hydrants) {
+      if (showHydrants) map.addLayer(layersRef.current.hydrants);
+      else map.removeLayer(layersRef.current.hydrants);
+    }
+    if (layersRef.current.route) {
+      if (showInboundRoute) map.addLayer(layersRef.current.route);
+      else map.removeLayer(layersRef.current.route);
+    }
+    if (layersRef.current.plume) {
+      if (showPlume && hasAnyFire) map.addLayer(layersRef.current.plume);
+      else map.removeLayer(layersRef.current.plume);
+    }
+  }, [showGeoFences, showHydrants, showInboundRoute, showPlume, hasAnyFire]);
+
+  // Recenter Map on Tower
+  const handleRecenter = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo(TOWER_COORDS, 17, { animate: true, duration: 1 });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -58,11 +412,11 @@ export const GISCommandModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-3 sm:p-5 animate-in fade-in duration-200">
-      <div className="glass-panel w-full max-w-5xl max-h-[92vh] rounded-2xl border border-cyan-500/50 shadow-[0_0_50px_rgba(0,240,255,0.25)] flex flex-col overflow-hidden bg-slate-950/95">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200">
+      <div className="glass-panel w-full max-w-6xl max-h-[95vh] rounded-2xl border border-cyan-500/50 shadow-[0_0_60px_rgba(0,240,255,0.3)] flex flex-col overflow-hidden bg-slate-950/95">
         
         {/* 1. Header Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-cyan-500/30 bg-slate-900/90 shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-cyan-500/30 bg-slate-900/90 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-cyan-950 border border-cyan-400/50 text-cyan-300 shadow-[0_0_15px_rgba(0,240,255,0.4)]">
               <Globe className="w-5 h-5 animate-spin-slow" />
@@ -70,17 +424,17 @@ export const GISCommandModal = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="font-hud font-bold text-base tracking-wider text-white">
-                  GIS GEOSPATIAL COMMAND CENTER
+                  REAL GIS GEOSPATIAL COMMAND CENTER
                 </h2>
-                <span className="badge-tech bg-cyan-950/90 text-cyan-300 border border-cyan-500/40 text-[10px]">
-                  WGS-84 • GPS LOCK
-                </span>
                 <span className="badge-tech bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 text-[10px]">
-                  12 SATELLITES
+                  LIVE LEAFLET GIS ENGINE
+                </span>
+                <span className="badge-tech bg-cyan-950/90 text-cyan-300 border border-cyan-500/40 text-[10px]">
+                  ESRI SATELLITE & OSM TILES
                 </span>
               </div>
               <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-                Urban Spatial Telemetry • Municipal Water Grid • Emergency Routing & Dispersion
+                Real-Time Earth Observation • Urban Hydrant Network • Live Spatial Incident Triage
               </p>
             </div>
           </div>
@@ -109,27 +463,27 @@ export const GISCommandModal = ({
         </div>
 
         {/* 2. Geodetic Coordinate Telemetry Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-5 py-2.5 bg-slate-900/60 border-b border-slate-800 text-[11px] font-mono shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 px-5 py-2 bg-slate-900/60 border-b border-slate-800 text-[11px] font-mono shrink-0">
           <div className="flex items-center gap-2 text-slate-300">
             <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <div>
-              <span className="text-slate-400 block text-[9px] uppercase font-hud">Coordinates</span>
-              <span className="text-white font-bold">28.6139° N, 77.2090° E</span>
+              <span className="text-slate-400 block text-[9px] uppercase font-hud">Real GPS Lat/Lon</span>
+              <span className="text-white font-bold">28.4986° N, 77.0878° E</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-slate-300">
             <Navigation className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <div>
-              <span className="text-slate-400 block text-[9px] uppercase font-hud">Datum / Elevation</span>
-              <span className="text-white font-bold">UTM 43N • 216.4m ASL</span>
+              <span className="text-slate-400 block text-[9px] uppercase font-hud">Geodetic Datum</span>
+              <span className="text-white font-bold">WGS 84 • UTM 43N</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-slate-300">
             <Wind className="w-3.5 h-3.5 text-purple-400 shrink-0" />
             <div>
-              <span className="text-slate-400 block text-[9px] uppercase font-hud">Live Wind Vector</span>
+              <span className="text-slate-400 block text-[9px] uppercase font-hud">Atmospheric Wind</span>
               <span className="text-purple-300 font-bold">315° NW @ 16 km/h</span>
             </div>
           </div>
@@ -145,260 +499,96 @@ export const GISCommandModal = ({
           <div className="flex items-center gap-2 text-slate-300 col-span-2 sm:col-span-1">
             <Radio className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <div>
-              <span className="text-slate-400 block text-[9px] uppercase font-hud">Cadastral Zone</span>
-              <span className="text-amber-300 font-bold">SEC-44 • TOWER PLOT 12</span>
+              <span className="text-slate-400 block text-[9px] uppercase font-hud">Urban Sector</span>
+              <span className="text-amber-300 font-bold">CYBER HUB PLOT 12</span>
             </div>
           </div>
         </div>
 
-        {/* 3. Main Body: Split Map & Data Panels */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-4 p-5 min-h-[460px]">
+        {/* 3. Main Body: Split Real Leaflet Map & Data Panels */}
+        <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 min-h-[480px]">
           
-          {/* Left Column: Interactive Geospatial Mini-Map (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col gap-2.5">
+          {/* Left Column: Real Leaflet GIS Map Container (7 cols) */}
+          <div className="lg:col-span-7 flex flex-col gap-2">
+            
+            {/* Map Top Bar Controls */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-hud font-bold text-cyan-300">
                 <Crosshair className="w-4 h-4 text-cyan-400" />
-                <span>URBAN SPATIAL PLOT & GEOFENCE RADAR</span>
+                <span>INTERACTIVE SATELLITE & CADASTRAL GIS MAP</span>
               </div>
 
-              {/* Map Layer Controls */}
-              <div className="flex items-center gap-1.5 text-[10px] font-mono">
+              {/* Real Tile Layer Switcher */}
+              <div className="flex items-center gap-1 text-[10px] font-mono">
                 <button
-                  onClick={() => setMapMode(mapMode === 'vector' ? 'satellite' : 'vector')}
+                  onClick={() => handleTileSwitch('satellite')}
                   className={`px-2 py-0.5 rounded border transition-colors ${
-                    mapMode === 'satellite'
-                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400'
+                    mapProvider === 'satellite'
+                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400 font-bold'
                       : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
                   }`}
                 >
-                  {mapMode === 'satellite' ? '🛰️ Satellite Imagery' : '🗺️ Vector Cadastral'}
+                  🛰️ Esri Satellite
+                </button>
+                <button
+                  onClick={() => handleTileSwitch('dark')}
+                  className={`px-2 py-0.5 rounded border transition-colors ${
+                    mapProvider === 'dark'
+                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400 font-bold'
+                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  🌃 Dark Matter
+                </button>
+                <button
+                  onClick={() => handleTileSwitch('street')}
+                  className={`px-2 py-0.5 rounded border transition-colors ${
+                    mapProvider === 'street'
+                      ? 'bg-cyan-950 text-cyan-300 border-cyan-400 font-bold'
+                      : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                  }`}
+                >
+                  🗺️ Street OSM
                 </button>
               </div>
             </div>
 
-            {/* Interactive Vector GIS SVG Canvas */}
-            <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-cyan-500/40 shadow-inner bg-slate-950 flex items-center justify-center group select-none">
-              
-              {/* Satellite texture or grid background */}
-              <svg className="w-full h-full" viewBox="0 0 600 450">
-                <defs>
-                  {/* Grid pattern */}
-                  <pattern id="gisGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(2, 132, 199, 0.15)" strokeWidth="0.8" />
-                  </pattern>
+            {/* Real Interactive Leaflet Container */}
+            <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-cyan-500/50 shadow-2xl bg-slate-950">
+              <div ref={mapContainerRef} className="w-full h-full z-10" />
 
-                  {/* Satellite terrain tint */}
-                  <radialGradient id="satGlow" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" stopColor="#0f172a" />
-                    <stop offset="60%" stopColor="#081020" />
-                    <stop offset="100%" stopColor="#030712" />
-                  </radialGradient>
+              {/* Loading indicator if Leaflet is mounting */}
+              {!isLeafletReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-950/80 z-20 text-cyan-300 font-mono text-xs">
+                  <span>Loading Real Earth Satellite GIS Tiles...</span>
+                </div>
+              )}
 
-                  {/* Gaussian Smoke Plume Gradient */}
-                  <radialGradient id="smokePlumeGrad" cx="30%" cy="30%" r="70%">
-                    <stop offset="0%" stopColor="rgba(239, 68, 68, 0.45)" />
-                    <stop offset="50%" stopColor="rgba(249, 115, 22, 0.25)" />
-                    <stop offset="100%" stopColor="rgba(100, 116, 139, 0)" />
-                  </radialGradient>
+              {/* Real Map Floating Controls */}
+              <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
+                <button
+                  onClick={handleRecenter}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-950/90 hover:bg-slate-900 text-cyan-300 border border-cyan-500/50 text-[10px] font-mono font-bold shadow-lg flex items-center gap-1.5 backdrop-blur-md transition-all"
+                  title="Recenter Map on TwinGuard Tower"
+                >
+                  <RotateCcw className="w-3 h-3" /> Recenter Tower
+                </button>
+              </div>
 
-                  {/* Geofence pulse ring */}
-                  <filter id="glow">
-                    <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-                    <feMerge>
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                </defs>
-
-                {/* Base Surface */}
-                <rect width="600" height="450" fill={mapMode === 'satellite' ? 'url(#satGlow)' : '#050914'} />
-                <rect width="600" height="450" fill="url(#gisGrid)" />
-
-                {/* Surrounding City Roads & Highways */}
-                {/* South Boulevard (Main E-W Arterial) */}
-                <rect x="0" y="360" width="600" height="45" fill="#1e293b" />
-                <line x1="0" y1="382" x2="600" y2="382" stroke="#f59e0b" strokeWidth="2" strokeDasharray="10 8" />
-                <text x="30" y="388" fill="#94a3b8" fontSize="10" fontFamily="monospace" fontWeight="bold">SOUTH BOULEVARD (MAIN CORRIDOR)</text>
-
-                {/* North Avenue */}
-                <rect x="0" y="30" width="600" height="35" fill="#1e293b" />
-                <line x1="0" y1="47" x2="600" y2="47" stroke="#94a3b8" strokeWidth="1" strokeDasharray="8 6" />
-                <text x="30" y="52" fill="#64748b" fontSize="10" fontFamily="monospace">NORTH AVENUE (SERVICE ACCESS)</text>
-
-                {/* West Link Road */}
-                <rect x="50" y="0" width="35" height="450" fill="#1e293b" />
-                <text x="58" y="225" fill="#64748b" fontSize="9" fontFamily="monospace" transform="rotate(-90 58 225)">WEST RING ROAD</text>
-
-                {/* East Boulevard */}
-                <rect x="515" y="0" width="35" height="450" fill="#1e293b" />
-                <text x="532" y="225" fill="#64748b" fontSize="9" fontFamily="monospace" transform="rotate(90 532 225)">EAST METRO ACCESS</text>
-
-                {/* Neighboring City Plots */}
-                <rect x="110" y="80" width="90" height="65" fill="#0f172a" stroke="#334155" strokeWidth="1.2" rx="4" />
-                <text x="120" y="115" fill="#64748b" fontSize="9" fontFamily="sans-serif">IT TOWER 2</text>
-
-                <rect x="400" y="80" width="95" height="65" fill="#0f172a" stroke="#334155" strokeWidth="1.2" rx="4" />
-                <text x="410" y="115" fill="#64748b" fontSize="9" fontFamily="sans-serif">HOTEL CYBER</text>
-
-                {/* Geofence Safety Rings around Center Tower (x: 300, y: 220) */}
-                {showGeoFences && (
-                  <>
-                    {/* 110m Outer Perimeter */}
-                    <circle cx="300" cy="210" r="150" fill="none" stroke="#3b82f6" strokeWidth="1" strokeDasharray="6 4" opacity="0.6" />
-                    <text x="455" y="214" fill="#60a5fa" fontSize="8" fontFamily="monospace">110m CORDON</text>
-
-                    {/* 70m Safe Triage Ring */}
-                    <circle cx="300" cy="210" r="105" fill="rgba(6, 182, 212, 0.05)" stroke="#06b6d4" strokeWidth="1.5" strokeDasharray="4 3" opacity="0.8" />
-                    <text x="410" y="214" fill="#22d3ee" fontSize="8" fontFamily="monospace">70m TRIAGE</text>
-
-                    {/* 30m Hazard Ring */}
-                    <circle cx="300" cy="210" r="55" fill="rgba(249, 115, 22, 0.08)" stroke="#f97316" strokeWidth="2" strokeDasharray="5 3" filter="url(#glow)" />
-                    <text x="360" y="214" fill="#fb923c" fontSize="8" fontFamily="monospace" fontWeight="bold">30m HAZARD</text>
-                  </>
-                )}
-
-                {/* Downwind Smoke Hazard Plume Cone (From Tower x:300, y:210 toward South-East) */}
-                {showPlume && hasAnyFire && (
-                  <path
-                    d="M 300 210 Q 420 280 500 360 L 380 430 Q 340 300 300 210 Z"
-                    fill="url(#smokePlumeGrad)"
-                    opacity="0.9"
-                  />
-                )}
-
-                {/* Central Building Footprint (TwinGuard Skyscraper) */}
-                <rect
-                  x="245"
-                  y="165"
-                  width="110"
-                  height="90"
-                  fill="#0284c7"
-                  fillOpacity="0.25"
-                  stroke="#38bdf8"
-                  strokeWidth="2.5"
-                  rx="6"
-                  filter="url(#glow)"
-                  className="cursor-pointer hover:fill-opacity-40 transition-all"
-                  onClick={() => onSetCameraPreset('HERO_VIEW')}
-                />
-                <text x="262" y="205" fill="#ffffff" fontSize="11" fontFamily="sans-serif" fontWeight="bold">TWINGUARD</text>
-                <text x="266" y="220" fill="#38bdf8" fontSize="9" fontFamily="monospace">10-STOREY</text>
-                <text x="272" y="235" fill="#facc15" fontSize="8" fontFamily="monospace">[HQ SITE]</text>
-
-                {/* Emergency Exits on Perimeter */}
-                {/* Exit A (North) */}
-                <rect x="290" y="157" width="20" height="8" fill="#10b981" rx="2" />
-                <text x="286" y="152" fill="#34d399" fontSize="8" fontFamily="monospace" fontWeight="bold">EXIT A</text>
-
-                {/* Exit B (West) */}
-                <rect x="237" y="202" width="8" height="20" fill="#10b981" rx="2" />
-                <text x="200" y="215" fill="#34d399" fontSize="8" fontFamily="monospace" fontWeight="bold">EXIT B</text>
-
-                {/* Exit C (South Plaza) */}
-                <rect x="290" y="255" width="20" height="8" fill={hasAnyFire ? '#f97316' : '#10b981'} rx="2" />
-                <text x="286" y="275" fill={hasAnyFire ? '#fb923c' : '#34d399'} fontSize="8" fontFamily="monospace" fontWeight="bold">EXIT C</text>
-
-                {/* Assembly Muster Zones */}
-                {/* Muster Point A (South-West Lawn) */}
-                <g className="cursor-pointer" onClick={() => onSetCameraPreset('FOCUS_MUSTER_A')}>
-                  <circle cx="210" cy="315" r="24" fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" strokeWidth="1.8" strokeDasharray="3 2" />
-                  <circle cx="210" cy="315" r="6" fill="#10b981" />
-                  <text x="180" y="348" fill="#6ee7b7" fontSize="9" fontFamily="monospace" fontWeight="bold">MUSTER ZONE A</text>
-                  <text x="185" y="358" fill="#94a3b8" fontSize="8" fontFamily="monospace">Cap: 300 Pers</text>
-                </g>
-
-                {/* Muster Point B (North-East Park) */}
-                <g className="cursor-pointer">
-                  <circle cx="430" cy="180" r="22" fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" strokeWidth="1.8" strokeDasharray="3 2" />
-                  <circle cx="430" cy="180" r="6" fill="#10b981" />
-                  <text x="400" y="212" fill="#6ee7b7" fontSize="9" fontFamily="monospace" fontWeight="bold">MUSTER ZONE B</text>
-                </g>
-
-                {/* Municipal Fire Hydrants */}
-                {showHydrants && (
-                  <>
-                    {/* Hydrant #H-101 (Front South Plaza) */}
-                    <g className="cursor-pointer" onClick={() => onSetCameraPreset('FOCUS_HYDRANT')}>
-                      <circle cx="340" cy="310" r="10" fill="rgba(239, 68, 68, 0.3)" stroke="#ef4444" strokeWidth="2" />
-                      <circle cx="340" cy="310" r="4" fill="#ef4444" />
-                      <text x="355" y="314" fill="#fca5a5" fontSize="9" fontFamily="monospace" fontWeight="bold">HYD #101</text>
-                      <text x="355" y="324" fill="#ef4444" fontSize="8" fontFamily="monospace">125 PSI</text>
-                    </g>
-
-                    {/* Hydrant #H-102 (North Access) */}
-                    <g className="cursor-pointer">
-                      <circle cx="350" cy="110" r="8" fill="rgba(239, 68, 68, 0.3)" stroke="#ef4444" strokeWidth="1.5" />
-                      <circle cx="350" cy="110" r="3.5" fill="#ef4444" />
-                      <text x="362" y="114" fill="#fca5a5" fontSize="8" fontFamily="monospace">HYD #102</text>
-                    </g>
-
-                    {/* Hydrant #H-103 (West Perimeter) */}
-                    <g className="cursor-pointer">
-                      <circle cx="130" cy="210" r="8" fill="rgba(239, 68, 68, 0.3)" stroke="#ef4444" strokeWidth="1.5" />
-                      <circle cx="130" cy="210" r="3.5" fill="#ef4444" />
-                      <text x="142" y="214" fill="#fca5a5" fontSize="8" fontFamily="monospace">HYD #103</text>
-                    </g>
-                  </>
-                )}
-
-                {/* Inbound Emergency Route for Fire Engines along South Blvd */}
-                {showInboundRoute && (
-                  <g>
-                    <path
-                      d="M 20 382 L 300 382 L 300 310"
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="3.5"
-                      strokeDasharray="8 5"
-                      strokeLinecap="round"
-                    />
-                    {/* Animated Engine icon */}
-                    <circle cx="140" cy="382" r="7" fill="#ef4444" filter="url(#glow)" />
-                    <text x="155" y="375" fill="#ef4444" fontSize="9" fontFamily="monospace" fontWeight="bold">
-                      🚒 ENGINE 07 (ETA: {formatEta(etaSeconds)})
-                    </text>
-                  </g>
-                )}
-
-                {/* Compass Rose at Top-Right */}
-                <g transform="translate(545, 60)">
-                  <circle cx="0" cy="0" r="22" fill="#090d16" stroke="#0284c7" strokeWidth="1.5" />
-                  <polygon points="0,-18 5,-2 0,2 -5,-2" fill="#ef4444" />
-                  <polygon points="0,18 5,2 0,-2 -5,2" fill="#94a3b8" />
-                  <text x="-4" y="-22" fill="#ef4444" fontSize="10" fontFamily="sans-serif" fontWeight="bold">N</text>
-                  <text x="-3" y="30" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">S</text>
-                  <text x="24" y="3" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">E</text>
-                  <text x="-32" y="3" fill="#94a3b8" fontSize="9" fontFamily="sans-serif">W</text>
-                  {/* Wind Arrow (from NW) */}
-                  <line x1="-14" y1="-14" x2="14" y2="14" stroke="#a855f7" strokeWidth="2.5" markerEnd="url(#arrow)" />
-                  <text x="16" y="20" fill="#c084fc" fontSize="8" fontFamily="monospace">16km/h</text>
-                </g>
-
-                {/* Scale Bar at Bottom-Left */}
-                <g transform="translate(20, 425)">
-                  <line x1="0" y1="0" x2="80" y2="0" stroke="#ffffff" strokeWidth="2" />
-                  <line x1="0" y1="-4" x2="0" y2="4" stroke="#ffffff" strokeWidth="2" />
-                  <line x1="80" y1="-4" x2="80" y2="4" stroke="#ffffff" strokeWidth="2" />
-                  <text x="25" y="-5" fill="#ffffff" fontSize="9" fontFamily="monospace">50 METERS</text>
-                </g>
-              </svg>
-
-              {/* Live Overlay Toggles on bottom of map */}
-              <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-slate-950/90 border border-slate-700/80 rounded-lg p-1 text-[10px] font-mono backdrop-blur-md">
+              {/* Interactive Layer Filter Pills (Floating bottom-right of map) */}
+              <div className="absolute bottom-2 right-2 z-20 flex items-center gap-1 bg-slate-950/90 border border-slate-700/80 rounded-lg p-1 text-[10px] font-mono backdrop-blur-md shadow-xl">
                 <button
                   onClick={() => setShowPlume(!showPlume)}
                   className={`px-1.5 py-0.5 rounded transition-colors ${
-                    showPlume ? 'bg-amber-500/20 text-amber-300' : 'text-slate-500'
+                    showPlume ? 'bg-amber-500/20 text-amber-300 font-bold' : 'text-slate-500'
                   }`}
                 >
-                  Plume
+                  Smoke Plume
                 </button>
                 <button
                   onClick={() => setShowHydrants(!showHydrants)}
                   className={`px-1.5 py-0.5 rounded transition-colors ${
-                    showHydrants ? 'bg-red-500/20 text-red-300' : 'text-slate-500'
+                    showHydrants ? 'bg-red-500/20 text-red-300 font-bold' : 'text-slate-500'
                   }`}
                 >
                   Hydrants
@@ -406,7 +596,7 @@ export const GISCommandModal = ({
                 <button
                   onClick={() => setShowGeoFences(!showGeoFences)}
                   className={`px-1.5 py-0.5 rounded transition-colors ${
-                    showGeoFences ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-500'
+                    showGeoFences ? 'bg-cyan-500/20 text-cyan-300 font-bold' : 'text-slate-500'
                   }`}
                 >
                   Geofences
@@ -414,38 +604,38 @@ export const GISCommandModal = ({
                 <button
                   onClick={() => setShowInboundRoute(!showInboundRoute)}
                   className={`px-1.5 py-0.5 rounded transition-colors ${
-                    showInboundRoute ? 'bg-emerald-500/20 text-emerald-300' : 'text-slate-500'
+                    showInboundRoute ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-500'
                   }`}
                 >
-                  Routes
+                  Inbound Route
                 </button>
               </div>
             </div>
 
-            {/* Quick 3D Viewport Navigation Shortcuts */}
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-slate-400 font-hud text-[10px] uppercase">3D Fly-to:</span>
+            {/* Quick 3D Viewport Synchronized Actions */}
+            <div className="flex items-center gap-2 text-xs font-mono mt-1">
+              <span className="text-slate-400 font-hud text-[10px] uppercase">3D Camera Fly-to:</span>
               <button
                 onClick={() => onSetCameraPreset('GIS_SATELLITE')}
-                className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-[11px] flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 text-[11px] flex items-center gap-1 transition-colors"
               >
                 <Globe className="w-3 h-3" /> Satellite Top-Down
               </button>
               <button
                 onClick={() => onSetCameraPreset('FOCUS_HYDRANT')}
-                className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-red-300 border border-red-500/30 text-[11px] flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-red-300 border border-red-500/30 text-[11px] flex items-center gap-1 transition-colors"
               >
                 <Droplets className="w-3 h-3" /> Hydrant #101
               </button>
               <button
                 onClick={() => onSetCameraPreset('FOCUS_MUSTER_A')}
-                className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-emerald-500/30 text-[11px] flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-emerald-300 border border-emerald-500/30 text-[11px] flex items-center gap-1 transition-colors"
               >
                 <CheckCircle2 className="w-3 h-3" /> Muster Zone A
               </button>
               <button
                 onClick={() => onSetCameraPreset('FOCUS_HELIPAD')}
-                className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[11px] flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 text-[11px] flex items-center gap-1 transition-colors"
               >
                 <Navigation className="w-3 h-3" /> Roof Helipad
               </button>
@@ -453,7 +643,7 @@ export const GISCommandModal = ({
           </div>
 
           {/* Right Column: Tabbed GIS Infrastructure & Dispatch Telemetry (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col gap-3">
+          <div className="lg:col-span-5 flex flex-col gap-2.5">
             {/* Tabs Selector */}
             <div className="flex items-center gap-1 p-1 bg-slate-900 border border-slate-800 rounded-xl text-xs font-hud font-bold">
               <button
@@ -495,7 +685,7 @@ export const GISCommandModal = ({
 
             {/* TAB 1: Emergency Services Dispatch */}
             {activeTab === 'dispatch' && (
-              <div className="flex flex-col gap-2.5 text-xs">
+              <div className="flex flex-col gap-2 text-xs">
                 {/* Nearest Fire Station Card */}
                 <div className="bg-slate-900/90 border border-red-500/30 rounded-xl p-3 flex flex-col gap-2 shadow-sm">
                   <div className="flex items-center justify-between border-b border-red-500/20 pb-1.5">
@@ -513,14 +703,14 @@ export const GISCommandModal = ({
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono mt-1">
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-hud">Distance</span>
-                      <span className="text-white font-bold">1.8 km (South Blvd)</span>
+                      <span className="text-white font-bold">1.4 km (South Blvd)</span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-hud">Inbound ETA</span>
                       <span className="text-red-400 font-bold text-sm">{formatEta(etaSeconds)}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-hud">Deployed Units</span>
+                      <span className="text-slate-400 block text-[9px] uppercase font-hud">Apparatus</span>
                       <span className="text-slate-200">Engine 07 & 55m Aerial</span>
                     </div>
                     <div>
@@ -561,11 +751,11 @@ export const GISCommandModal = ({
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono mt-1">
                     <div>
                       <span className="text-slate-400 block text-[9px] uppercase font-hud">Distance</span>
-                      <span className="text-white font-bold">3.2 km (West Link)</span>
+                      <span className="text-white font-bold">1.8 km (West Link)</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block text-[9px] uppercase font-hud">Ambulance Fleet</span>
-                      <span className="text-emerald-400 font-bold">3 Units on Standby</span>
+                      <span className="text-slate-400 block text-[9px] uppercase font-hud">Ambulances</span>
+                      <span className="text-emerald-400 font-bold">3 Units Standby</span>
                     </div>
                   </div>
                 </div>
@@ -574,7 +764,7 @@ export const GISCommandModal = ({
                 <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-[11px] font-mono">
                   <div>
                     <span className="font-hud font-bold text-slate-300 block">SECTOR 4 TRAFFIC PERIMETER</span>
-                    <span className="text-slate-400 text-[10px]">South Blvd diverted for emergency responders</span>
+                    <span className="text-slate-400 text-[10px]">South Blvd traffic diverted for emergency ingress</span>
                   </div>
                   <span className="text-cyan-400 font-bold">ACTIVE CORDON</span>
                 </div>
@@ -583,15 +773,15 @@ export const GISCommandModal = ({
 
             {/* TAB 2: Municipal Water & Hydrant Network */}
             {activeTab === 'hydrants' && (
-              <div className="flex flex-col gap-2.5 text-xs">
+              <div className="flex flex-col gap-2 text-xs">
                 {/* Static Water Reservoir */}
                 <div className="bg-slate-900/90 border border-cyan-500/30 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-hud font-bold text-cyan-300">UNDERGROUND STATIC RESERVOIR</span>
-                    <span className="font-mono text-emerald-400 font-bold text-xs">98% CAPACITY</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-hud font-bold text-cyan-300">UNDERGROUND STATIC FIRE RESERVOIR</span>
+                    <span className="font-mono text-emerald-400 font-bold text-xs">98% FULL</span>
                   </div>
                   <div className="text-[11px] font-mono text-slate-300 mb-2">
-                    Volume: <b className="text-white">450,000 Liters</b> Dedicated Fire Reserve (Dual Booster Pumps Active)
+                    Volume: <b className="text-white">450,000 Liters</b> Dedicated Standpipe Reserve (Dual Booster Pumps Active)
                   </div>
                   <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
                     <div className="h-full bg-cyan-400 w-[98%]" />
@@ -600,63 +790,40 @@ export const GISCommandModal = ({
 
                 {/* Hydrant Cards */}
                 <div className="flex flex-col gap-2">
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-hud font-bold text-white flex items-center gap-1.5">
-                        <Droplets className="w-3.5 h-3.5 text-red-400" />
-                        <span>HYDRANT #H-101 (SOUTH PLAZA)</span>
+                  {GIS_ASSETS.hydrants.map(h => (
+                    <div key={h.id} className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
+                      <div>
+                        <div className="font-hud font-bold text-white flex items-center gap-1.5">
+                          <Droplets className="w-3.5 h-3.5 text-red-400" />
+                          <span>{h.name}</span>
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                          Dist: {h.dist} • Main: {h.main} • Status: {h.status}
+                        </div>
                       </div>
-                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                        Dist: 24m • 250mm Main • Tested: 3d ago
-                      </div>
-                    </div>
-                    <div className="text-right font-mono">
-                      <div className="text-emerald-400 font-bold text-xs">125 PSI</div>
-                      <button
-                        onClick={() => onSetCameraPreset('FOCUS_HYDRANT')}
-                        className="text-[9px] text-cyan-400 hover:underline"
-                      >
-                        [Focus in 3D]
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-hud font-bold text-white flex items-center gap-1.5">
-                        <Droplets className="w-3.5 h-3.5 text-red-400" />
-                        <span>HYDRANT #H-102 (NORTH ACCESS)</span>
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                        Dist: 58m • 200mm Main
+                      <div className="text-right font-mono">
+                        <div className="text-emerald-400 font-bold text-xs">{h.pressure}</div>
+                        <button
+                          onClick={() => {
+                            if (mapInstanceRef.current) {
+                              mapInstanceRef.current.flyTo(h.coords, 18, { animate: true });
+                            }
+                            onSetCameraPreset('FOCUS_HYDRANT');
+                          }}
+                          className="text-[9px] text-cyan-400 hover:underline"
+                        >
+                          [Focus in GIS & 3D]
+                        </button>
                       </div>
                     </div>
-                    <div className="text-right font-mono">
-                      <div className="text-emerald-400 font-bold text-xs">118 PSI</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 flex items-center justify-between">
-                    <div>
-                      <div className="font-hud font-bold text-white flex items-center gap-1.5">
-                        <Droplets className="w-3.5 h-3.5 text-red-400" />
-                        <span>HYDRANT #H-103 (WEST PERIMETER)</span>
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
-                        Dist: 46m • 200mm Main
-                      </div>
-                    </div>
-                    <div className="text-right font-mono">
-                      <div className="text-emerald-400 font-bold text-xs">110 PSI</div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
 
             {/* TAB 3: Atmospheric Smoke Dispersion Model */}
             {activeTab === 'dispersion' && (
-              <div className="flex flex-col gap-2.5 text-xs">
+              <div className="flex flex-col gap-2 text-xs">
                 {/* Wind & Weather Telemetry */}
                 <div className="bg-slate-900/90 border border-purple-500/30 rounded-xl p-3 flex flex-col gap-2">
                   <div className="flex items-center justify-between border-b border-purple-500/20 pb-1.5">
@@ -716,11 +883,11 @@ export const GISCommandModal = ({
         </div>
 
         {/* 4. Modal Footer */}
-        <div className="px-5 py-3 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-xs font-mono shrink-0">
+        <div className="px-5 py-2.5 border-t border-slate-800 bg-slate-900/90 flex items-center justify-between text-xs font-mono shrink-0">
           <div className="flex items-center gap-3 text-slate-400 text-[11px]">
             <span>Municipal GIS Node: <b>DL-ND-8492</b></span>
             <span>•</span>
-            <span className="text-cyan-400">Press 'G' anytime to toggle GIS Command</span>
+            <span className="text-cyan-400">Press 'G' anytime to toggle Real GIS Command</span>
           </div>
 
           <button
