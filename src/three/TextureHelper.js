@@ -328,45 +328,270 @@ export class TextureHelper {
     return texture;
   }
 
-  // Outdoor Granite Plaza Pavers (surrounding ground landscape)
-  static createPlazaPavingTexture() {
+  // 360-Degree Photorealistic Daylight Sky & Atmospheric Horizon (Equirectangular)
+  static createAtmosphericSkyTexture() {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
+    canvas.width = 2048;
+    canvas.height = 1024;
     const ctx = canvas.getContext('2d');
 
-    // Light architectural limestone / travertine paving
-    ctx.fillStyle = '#e2e8f0';
-    ctx.fillRect(0, 0, 512, 512);
+    // 1. Vertical Atmospheric Sky & Ground Gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+    skyGrad.addColorStop(0.00, '#1d549f'); // High Zenith Deep Azure Blue
+    skyGrad.addColorStop(0.18, '#2563eb'); // Deep Daylight Sky
+    skyGrad.addColorStop(0.35, '#3b82f6'); // Pure Clear Sky
+    skyGrad.addColorStop(0.44, '#60a5fa'); // Lower Atmospheric Blue
+    skyGrad.addColorStop(0.48, '#93c5fd'); // Soft Horizon Sky Wash
+    skyGrad.addColorStop(0.50, '#dbeafe'); // Horizon Line Atmospheric Mist
+    skyGrad.addColorStop(0.52, '#e2e8f0'); // Warm Daylight Horizon Haze
+    skyGrad.addColorStop(0.55, '#cbd5e1'); // Distant Landscape / Haze Layer
+    skyGrad.addColorStop(0.65, '#94a3b8'); // Distant Ground Tone
+    skyGrad.addColorStop(0.80, '#64748b'); // Ground Reflection
+    skyGrad.addColorStop(1.00, '#334155'); // Deep Base Bounce
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, 2048, 1024);
 
-    const tileSize = 64;
-    for (let y = 0; y < 512; y += tileSize) {
-      for (let x = 0; x < 512; x += tileSize) {
-        const shade = Math.floor(Math.random() * 14 - 7);
-        ctx.fillStyle = `rgb(${238 + shade}, ${242 + shade}, ${246 + shade})`;
-        ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
+    // 2. Soft Natural Solar Glow / Sun Corona (Placed at Azimuth ~60° to match direct sun light)
+    const sunX = 720;
+    const sunY = 320;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 380);
+    sunGlow.addColorStop(0.00, 'rgba(255, 255, 250, 0.95)');
+    sunGlow.addColorStop(0.08, 'rgba(254, 240, 199, 0.65)');
+    sunGlow.addColorStop(0.25, 'rgba(253, 230, 138, 0.25)');
+    sunGlow.addColorStop(0.60, 'rgba(224, 242, 254, 0.12)');
+    sunGlow.addColorStop(1.00, 'rgba(224, 242, 254, 0.00)');
+    ctx.fillStyle = sunGlow;
+    ctx.fillRect(0, 0, 2048, 1024);
 
-        // Subtle granite travertine flecks
-        for (let s = 0; s < 12; s++) {
-          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.6)' : 'rgba(148,163,184,0.35)';
-          ctx.fillRect(x + Math.random() * (tileSize - 4), y + Math.random() * (tileSize - 4), 2, 2);
+    // 3. Realistic Soft Wispy Clouds (Procedural feathered puffs across the panoramic sky)
+    const drawCloudCluster = (cx, cy, scaleX, scaleY, density) => {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scaleX, scaleY);
+      for (let p = 0; p < 18; p++) {
+        const ox = (Math.random() - 0.5) * 160;
+        const oy = (Math.random() - 0.5) * 45;
+        const r = 25 + Math.random() * 35;
+        const grad = ctx.createRadialGradient(ox, oy, 2, ox, oy, r);
+        const alpha = (0.28 + Math.random() * 0.22) * density;
+        grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+        grad.addColorStop(0.6, `rgba(248, 250, 252, ${alpha * 0.5})`);
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(ox, oy, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+
+    // Distribute soft cloud formations across the 360 sky
+    const cloudCenters = [
+      { x: 180,  y: 360, sx: 1.4, sy: 0.8, d: 0.85 },
+      { x: 420,  y: 420, sx: 1.8, sy: 0.7, d: 0.70 },
+      { x: 950,  y: 330, sx: 2.2, sy: 0.9, d: 0.90 },
+      { x: 1280, y: 390, sx: 1.6, sy: 0.7, d: 0.75 },
+      { x: 1600, y: 350, sx: 2.0, sy: 0.8, d: 0.80 },
+      { x: 1920, y: 410, sx: 1.5, sy: 0.7, d: 0.70 }
+    ];
+    cloudCenters.forEach(c => drawCloudCluster(c.x, c.y, c.sx, c.sy, c.d));
+
+    // 4. Subtle Distant Horizon Silhouette along the Horizon (y = 512)
+    ctx.fillStyle = 'rgba(100, 116, 139, 0.18)';
+    ctx.beginPath();
+    ctx.moveTo(0, 512);
+    for (let x = 0; x <= 2048; x += 32) {
+      const h = Math.sin(x * 0.008) * 14 + Math.cos(x * 0.02) * 8 + Math.sin(x * 0.04) * 4;
+      ctx.lineTo(x, 508 - Math.max(0, h));
+    }
+    ctx.lineTo(2048, 514);
+    ctx.lineTo(0, 514);
+    ctx.closePath();
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  // Outdoor Architectural Granite Plaza Pavers (Realistic multi-tone stonework)
+  static createPlazaPavingTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+
+    // Deep slate stone background
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    const tileW = 128;
+    const tileH = 64;
+    const stonePalettes = [
+      { r: 120, g: 135, b: 152 }, // Slate blue-grey
+      { r: 135, g: 148, b: 162 }, // Medium granite
+      { r: 148, g: 160, b: 174 }, // Light granite
+      { r: 108, g: 122, b: 138 }, // Warm charcoal granite
+      { r: 158, g: 170, b: 182 }, // Pearl granite
+    ];
+
+    let row = 0;
+    for (let y = 0; y < 1024; y += tileH) {
+      const isOffset = (row % 2 === 1);
+      const offsetX = isOffset ? tileW / 2 : 0;
+      row++;
+
+      for (let x = -tileW; x < 1024 + tileW; x += tileW) {
+        const px = x + offsetX;
+        if (px + tileW < 0 || px > 1024) continue;
+
+        // Pick distinct stone palette with subtle variation
+        const pal = stonePalettes[Math.floor(Math.random() * stonePalettes.length)];
+        const varShade = Math.floor((Math.random() - 0.5) * 16);
+        const cr = Math.min(255, Math.max(0, pal.r + varShade));
+        const cg = Math.min(255, Math.max(0, pal.g + varShade));
+        const cb = Math.min(255, Math.max(0, pal.b + varShade));
+
+        ctx.fillStyle = `rgb(${cr}, ${cg}, ${cb})`;
+        const drawX = Math.max(0, px + 2);
+        const drawW = Math.min(tileW - 4, 1024 - drawX);
+        const drawY = y + 2;
+        const drawH = tileH - 4;
+        ctx.fillRect(drawX, drawY, drawW, drawH);
+
+        // Top-left bevel specular highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.fillRect(drawX, drawY, drawW, 1);
+        ctx.fillRect(drawX, drawY, 1, drawH);
+
+        // Bottom-right bevel shadow
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.35)';
+        ctx.fillRect(drawX, drawY + drawH - 1, drawW, 1);
+        ctx.fillRect(drawX + drawW - 1, drawY, 1, drawH);
+
+        // Natural granite flecks & quartz crystals
+        for (let s = 0; s < 18; s++) {
+          const fx = drawX + Math.random() * drawW;
+          const fy = drawY + Math.random() * drawH;
+          ctx.fillStyle = Math.random() > 0.4 ? 'rgba(255, 255, 255, 0.45)' : 'rgba(30, 41, 59, 0.4)';
+          ctx.fillRect(fx, fy, 1.5, 1.5);
         }
       }
     }
 
-    ctx.strokeStyle = '#cbd5e1';
-    ctx.lineWidth = 2;
-    for (let i = 0; i <= 512; i += tileSize) {
+    // Clean recessed grout expansion joints
+    ctx.strokeStyle = '#273343';
+    ctx.lineWidth = 3;
+    for (let y = 0; y <= 1024; y += tileH) {
       ctx.beginPath();
-      ctx.moveTo(i, 0); ctx.lineTo(i, 512);
-      ctx.moveTo(0, i); ctx.lineTo(512, i);
+      ctx.moveTo(0, y);
+      ctx.lineTo(1024, y);
       ctx.stroke();
     }
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(16, 16);
+    return texture;
+  }
+
+  // Photorealistic Bitumen Asphalt Road Surface
+  static createAsphaltRoadTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+
+    // Deep Charcoal Asphalt Base
+    ctx.fillStyle = '#222831';
+    ctx.fillRect(0, 0, 1024, 1024);
+
+    // Fine speckled mineral aggregates
+    const aggregateColors = ['#1a1f26', '#2d3748', '#384252', '#4a5568', '#161b22', '#28303d'];
+    for (let i = 0; i < 22000; i++) {
+      const x = Math.random() * 1024;
+      const y = Math.random() * 1024;
+      const size = Math.random() > 0.85 ? 2.5 : 1.5;
+      ctx.fillStyle = aggregateColors[Math.floor(Math.random() * aggregateColors.length)];
+      ctx.fillRect(x, y, size, size);
+    }
+
+    // Subtle tar texture streaks
+    ctx.fillStyle = 'rgba(15, 20, 26, 0.25)';
+    for (let j = 0; j < 35; j++) {
+      const y = Math.random() * 1024;
+      const h = 4 + Math.random() * 12;
+      ctx.fillRect(0, y, 1024, h);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(14, 14);
+    return texture;
+  }
+
+  // Lush Manicured Green Lawn Turf (Campus park borders)
+  static createGrassLawnTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Deep vibrant grass base
+    ctx.fillStyle = '#2d5a27';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Mower lawn bands (alternating subtle tone stripes)
+    const bandW = 64;
+    for (let x = 0; x < 512; x += bandW) {
+      if ((x / bandW) % 2 === 0) {
+        ctx.fillStyle = 'rgba(62, 123, 52, 0.22)';
+        ctx.fillRect(x, 0, bandW, 512);
+      }
+    }
+
+    // Fine grass blade texture
+    const bladeColors = ['#3d7b34', '#498e3e', '#275022', '#529946', '#22461d', '#5ba84f'];
+    for (let i = 0; i < 18000; i++) {
+      const gx = Math.random() * 512;
+      const gy = Math.random() * 512;
+      ctx.fillStyle = bladeColors[Math.floor(Math.random() * bladeColors.length)];
+      ctx.fillRect(gx, gy, 1.2, 3.2);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(24, 24);
+    return texture;
+  }
+
+  // High-Visibility Crosswalk Zebra Stripes
+  static createCrosswalkTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Asphalt ground behind stripes
+    ctx.fillStyle = '#222831';
+    ctx.fillRect(0, 0, 512, 256);
+
+    // Thick white zebra stripes
+    ctx.fillStyle = '#f8fafc';
+    const stripeW = 38;
+    const gap = 24;
+    for (let x = 16; x < 512; x += stripeW + gap) {
+      ctx.fillRect(x, 18, stripeW, 220);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
     return texture;
   }
 

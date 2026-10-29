@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TextureHelper } from './TextureHelper.js';
 import { Building3D } from './Building3D.js';
 import { FireParticles } from './FireParticles.js';
 import { AgentCrowd } from './AgentCrowd.js';
@@ -33,8 +34,14 @@ export class SceneManager {
 
   initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf1f5f9); // Clean architectural daylight studio sky
-    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.0035); // Soft architectural daylight haze
+
+    // Photorealistic 360-Degree Panoramic Daytime Sky & Atmospheric Horizon
+    const skyTexture = TextureHelper.createAtmosphericSkyTexture();
+    this.scene.background = skyTexture;
+    this.scene.environment = skyTexture;
+
+    // Soft Atmospheric Distance Fog (Matches the natural horizon haze color)
+    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0022);
 
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
@@ -63,21 +70,24 @@ export class SceneManager {
     this.controls.minDistance = 0.5;
     this.controls.maxDistance = 250;
 
-    // Architectural Daylight Studio Lighting (Clean, Crisp & Bright)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Architectural Natural Daylight Illumination (Crisp, High-Detail & Natural)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.3);
-    sunLight.position.set(45, 68, 50);
+    // Warm Directional Sunlight (Matching azimuth ~60° sun in sky texture)
+    const sunLight = new THREE.DirectionalLight(0xfff7e6, 2.2);
+    sunLight.position.set(50, 75, 45);
     sunLight.castShadow = false;
     this.scene.add(sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.8);
+    // Natural Sky & Earth Bounce Light
+    const hemiLight = new THREE.HemisphereLight(0x7bb3e8, 0x64748b, 0.75);
+    this.scene.add(hemiLight);
+
+    // Soft Ambient Daylight Fill Light
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.65);
     fillLight.position.set(-50, 42, -45);
     this.scene.add(fillLight);
-
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.7);
-    this.scene.add(hemiLight);
 
     // Initial Hero View (Matches Screenshot 1 Architectural Section Elevation)
     this.setCameraPreset('HERO_VIEW');

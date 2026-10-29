@@ -60,6 +60,9 @@ export class Building3D {
     this.tileTex = TextureHelper.createTileTexture();
     this.ceilingTex = TextureHelper.createCeilingTileTexture();
     this.plazaTex = TextureHelper.createPlazaPavingTexture();
+    this.asphaltTex = TextureHelper.createAsphaltRoadTexture();
+    this.grassTex = TextureHelper.createGrassLawnTexture();
+    this.crosswalkTex = TextureHelper.createCrosswalkTexture();
     this.exitSignLeftTex = TextureHelper.createExitSignLeftTexture();
     this.exitSignRightTex = TextureHelper.createExitSignRightTexture();
 
@@ -88,11 +91,81 @@ export class Building3D {
       metalness: 0.05
     });
 
-    // Exterior Granite Plaza Paver Material
+    // Exterior Architectural Granite Plaza Paver Material (Realistic Multi-tone Stone)
     this.plazaMat = new THREE.MeshStandardMaterial({
       map: this.plazaTex,
-      roughness: 0.8,
+      roughness: 0.72,
+      metalness: 0.12
+    });
+
+    // Photorealistic Bitumen Asphalt Road Surface
+    this.asphaltMat = new THREE.MeshStandardMaterial({
+      map: this.asphaltTex,
+      roughness: 0.90,
+      metalness: 0.05
+    });
+
+    // Manicured Campus Grass Lawn Surface
+    this.grassMat = new THREE.MeshStandardMaterial({
+      map: this.grassTex,
+      roughness: 0.92,
+      metalness: 0.02
+    });
+
+    // Pedestrian Zebra Crosswalk Material
+    this.crosswalkMat = new THREE.MeshStandardMaterial({
+      map: this.crosswalkTex,
+      roughness: 0.65,
+      metalness: 0.08
+    });
+
+    // Architectural Chamfered Concrete Curb Stone
+    this.curbMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      roughness: 0.6,
       metalness: 0.15
+    });
+
+    // Modern Planter Box Material
+    this.planterMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.5,
+      metalness: 0.2
+    });
+
+    // Lush Green Hedge Foliage Material
+    this.hedgeFoliageMat = new THREE.MeshStandardMaterial({
+      color: 0x245820,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+
+    // Modern Architectural Street Lamp Materials
+    this.streetLampPoleMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.35,
+      metalness: 0.85
+    });
+    this.streetLampLuminaireMat = new THREE.MeshBasicMaterial({
+      color: 0xfffcf0
+    });
+
+    // Pedestrian Pathway Stainless Steel & Glow Bollards
+    this.bollardSteelMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8,
+      roughness: 0.25,
+      metalness: 0.85
+    });
+    this.bollardGlowMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8
+    });
+
+    // Painted Road Striping (Crisp White & Safety Yellow)
+    this.roadStripeWhiteMat = new THREE.MeshBasicMaterial({
+      color: 0xf8fafc
+    });
+    this.roadStripeYellowMat = new THREE.MeshBasicMaterial({
+      color: 0xf59e0b
     });
 
     // 7. Glowing Recessed Ceiling Light Fixtures
@@ -543,31 +616,319 @@ export class Building3D {
   }
 
   createEnvironment() {
-    // Grand Architectural Granite Plaza
-    const plazaGeo = new THREE.PlaneGeometry(240, 240);
+    // 1. Expansive Manicured Green Lawn / Campus Grounds (360m x 360m)
+    // Fades smoothly into the atmospheric distance fog
+    const lawnGeo = new THREE.PlaneGeometry(360, 360);
+    const lawn = new THREE.Mesh(lawnGeo, this.grassMat);
+    lawn.rotation.x = -Math.PI / 2;
+    lawn.position.y = -0.06;
+    this.group.add(lawn);
+
+    // 2. Central Multi-tone Architectural Granite Pedestrian Plaza
+    // Sits at y = 0.02, bounds: 94m wide (x: -47 to +47) by 86m deep (z: -43 to +43)
+    const plazaGeo = new THREE.PlaneGeometry(94, 86);
     const plaza = new THREE.Mesh(plazaGeo, this.plazaMat);
     plaza.rotation.x = -Math.PI / 2;
-    plaza.position.y = -0.05;
-    plaza.receiveShadow = true;
+    plaza.position.y = 0.02;
     this.group.add(plaza);
 
-    // Elevated Building Podium Curb (Architectural foundation base in light stone)
-    const podiumGeo = new THREE.BoxGeometry(66, 0.35, 54);
+    // 3. Elevated Building Podium Base (Foundation base in dark charcoal stone)
+    const podiumGeo = new THREE.BoxGeometry(66, 0.28, 54);
     const podiumMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e8f0,
-      roughness: 0.5,
-      metalness: 0.1
+      color: 0x1e293b,
+      roughness: 0.55,
+      metalness: 0.25
     });
     const podium = new THREE.Mesh(podiumGeo, podiumMat);
-    podium.position.set(0, -0.175, 0);
-    podium.receiveShadow = true;
+    podium.position.set(0, -0.12, 0);
     this.group.add(podium);
 
-    // Subtle modern architectural grid lines (Clean light blueprint style)
-    const grid = new THREE.GridHelper(240, 48, 0x94a3b8, 0xcbd5e1);
-    grid.position.y = 0.01;
-    this.group.add(grid);
+    // 4. Perimeter 2-Lane Bitumen Asphalt Ring Road (Encircles the entire plaza campus)
+    // Road runs along South (z: 43 to 61), North (z: -43 to -61), West (x: -47 to -65), East (x: 47 to 65)
+    const roadGeos = [];
+    const roadThick = 0.08;
+    const roadH = 18; // Road width (2 standard 3.5m lanes + shoulders = 18m)
 
+    // South Road Section (Length 130m, Width 18m)
+    const sRoad = new THREE.BoxGeometry(130, roadThick, roadH);
+    sRoad.translate(0, -roadThick / 2 + 0.02, 52);
+    roadGeos.push(sRoad);
+
+    // North Road Section (Length 130m, Width 18m)
+    const nRoad = new THREE.BoxGeometry(130, roadThick, roadH);
+    nRoad.translate(0, -roadThick / 2 + 0.02, -52);
+    roadGeos.push(nRoad);
+
+    // West Road Section (Length 18m, Width 86m)
+    const wRoad = new THREE.BoxGeometry(roadH, roadThick, 86);
+    wRoad.translate(-56, -roadThick / 2 + 0.02, 0);
+    roadGeos.push(wRoad);
+
+    // East Road Section (Length 18m, Width 86m)
+    const eRoad = new THREE.BoxGeometry(roadH, roadThick, 86);
+    eRoad.translate(56, -roadThick / 2 + 0.02, 0);
+    roadGeos.push(eRoad);
+
+    const mergedRoadGeo = BufferGeometryUtils.mergeGeometries(roadGeos);
+    const roadMesh = new THREE.Mesh(mergedRoadGeo, this.asphaltMat);
+    this.group.add(roadMesh);
+
+    // 5. Painted Road Markings (Crisp White Boundaries & Dashed Yellow Centerlines)
+    const whiteLineGeos = [];
+    const yellowDashGeos = [];
+
+    // Helper: Yellow dashed centerline strips
+    const addYellowDashes = (startX, startZ, endX, endZ) => {
+      const isHorizontal = Math.abs(endX - startX) > Math.abs(endZ - startZ);
+      const dashLen = 2.4;
+      const gapLen = 2.4;
+      if (isHorizontal) {
+        const minX = Math.min(startX, endX);
+        const maxX = Math.max(startX, endX);
+        for (let x = minX + 2; x < maxX - 2; x += dashLen + gapLen) {
+          const d = new THREE.PlaneGeometry(dashLen, 0.22);
+          d.rotateX(-Math.PI / 2);
+          d.translate(x + dashLen / 2, 0.035, startZ);
+          yellowDashGeos.push(d);
+        }
+      } else {
+        const minZ = Math.min(startZ, endZ);
+        const maxZ = Math.max(startZ, endZ);
+        for (let z = minZ + 2; z < maxZ - 2; z += dashLen + gapLen) {
+          const d = new THREE.PlaneGeometry(0.22, dashLen);
+          d.rotateX(-Math.PI / 2);
+          d.translate(startX, 0.035, z + dashLen / 2);
+          yellowDashGeos.push(d);
+        }
+      }
+    };
+
+    // Centerlines
+    addYellowDashes(-63, 52, 63, 52);   // South Road
+    addYellowDashes(-63, -52, 63, -52); // North Road
+    addYellowDashes(-56, -41, -56, 41); // West Road
+    addYellowDashes(56, -41, 56, 41);   // East Road
+
+    // White Edge Lines
+    const addWhiteEdge = (x, z, len, isX) => {
+      const g = isX ? new THREE.PlaneGeometry(len, 0.18) : new THREE.PlaneGeometry(0.18, len);
+      g.rotateX(-Math.PI / 2);
+      g.translate(x, 0.034, z);
+      whiteLineGeos.push(g);
+    };
+
+    // South Road Edges
+    addWhiteEdge(0, 43.2, 126, true);
+    addWhiteEdge(0, 60.8, 126, true);
+    // North Road Edges
+    addWhiteEdge(0, -43.2, 126, true);
+    addWhiteEdge(0, -60.8, 126, true);
+    // West Road Edges
+    addWhiteEdge(-47.2, 0, 84, false);
+    addWhiteEdge(-64.8, 0, 84, false);
+    // East Road Edges
+    addWhiteEdge(47.2, 0, 84, false);
+    addWhiteEdge(64.8, 0, 84, false);
+
+    if (whiteLineGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(whiteLineGeos), this.roadStripeWhiteMat));
+    }
+    if (yellowDashGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(yellowDashGeos), this.roadStripeYellowMat));
+    }
+
+    // 6. Pedestrian Zebra Crosswalks (Connecting Building Exits to Outer Grounds)
+    // South Grand Exit C Crosswalk: crossing from z = 43 to 61 at x = 0 (Width 8.5m)
+    const southCrosswalk = new THREE.Mesh(new THREE.PlaneGeometry(8.5, 18), this.crosswalkMat);
+    southCrosswalk.rotation.x = -Math.PI / 2;
+    southCrosswalk.position.set(0, 0.036, 52);
+    this.group.add(southCrosswalk);
+
+    // West Emergency Exit A Crosswalk: crossing from x = -47 to -65 at z = 0 (Width 6.0m)
+    const westCrosswalk = new THREE.Mesh(new THREE.PlaneGeometry(18, 6.0), this.crosswalkMat);
+    westCrosswalk.rotation.x = -Math.PI / 2;
+    westCrosswalk.position.set(-56, 0.036, 0);
+    this.group.add(westCrosswalk);
+
+    // East Emergency Exit B Crosswalk: crossing from x = 47 to 65 at z = 0 (Width 6.0m)
+    const eastCrosswalk = new THREE.Mesh(new THREE.PlaneGeometry(18, 6.0), this.crosswalkMat);
+    eastCrosswalk.rotation.x = -Math.PI / 2;
+    eastCrosswalk.position.set(56, 0.036, 0);
+    this.group.add(eastCrosswalk);
+
+    // 7. Chamfered Granite Curbs (Elevated borders between Plaza, Road, and Outer Grass)
+    const curbGeos = [];
+    const curbW = 0.35;
+    const curbH = 0.18;
+
+    const addCurbBlock = (x, z, lenX, lenZ) => {
+      const c = new THREE.BoxGeometry(lenX, curbH, lenZ);
+      c.translate(x, curbH / 2 + 0.01, z);
+      curbGeos.push(c);
+    };
+
+    // Plaza Perimeter Curbs (with openings for exits)
+    // South Border (z = 43): opening from x = -6 to 6 for Exit C
+    addCurbBlock(-26.5, 43, 41, curbW);
+    addCurbBlock(26.5, 43, 41, curbW);
+    // North Border (z = -43)
+    addCurbBlock(0, -43, 94, curbW);
+    // West Border (x = -47): opening from z = -5 to 5 for Exit A
+    addCurbBlock(-47, -24, curbW, 38);
+    addCurbBlock(-47, 24, curbW, 38);
+    // East Border (x = 47): opening from z = -5 to 5 for Exit B
+    addCurbBlock(47, -24, curbW, 38);
+    addCurbBlock(47, 24, curbW, 38);
+
+    // Outer Road Boundary Curbs (Bordering the park lawn)
+    addCurbBlock(0, 61, 130, curbW);
+    addCurbBlock(0, -61, 130, curbW);
+    addCurbBlock(-65, 0, curbW, 122);
+    addCurbBlock(65, 0, curbW, 122);
+
+    if (curbGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(curbGeos), this.curbMat));
+    }
+
+    // 8. Modern Architectural Concrete Planters with Dense Green Hedge Foliage
+    const planterGeos = [];
+    const hedgeGeos = [];
+
+    const addPlanterHedge = (px, pz, isRotated) => {
+      const pw = isRotated ? 1.0 : 4.2;
+      const pd = isRotated ? 4.2 : 1.0;
+      const ph = 0.52;
+
+      const pBox = new THREE.BoxGeometry(pw, ph, pd);
+      pBox.translate(px, ph / 2 + 0.02, pz);
+      planterGeos.push(pBox);
+
+      const hw = isRotated ? 0.76 : 3.9;
+      const hd = isRotated ? 3.9 : 0.76;
+      const hh = 0.55;
+      const hBox = new THREE.BoxGeometry(hw, hh, hd);
+      hBox.translate(px, ph + hh / 2 - 0.05, pz);
+      hedgeGeos.push(hBox);
+    };
+
+    // South Plaza Edge Planters
+    for (const sx of [-38, -28, -18, 18, 28, 38]) {
+      addPlanterHedge(sx, 41.2, false);
+    }
+    // North Plaza Edge Planters
+    for (const nx of [-38, -22, -6, 10, 26, 40]) {
+      addPlanterHedge(nx, -41.2, false);
+    }
+    // West Plaza Edge Planters
+    for (const wz of [-34, -20, 20, 34]) {
+      addPlanterHedge(-45.2, wz, true);
+    }
+    // East Plaza Edge Planters
+    for (const ez of [-34, -20, 20, 34]) {
+      addPlanterHedge(45.2, ez, true);
+    }
+
+    if (planterGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(planterGeos), this.planterMat));
+    }
+    if (hedgeGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(hedgeGeos), this.hedgeFoliageMat));
+    }
+
+    // 9. Modern Architectural LED Street Lamps (Slender poles with overhead luminaire heads)
+    const poleGeos = [];
+    const luminaireGeos = [];
+
+    const addStreetLamp = (lx, lz, rotY) => {
+      // Main Vertical Pole (6.5m high)
+      const pole = new THREE.CylinderGeometry(0.09, 0.12, 6.5, 12);
+      pole.translate(0, 3.25, 0);
+
+      // Top Cantilever Arm (extends 2.2m outward)
+      const arm = new THREE.BoxGeometry(0.09, 0.09, 2.2);
+      arm.translate(0, 6.45, 1.1);
+
+      // Merged Pole Structure
+      const lampStructure = BufferGeometryUtils.mergeGeometries([pole, arm]);
+      lampStructure.rotateY(rotY);
+      lampStructure.translate(lx, 0.02, lz);
+      poleGeos.push(lampStructure);
+
+      // Glowing LED Luminaire Head (Points downward)
+      const head = new THREE.BoxGeometry(0.36, 0.08, 1.2);
+      const headSin = Math.sin(rotY);
+      const headCos = Math.cos(rotY);
+      head.rotateY(rotY);
+      head.translate(lx + headSin * 1.8, 6.38, lz + headCos * 1.8);
+      luminaireGeos.push(head);
+    };
+
+    // Place lamps around perimeter road
+    const lampPositions = [
+      // South Road (Facing North toward road)
+      { x: -50, z: 62.2, rot: Math.PI },
+      { x: -20, z: 62.2, rot: Math.PI },
+      { x:  20, z: 62.2, rot: Math.PI },
+      { x:  50, z: 62.2, rot: Math.PI },
+      // North Road (Facing South toward road)
+      { x: -50, z: -62.2, rot: 0 },
+      { x: -20, z: -62.2, rot: 0 },
+      { x:  20, z: -62.2, rot: 0 },
+      { x:  50, z: -62.2, rot: 0 },
+      // West Road (Facing East toward road)
+      { x: -66.2, z: -25, rot: Math.PI / 2 },
+      { x: -66.2, z:  25, rot: Math.PI / 2 },
+      // East Road (Facing West toward road)
+      { x:  66.2, z: -25, rot: -Math.PI / 2 },
+      { x:  66.2, z:  25, rot: -Math.PI / 2 },
+    ];
+    lampPositions.forEach(l => addStreetLamp(l.x, l.z, l.rot));
+
+    if (poleGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(poleGeos), this.streetLampPoleMat));
+    }
+    if (luminaireGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(luminaireGeos), this.streetLampLuminaireMat));
+    }
+
+    // 10. Stainless Steel Illuminated Safety Bollards (Flanking Walkways to Exits)
+    const bollardGeos = [];
+    const bollardGlowGeos = [];
+
+    const addBollard = (bx, bz) => {
+      const post = new THREE.CylinderGeometry(0.12, 0.12, 0.88, 12);
+      post.translate(bx, 0.44 + 0.02, bz);
+      bollardGeos.push(post);
+
+      const ring = new THREE.CylinderGeometry(0.128, 0.128, 0.08, 12);
+      ring.translate(bx, 0.78 + 0.02, bz);
+      bollardGlowGeos.push(ring);
+    };
+
+    // Pathway to South Exit C (x: -5 to +5, z: 24 to 40)
+    for (const bz of [26, 30, 34, 38]) {
+      addBollard(-5.2, bz);
+      addBollard(5.2, bz);
+    }
+    // Pathway to West Exit A (x: -30 to -44, z: -4 to +4)
+    for (const bx of [-31, -35, -39, -43]) {
+      addBollard(bx, -4.2);
+      addBollard(bx, 4.2);
+    }
+    // Pathway to East Exit B (x: 30 to 44, z: -4 to +4)
+    for (const bx of [31, 35, 39, 43]) {
+      addBollard(bx, -4.2);
+      addBollard(bx, 4.2);
+    }
+
+    if (bollardGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGeos), this.bollardSteelMat));
+    }
+    if (bollardGlowGeos.length > 0) {
+      this.group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGlowGeos), this.bollardGlowMat));
+    }
+
+    // 11. Dedicated Emergency Assembly Muster Zones
     this.createMusterZone(-38, 0, 'MUSTER ZONE A (WEST)');
     this.createMusterZone(38, 0, 'MUSTER ZONE B (EAST)');
     this.createMusterZone(0, 36, 'MUSTER ZONE C (SOUTH)');
