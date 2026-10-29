@@ -995,4 +995,361 @@ export class TextureHelper {
     texture.repeat.set(6, 1);
     return texture;
   }
+
+  // Precast Architectural Concrete with formwork tie holes & fine mineral aggregate
+  static createConcreteTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 1800; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const shade = Math.floor(Math.random() * 30 - 15);
+      ctx.fillStyle = 'rgba(' + (160 + shade) + ', ' + (174 + shade) + ', ' + (192 + shade) + ', 0.25)';
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    ctx.strokeStyle = 'rgba(71, 85, 105, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(0, 0, 256, 256);
+    ctx.strokeRect(256, 0, 256, 256);
+    ctx.strokeRect(0, 256, 256, 256);
+    ctx.strokeRect(256, 256, 256, 256);
+
+    const tieCoords = [
+      [24, 24], [232, 24], [24, 232], [232, 232],
+      [280, 24], [488, 24], [280, 232], [488, 232],
+      [24, 280], [232, 280], [24, 488], [232, 488],
+      [280, 280], [488, 280], [280, 488], [488, 488]
+    ];
+    tieCoords.forEach(([tx, ty]) => {
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(3, 3);
+    return texture;
+  }
+
+  // Architectural Anodized Aluminum Spandrel Panels with Crisp Horizontal Shadow Reveals
+  static createSpandrelPanelTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, '#334155');
+    grad.addColorStop(0.5, '#1e293b');
+    grad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 256);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    for (let y = 0; y < 256; y += 4) {
+      ctx.fillRect(0, y, 512, 1);
+    }
+
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, 512, 4);
+    ctx.fillRect(0, 252, 512, 4);
+    ctx.fillRect(0, 0, 4, 256);
+    ctx.fillRect(254, 0, 4, 256);
+    ctx.fillRect(508, 0, 4, 256);
+
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.fillRect(4, 5, 504, 1.5);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 1);
+    return texture;
+  }
+
+  // Commercial EPDM / TPO Rooftop Membrane with heat-welded seams & protective aggregate
+  static createRoofMembraneTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 2200; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const shade = Math.floor(Math.random() * 24 - 12);
+      ctx.fillStyle = 'rgb(' + (51 + shade) + ', ' + (65 + shade) + ', ' + (85 + shade) + ')';
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    ctx.fillStyle = '#1e293b';
+    for (let y = 0; y < 512; y += 128) {
+      ctx.fillRect(0, y, 512, 6);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(0, y + 6, 512, 1);
+      ctx.fillStyle = '#1e293b';
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 8);
+    return texture;
+  }
+
+  // Dark Architectural Louvers for Mechanical Penthouse & HVAC Chiller Enclosures
+  static createMetalLouverTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, 128, 256);
+
+    const louverH = 16;
+    for (let y = 0; y < 256; y += louverH) {
+      const bladeGrad = ctx.createLinearGradient(0, y, 0, y + louverH);
+      bladeGrad.addColorStop(0, '#475569');
+      bladeGrad.addColorStop(0.35, '#334155');
+      bladeGrad.addColorStop(0.85, '#1e293b');
+      bladeGrad.addColorStop(1, '#090d16');
+      ctx.fillStyle = bladeGrad;
+      ctx.fillRect(0, y, 128, louverH - 3);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(0, y, 128, 1);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 6);
+    return texture;
+  }
+
+  // Polished Architectural Terrazzo with fine marble flecks for Lobby & Entrance
+  static createTerrazzoTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const colors = ['#94a3b8', '#64748b', '#cbd5e1', '#b45309', '#0284c7', '#334155'];
+    for (let i = 0; i < 900; i++) {
+      const cx = Math.random() * 512;
+      const cy = Math.random() * 512;
+      const r = Math.random() * 3.5 + 1.2;
+      ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(0, 0, 256, 256);
+    ctx.strokeRect(256, 0, 256, 256);
+    ctx.strokeRect(0, 256, 256, 256);
+    ctx.strokeRect(256, 256, 256, 256);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(6, 6);
+    return texture;
+  }
+
+  // Vehicular Entrance Loop Asphalt with Crisp White Road Demarcation
+  static createAsphaltRoadTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 3000; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const shade = Math.floor(Math.random() * 20 - 10);
+      ctx.fillStyle = 'rgb(' + (30 + shade) + ', ' + (41 + shade) + ', ' + (59 + shade) + ')';
+      ctx.fillRect(x, y, 1.5, 1.5);
+    }
+
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(16, 0, 6, 512);
+    ctx.fillRect(490, 0, 6, 512);
+
+    for (let y = 20; y < 512; y += 64) {
+      ctx.fillRect(253, y, 6, 36);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 10);
+    return texture;
+  }
+
+  // Architectural Precast Concrete Stair Tread Texture
+  static createConcreteStairTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(0, 0, 256, 256);
+
+    for (let i = 0; i < 2000; i++) {
+      const x = Math.random() * 256;
+      const y = Math.random() * 256;
+      const shade = Math.floor(Math.random() * 24 - 12);
+      ctx.fillStyle = 'rgb(' + (100 + shade) + ', ' + (116 + shade) + ', ' + (139 + shade) + ')';
+      ctx.fillRect(x, y, 1.5, 1.5);
+    }
+
+    ctx.fillStyle = '#334155';
+    for (let y = 16; y < 48; y += 8) {
+      ctx.fillRect(0, y, 256, 2.5);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 1);
+    return texture;
+  }
+
+  // High-Contrast Anti-Slip Photoluminescent Nosing Strip
+  static createAntiSlipNosingTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(0, 0, 128, 32);
+
+    ctx.fillStyle = '#0f172a';
+    for (let x = -32; x < 160; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + 10, 0);
+      ctx.lineTo(x + 2, 32);
+      ctx.lineTo(x - 8, 32);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(4, 1);
+    return texture;
+  }
+
+  // Architectural Precast Exterior Facade Panel with Grooved Joints
+  static createPrecastFacadeTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 3500; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const shade = Math.floor(Math.random() * 20 - 10);
+      ctx.fillStyle = 'rgb(' + (203 + shade) + ', ' + (213 + shade) + ', ' + (225 + shade) + ')';
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(4, 4, 504, 504);
+
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(6, 6, 500, 500);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 4);
+    return texture;
+  }
+
+  // Illuminated Emergency Exit Sign (ISO 7010 Running-Man)
+  static createEmergencyExitSignTexture(isLeft = true) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#059669';
+    ctx.fillRect(0, 0, 256, 128);
+
+    ctx.strokeStyle = '#ecfdf5';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(8, 8, 240, 112);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('EXIT', 140, 64);
+
+    ctx.fillStyle = '#ffffff';
+    const arrowX = isLeft ? 48 : 210;
+    ctx.beginPath();
+    if (isLeft) {
+      ctx.moveTo(arrowX - 16, 64);
+      ctx.lineTo(arrowX + 8, 44);
+      ctx.lineTo(arrowX + 8, 56);
+      ctx.lineTo(arrowX + 24, 56);
+      ctx.lineTo(arrowX + 24, 72);
+      ctx.lineTo(arrowX + 8, 72);
+      ctx.lineTo(arrowX + 8, 84);
+    } else {
+      ctx.moveTo(arrowX + 16, 64);
+      ctx.lineTo(arrowX - 8, 44);
+      ctx.lineTo(arrowX - 8, 56);
+      ctx.lineTo(arrowX - 24, 56);
+      ctx.lineTo(arrowX - 24, 72);
+      ctx.lineTo(arrowX - 8, 72);
+      ctx.lineTo(arrowX - 8, 84);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    return texture;
+  }
+
 }

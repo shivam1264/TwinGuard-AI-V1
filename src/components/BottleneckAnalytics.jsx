@@ -23,55 +23,55 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
   }, [rooms]);
 
   return (
-    <div className="glass-panel rounded-xl p-3 flex flex-col gap-3 h-full overflow-y-auto">
+    <div className="bg-white rounded-xl flex flex-col gap-3.5 h-full overflow-y-auto text-slate-800">
       {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-cyan-500/20">
+      <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
         <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span className="font-hud font-bold text-xs tracking-wide text-emerald-300">
-            10-FLOOR SKYSCRAPER ANALYTICS
+          <Activity className="w-4 h-4 text-blue-600" />
+          <span className="font-extrabold text-xs tracking-wider uppercase text-slate-800">
+            10-FLOOR SKYSCRAPER TELEMETRY
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs font-mono text-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/30">
-          <Clock className="w-3 h-3 text-cyan-400" />
+        <div className="flex items-center gap-1.5 text-xs font-mono text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200/80">
+          <Clock className="w-3.5 h-3.5 text-blue-600" />
           <span>{String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}s</span>
         </div>
       </div>
 
       {/* Main KPI Cards */}
       <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-          <div className="text-[9px] font-hud text-slate-400 uppercase">Tower Total</div>
-          <div className="text-lg font-hud font-bold text-cyan-400 flex items-center justify-center gap-1">
-            <Users className="w-3 h-3" /> {total}
+        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+          <div className="text-[10px] font-bold text-slate-400 uppercase">Tower Total</div>
+          <div className="text-xl font-black text-slate-900 flex items-center justify-center gap-1.5 mt-1">
+            <Users className="w-4 h-4 text-blue-600" /> {total}
           </div>
         </div>
 
-        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-          <div className="text-[9px] font-hud text-slate-400 uppercase">Safely Exited</div>
-          <div className="text-lg font-hud font-bold text-emerald-400 flex items-center justify-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> {evacuated}
+        <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200/80">
+          <div className="text-[10px] font-bold text-emerald-700 uppercase">Safely Exited</div>
+          <div className="text-xl font-black text-emerald-700 flex items-center justify-center gap-1.5 mt-1">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {evacuated}
           </div>
         </div>
 
-        <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-          <div className="text-[9px] font-hud text-slate-400 uppercase">In Stairwells</div>
-          <div className="text-lg font-hud font-bold text-amber-400 flex items-center justify-center gap-1">
-            <Activity className="w-3 h-3" /> {inTransit}
+        <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-200/80">
+          <div className="text-[10px] font-bold text-amber-700 uppercase">In Stairwells</div>
+          <div className="text-xl font-black text-amber-700 flex items-center justify-center gap-1.5 mt-1">
+            <Activity className="w-4 h-4 text-amber-500" /> {inTransit}
           </div>
         </div>
       </div>
 
       {/* 10-Floor Population Distribution Matrix */}
-      <div className="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
-        <div className="text-[10px] font-hud font-bold text-slate-300 mb-1.5 flex items-center gap-1">
-          <Layers className="w-3 h-3 text-cyan-400" /> POPULATION ACROSS 10 FLOORS:
+      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+        <div className="text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+          <Layers className="w-3.5 h-3.5 text-blue-600" /> POPULATION MATRIX (LEVELS 1 - 10):
         </div>
-        <div className="grid grid-cols-5 gap-1 text-center text-[10px] font-mono">
+        <div className="grid grid-cols-5 gap-1.5 text-center text-xs font-mono">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(fl => (
-            <div key={fl} className="p-1 rounded bg-slate-800/80 border border-slate-700/50">
-              <div className="text-[8px] text-slate-400">L{fl}</div>
-              <div className="font-bold text-cyan-300">{floorCounts[fl]}p</div>
+            <div key={fl} className="p-1.5 rounded-lg bg-white border border-slate-200">
+              <div className="text-[9px] text-slate-400 font-bold">L{fl}</div>
+              <div className="font-extrabold text-blue-600">{floorCounts[fl]}p</div>
             </div>
           ))}
         </div>
@@ -79,13 +79,13 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
 
       {/* Overall Evacuation Progress Bar */}
       <div>
-        <div className="flex justify-between text-xs font-hud mb-1">
-          <span className="text-slate-300">Total Evacuation Progress</span>
-          <span className="font-mono font-bold text-emerald-400">{evacProgress}%</span>
+        <div className="flex justify-between text-xs font-bold mb-1">
+          <span className="text-slate-600">Total Evacuation Progress</span>
+          <span className="font-mono text-emerald-600">{evacProgress}%</span>
         </div>
-        <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
           <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300 rounded-full"
+            className="h-full bg-gradient-to-r from-blue-600 to-emerald-500 transition-all duration-300 rounded-full"
             style={{ width: `${evacProgress}%` }}
           />
         </div>
@@ -93,9 +93,11 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
 
       {/* Multi-Floor Emergency Stairwell Cores & Exits */}
       <div className="flex flex-col gap-2">
-        <div className="text-xs font-hud font-bold text-slate-300 flex items-center justify-between">
-          <span>STAIRWELL CORE & EXIT LOAD</span>
-          <span className="text-[9px] font-mono text-cyan-400">LOAD BALANCED</span>
+        <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+          <span>STAIRWELL CORE & EXIT THROUGHPUT</span>
+          <span className="text-[10px] font-mono text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            LOAD BALANCED
+          </span>
         </div>
 
         {exits.map((exit) => {
@@ -104,16 +106,16 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
           const isHeavy = loadPct > 85;
 
           return (
-            <div key={exit.id} className="bg-slate-900/70 p-2 rounded-lg border border-slate-800/80 text-xs">
-              <div className="flex justify-between items-center mb-1">
-                <span className="font-hud font-semibold text-slate-200 text-[11px]">{exit.name}</span>
+            <div key={exit.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="font-bold text-slate-800 text-xs">{exit.name}</span>
                 <span
-                  className={`font-mono text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                  className={`font-mono text-[10px] px-2 py-0.5 rounded-md font-extrabold ${
                     isOverloaded
-                      ? 'bg-red-950 text-red-400 border border-red-500/40'
+                      ? 'bg-red-100 text-red-700 border border-red-200'
                       : isHeavy
-                      ? 'bg-amber-950 text-amber-400 border border-amber-500/40'
-                      : 'bg-emerald-950 text-emerald-400 border border-emerald-500/40'
+                      ? 'bg-amber-100 text-amber-700 border border-amber-200'
+                      : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                   }`}
                 >
                   {exit.load} / {exit.capacity} ({loadPct}%)
@@ -121,14 +123,14 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
               </div>
 
               {/* Progress bar */}
-              <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div
                   className={`h-full transition-all duration-300 ${
                     isOverloaded
                       ? 'bg-red-500'
                       : isHeavy
-                      ? 'bg-amber-400'
-                      : 'bg-emerald-400'
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
                   }`}
                   style={{ width: `${Math.min(100, loadPct)}%` }}
                 />
@@ -140,8 +142,8 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
 
       {/* Stampede Bottleneck Alerts */}
       {bottlenecks.length > 0 && (
-        <div className="p-2 bg-red-950/60 border border-red-500/50 rounded-lg flex items-start gap-2 text-xs text-red-300">
-          <AlertOctagon className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700">
+          <AlertOctagon className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
           <div className="flex flex-col gap-1">
             {bottlenecks.map((msg, i) => (
               <div key={i}>{msg}</div>
@@ -151,9 +153,9 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
       )}
 
       {bottlenecks.length === 0 && (
-        <div className="p-1.5 bg-emerald-950/40 border border-emerald-500/30 rounded-lg flex items-center gap-1.5 text-[10px] text-emerald-300">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span>Stairwells & ground exits dynamically balanced. No stampede detected.</span>
+        <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-800">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Stairwells & ground muster exits dynamically balanced. Zero congestion.</span>
         </div>
       )}
     </div>

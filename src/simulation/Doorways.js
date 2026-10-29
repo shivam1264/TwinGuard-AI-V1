@@ -86,83 +86,73 @@ export function getRoomSeatingSpots(floor, roomIdx, cx, cz) {
   switch (type) {
     case 'TECH_WORKSTATIONS': {
       const backSign = cz > 0 ? 1 : -1;
-      const podOffsets = [
-        { dx: -2.3, dz:  5.2 * backSign },
-        { dx:  2.3, dz:  5.2 * backSign },
-        { dx: -2.3, dz:  0.0 * backSign },
-        { dx:  2.3, dz:  0.0 * backSign },
-        { dx: -2.3, dz: -5.2 * backSign },
-        { dx:  2.3, dz: -5.2 * backSign }
+      // 2 Spacious 2-person workstation pods with 2.4m central aisle and 1.6m perimeter clearance
+      // Pod Left: dx = -2.2, Pod Right: dx = +2.2
+      // Each desk has 1 chair with 0.62m clearance. Humans sit naturally facing desk & monitor.
+      return [
+        // Spot 1: Pod Left, Front Desk (Occupied first)
+        { x: cx - 2.2, z: cz + 0.65 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
+        // Spot 2: Pod Right, Front Desk (Occupied second)
+        { x: cx + 2.2, z: cz + 0.65 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
+        // Spot 3: Pod Left, Rear Desk (Occupied third)
+        { x: cx - 2.2, z: cz + 2.35 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true },
+        // Spot 4: Pod Right, Rear Desk (Unoccupied standby)
+        { x: cx + 2.2, z: cz + 2.35 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true }
       ];
-      const spots = [];
-      podOffsets.forEach(pod => {
-        const px = cx + pod.dx;
-        const pz = cz + pod.dz;
-        spots.push(
-          { x: px - 0.85, z: pz - 0.90, rotY: 0, isSeated: true },
-          { x: px + 0.85, z: pz - 0.90, rotY: 0, isSeated: true },
-          { x: px - 0.85, z: pz + 0.90, rotY: Math.PI, isSeated: true },
-          { x: px + 0.85, z: pz + 0.90, rotY: Math.PI, isSeated: true }
-        );
-      });
-      return spots;
     }
 
     case 'CONFERENCE_BOARDROOM':
-    case 'PRESIDENTIAL_BOARDROOM':
+    case 'PRESIDENTIAL_BOARDROOM': {
+      // Large conference table centered at (cx, cz). 6 executive chairs around table.
       return [
-        { x: cx - 1.4, z: cz - 1.15, rotY: 0, isSeated: true },
-        { x: cx + 0.0, z: cz - 1.15, rotY: 0, isSeated: true },
-        { x: cx + 1.4, z: cz - 1.15, rotY: 0, isSeated: true },
-        { x: cx + 0.0, z: cz + 1.15, rotY: Math.PI, isSeated: true }
+        { x: cx, z: cz - 0.85, rotY: 0, isSeated: true },
+        { x: cx, z: cz + 0.85, rotY: Math.PI, isSeated: true },
+        { x: cx - 1.2, z: cz - 0.85, rotY: 0, isSeated: true },
+        { x: cx + 1.2, z: cz + 0.85, rotY: Math.PI, isSeated: true }
       ];
+    }
 
-    case 'LUXURY_PENTHOUSE_LIVING':
-    case 'LIVING_LOUNGE':
+    case 'EXECUTIVE_OFFICE': {
+      // Executive desk + chair behind desk, visitor chairs in front
       return [
-        { x: cx - 0.65, z: cz - 0.55, rotY: 0, isSeated: true },
-        { x: cx + 0.65, z: cz - 0.55, rotY: 0, isSeated: true },
-        { x: cx + 1.55, z: cz + 0.25, rotY: -Math.PI * 0.45, isSeated: true },
-        { x: cx - 1.60, z: cz + 0.70, rotY: Math.PI * 0.70, isSeated: false }
+        { x: cx, z: cz - 1.65, rotY: 0, isSeated: true },
+        { x: cx - 0.75, z: cz - 0.35, rotY: Math.PI, isSeated: true },
+        { x: cx + 0.75, z: cz - 0.35, rotY: Math.PI, isSeated: true },
+        { x: cx + 1.80, z: cz + 0.60, rotY: -Math.PI * 0.45, isSeated: false }
       ];
+    }
 
-    case 'EXECUTIVE_OFFICE':
+    case 'RECEPTION_LOBBY': {
       return [
-        { x: cx, z: cz - 1.05, rotY: 0, isSeated: true },
-        { x: cx - 0.85, z: cz + 0.85, rotY: Math.PI, isSeated: true },
-        { x: cx + 0.85, z: cz + 0.85, rotY: Math.PI, isSeated: true },
-        { x: cx + 1.80, z: cz - 0.20, rotY: -Math.PI * 0.5, isSeated: false }
+        { x: cx, z: cz - 0.50, rotY: 0, isSeated: true },
+        { x: cx - 2.20, z: cz + 1.20, rotY: Math.PI * 0.15, isSeated: true },
+        { x: cx + 1.80, z: cz + 1.60, rotY: -Math.PI * 0.35, isSeated: false }
       ];
-
-    case 'RECEPTION_LOBBY':
-      return [
-        { x: cx, z: cz - 0.65, rotY: 0, isSeated: true },
-        { x: cx - 1.40, z: cz + 1.10, rotY: -Math.PI * 0.25, isSeated: true },
-        { x: cx + 1.40, z: cz + 1.10, rotY: Math.PI * 0.25, isSeated: true },
-        { x: cx, z: cz + 0.85, rotY: Math.PI, isSeated: false }
-      ];
+    }
 
     case 'CAFE_LOUNGE': {
       const backSign = cz > 0 ? 1 : -1;
-      const spots = [];
-      for (const dz of [4.8 * backSign, 0, -4.8 * backSign]) {
-        for (const dx of [-1.5, 1.5]) {
-          spots.push(
-            { x: cx + dx, z: cz + dz - 0.65, rotY: 0, isSeated: true },
-            { x: cx + dx, z: cz + dz + 0.65, rotY: Math.PI, isSeated: true }
-          );
-        }
-      }
-      return spots;
+      return [
+        { x: cx - 1.8, z: cz + 1.5 * backSign, rotY: 0, isSeated: true },
+        { x: cx + 1.8, z: cz + 1.5 * backSign, rotY: Math.PI, isSeated: true },
+        { x: cx - 1.8, z: cz - 2.5 * backSign, rotY: 0, isSeated: true },
+        { x: cx + 1.8, z: cz - 2.5 * backSign, rotY: Math.PI, isSeated: true }
+      ];
+    }
+
+    case 'LUXURY_PENTHOUSE_LIVING':
+    case 'LIVING_LOUNGE': {
+      return [
+        { x: cx, z: cz + 1.10, rotY: Math.PI, isSeated: true },
+        { x: cx - 1.60, z: cz - 0.10, rotY: Math.PI * 0.45, isSeated: true },
+        { x: cx + 1.60, z: cz - 0.10, rotY: -Math.PI * 0.45, isSeated: true },
+        { x: cx + 0.80, z: cz - 1.80, rotY: 0, isSeated: false }
+      ];
     }
 
     default:
       return [
-        { x: cx - 0.9, z: cz - 0.9, rotY: 0, isSeated: true },
-        { x: cx + 0.9, z: cz - 0.9, rotY: 0, isSeated: true },
-        { x: cx, z: cz + 0.9, rotY: Math.PI, isSeated: true },
-        { x: cx + 1.5, z: cz, rotY: 0, isSeated: false }
+        { x: cx, z: cz, rotY: 0, isSeated: false }
       ];
   }
 }
-
