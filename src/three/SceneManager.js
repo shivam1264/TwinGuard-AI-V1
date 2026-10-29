@@ -265,6 +265,17 @@ export class SceneManager {
     return this.building ? this.building.getElevatorStatus() : [];
   }
 
+  setFacadeModeDirect(mode) {
+    if (this.building) {
+      this.building.setFacadeMode(mode);
+      if (this.onFacadeModeChange) {
+        this.onFacadeModeChange(mode);
+      }
+      return mode;
+    }
+    return 'CUTAWAY';
+  }
+
   toggleFacadeMode() {
     if (this.building) {
       const newMode = this.building.toggleFacadeMode();
@@ -491,6 +502,37 @@ export class SceneManager {
         duration: 0.85,
         elapsed: 0
       };
+    }
+  }
+
+  setBimLayer(layerName, isVisible) {
+    if (layerName === 'structure') {
+      if (this.building) {
+        if (this.building.cornerMesh) {
+          this.building.cornerMesh.visible = isVisible && (this.building.floorMode === 'ALL');
+        }
+        for (let f = 1; f <= this.building.totalFloors; f++) {
+          const group = this.building.floorGroups[f];
+          if (group) {
+            group.children.forEach(ch => {
+              if (ch.userData && ch.userData.architecturalLayer === 'STRUCTURE') {
+                ch.visible = isVisible;
+              }
+            });
+          }
+        }
+      }
+    } else if (layerName === 'fireSafety') {
+      if (this.fireSystem && this.fireSystem.group) {
+        this.fireSystem.group.visible = isVisible;
+      }
+      if (this.building && this.building.layers && this.building.layers.mep) {
+        this.building.layers.mep.visible = isVisible;
+      }
+    } else if (layerName === 'occupants') {
+      if (this.agentCrowd && this.agentCrowd.group) {
+        this.agentCrowd.group.visible = isVisible;
+      }
     }
   }
 

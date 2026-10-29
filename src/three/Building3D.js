@@ -927,10 +927,11 @@ export class Building3D {
     });
 
     if (cornerGeos.length > 0) {
-      const cornerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cornerGeos), this.precastFacadeMat);
-      cornerMesh.castShadow = true;
-      cornerMesh.receiveShadow = true;
-      this.layers.structure.add(cornerMesh);
+      this.cornerMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cornerGeos), this.precastFacadeMat);
+      this.cornerMesh.castShadow = true;
+      this.cornerMesh.receiveShadow = true;
+      this.cornerMesh.userData = { architecturalLayer: 'STRUCTURE' };
+      this.layers.structure.add(this.cornerMesh);
     }
 
     for (let f = 1; f <= this.totalFloors; f++) {
@@ -1554,7 +1555,8 @@ export class Building3D {
     northWall.position.set(x, totalH / 2, z - 1.2 - shaftD / 2 + wallThick / 2);
     northWall.castShadow = true;
     northWall.receiveShadow = true;
-    this.stairsGroup.add(northWall);
+    northWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
+    this.facadeCutawayGroup.add(northWall);
 
     const southWallGeo = new THREE.BoxGeometry(shaftW, totalH, wallThick);
     const southWall = new THREE.Mesh(southWallGeo, this.precastFacadeMat);
@@ -1570,7 +1572,8 @@ export class Building3D {
     const intWall = new THREE.Mesh(intWallGeo, this.stairWallMat);
     intWall.position.set(intWallX, totalH / 2, z - 1.2);
     intWall.receiveShadow = true;
-    this.stairsGroup.add(intWall);
+    intWall.userData = { architecturalLayer: 'EXTERIOR_ENVELOPE' };
+    this.facadeCutawayGroup.add(intWall);
 
     // Architectural Slit Glazing Windows on Exterior Face
     for (let f = 1; f <= this.totalFloors; f++) {
@@ -2570,6 +2573,7 @@ export class Building3D {
       const group = this.floorGroups[f];
 
       if (mode === 'ALL') {
+        if (this.cornerMesh) this.cornerMesh.visible = true;
         group.visible = true;
         group.position.y = 0;
         this.roofGroup.visible = true;
@@ -2577,36 +2581,52 @@ export class Building3D {
         this.stairsGroup.visible = true;
         this.elevatorGroup.visible = true;
       } else if (mode === 'EXPLODED') {
+        if (this.cornerMesh) this.cornerMesh.visible = false;
         group.visible = true;
         group.position.y = (f - 1) * 5.0;
         this.roofGroup.visible = true;
         this.roofGroup.position.y = (this.totalFloors - 1) * 5.0;
-        this.stairsGroup.visible = true;
-        this.elevatorGroup.visible = true;
+        // In Exploded BIM view, hide continuous 38m shafts so floors hover cleanly as architectural layers
+        this.stairsGroup.visible = false;
+        this.elevatorGroup.visible = false;
       } else {
+        if (this.cornerMesh) this.cornerMesh.visible = false;
         const targetFloor = parseInt(mode, 10);
-        group.visible = f === targetFloor;
+        group.visible = (f === targetFloor);
         group.position.y = 0;
         this.roofGroup.visible = false;
-        this.stairsGroup.visible = true;
-        this.elevatorGroup.visible = true;
+        // In single-floor isolated view, hide 38m continuous vertical shafts so they don't form a dangling pillar below the floor
+        this.stairsGroup.visible = false;
+        this.elevatorGroup.visible = false;
       }
     }
 
     if (this.facadeCutawayGroup) {
       const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
-        const fl = sub.userData && sub.userData.floor ? sub.userData.floor : 1;
+        const hasFloor = (sub.userData && sub.userData.floor !== undefined);
+        const fl = hasFloor ? sub.userData.floor : 1;
+
         if (mode === 'ALL') {
           sub.visible = isShowingFacade;
           sub.position.y = 0;
         } else if (mode === 'EXPLODED') {
-          sub.visible = isShowingFacade;
-          sub.position.y = (fl - 1) * 5.0;
+          if (hasFloor) {
+            sub.visible = isShowingFacade;
+            sub.position.y = (fl - 1) * 5.0;
+          } else {
+            // Hide monolithic continuous 38m stair exterior walls in exploded view
+            sub.visible = false;
+          }
         } else {
           const targetFloor = parseInt(mode, 10);
-          sub.visible = isShowingFacade && (fl === targetFloor);
-          sub.position.y = 0;
+          if (hasFloor && fl === targetFloor) {
+            sub.visible = isShowingFacade;
+            sub.position.y = 0;
+          } else {
+            // Hide all other floors and monolithic walls
+            sub.visible = false;
+          }
         }
       });
     }
