@@ -441,19 +441,6 @@ export const GISCommandModal = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => onToggle3DGisLayer()}
-              className={`px-3 py-1.5 rounded-lg text-xs font-hud font-bold tracking-wider border flex items-center gap-1.5 transition-all ${
-                isGisLayerActive
-                  ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,240,255,0.4)]'
-                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
-              }`}
-              title="Toggle 3D Geofence rings & holographic beacons in the 3D viewport"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>3D SCENE PINS: {isGisLayerActive ? 'ACTIVE' : 'OFF'}</span>
-            </button>
-
-            <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
             >

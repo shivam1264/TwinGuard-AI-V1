@@ -335,14 +335,7 @@ export function App() {
 
           {/* GIS Geospatial Command Toggle */}
           <button
-            onClick={() => {
-              const nextState = !isGisOpen;
-              setIsGisOpen(nextState);
-              if (sceneManagerRef.current) {
-                sceneManagerRef.current.toggleGisLayer(nextState);
-                setIs3DGisLayerActive(nextState);
-              }
-            }}
+            onClick={() => setIsGisOpen(!isGisOpen)}
             className={`px-3 py-1.5 rounded-lg border text-xs font-hud font-bold tracking-wider flex items-center gap-2 transition-all ${
               isGisOpen
                 ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 shadow-[0_0_15px_rgba(0,240,255,0.4)]'

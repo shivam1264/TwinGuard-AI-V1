@@ -169,95 +169,7 @@ export class SceneManager {
     this.gisGroup = new THREE.Group();
     this.gisGroup.visible = false;
     this.scene.add(this.gisGroup);
-
-    // 1. Geodetic Safety & Incident Perimeter Rings on Terrain (y = 0.04)
-    // 30m Hazard Ring (Orange dashed ring)
-    const ring30Geo = new THREE.RingGeometry(29.5, 30.5, 64);
-    ring30Geo.rotateX(-Math.PI / 2);
-    const ring30Mat = new THREE.MeshBasicMaterial({ color: 0xf97316, side: THREE.DoubleSide, transparent: true, opacity: 0.85 });
-    this.gisRing30 = new THREE.Mesh(ring30Geo, ring30Mat);
-    this.gisRing30.position.set(0, 0.04, 0);
-    this.gisGroup.add(this.gisRing30);
-
-    // 70m Safe Assembly Buffer Ring (Cyan ring)
-    const ring70Geo = new THREE.RingGeometry(69.2, 70.8, 64);
-    ring70Geo.rotateX(-Math.PI / 2);
-    const ring70Mat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, side: THREE.DoubleSide, transparent: true, opacity: 0.75 });
-    this.gisRing70 = new THREE.Mesh(ring70Geo, ring70Mat);
-    this.gisRing70.position.set(0, 0.04, 0);
-    this.gisGroup.add(this.gisRing70);
-
-    // 110m Outer Incident Cordon Perimeter (Blue ring)
-    const ring110Geo = new THREE.RingGeometry(109.0, 111.0, 64);
-    ring110Geo.rotateX(-Math.PI / 2);
-    const ring110Mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.65 });
-    this.gisRing110 = new THREE.Mesh(ring110Geo, ring110Mat);
-    this.gisRing110.position.set(0, 0.04, 0);
-    this.gisGroup.add(this.gisRing110);
-
-    // 2. Cartesian Geodetic Coordinate Grid lines
-    const gridHelper = new THREE.GridHelper(240, 24, 0x0284c7, 0x1e293b);
-    gridHelper.position.y = 0.035;
-    gridHelper.material.transparent = true;
-    gridHelper.material.opacity = 0.35;
-    this.gisGroup.add(gridHelper);
-
-    // 3. Floating Holographic Beacons / Pins
     this.gisBeacons = [];
-    const createBeacon = (x, z, color) => {
-      const bGroup = new THREE.Group();
-      bGroup.position.set(x, 0, z);
-
-      // Vertical stem / light pillar
-      const stemGeo = new THREE.CylinderGeometry(0.12, 0.12, 10, 8);
-      stemGeo.translate(0, 5, 0);
-      const stemMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45 });
-      bGroup.add(new THREE.Mesh(stemGeo, stemMat));
-
-      // Floating diamond pin at top
-      const pinGeo = new THREE.OctahedronGeometry(1.2, 0);
-      pinGeo.translate(0, 10.5, 0);
-      const pinMat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.9, roughness: 0.2 });
-      const pinMesh = new THREE.Mesh(pinGeo, pinMat);
-      bGroup.add(pinMesh);
-
-      // Ground pulsing target ring
-      const groundRingGeo = new THREE.RingGeometry(1.8, 2.3, 24);
-      groundRingGeo.rotateX(-Math.PI / 2);
-      const groundRingMat = new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
-      const groundRing = new THREE.Mesh(groundRingGeo, groundRingMat);
-      groundRing.position.y = 0.045;
-      bGroup.add(groundRing);
-
-      this.gisBeacons.push({ group: bGroup, pinMesh, groundRing, baseY: 10.5 });
-      this.gisGroup.add(bGroup);
-    };
-
-    // Hydrant #1 (South Plaza)
-    createBeacon(24, 38, 0xef4444);
-    // Hydrant #2 (West Road)
-    createBeacon(-50, 0, 0xef4444);
-    // Muster Zone A (South Plaza)
-    createBeacon(0, 48, 0x10b981);
-    // Muster Zone B (West Side)
-    createBeacon(-50, -25, 0x10b981);
-    // Helipad LZ (Roof center)
-    createBeacon(0, 0, 0xfacc15);
-
-    // 4. Directional Ingress Chevrons for Fire Engines along South Boulevard
-    const arrowGeos = [];
-    for (let x = -40; x <= 40; x += 15) {
-      const cone = new THREE.ConeGeometry(1.2, 3.2, 4);
-      cone.rotateX(Math.PI / 2);
-      cone.rotateY(Math.PI / 2);
-      cone.translate(x, 0.05, 52);
-      arrowGeos.push(cone);
-    }
-    const arrowMesh = new THREE.Mesh(
-      BufferGeometryUtils.mergeGeometries(arrowGeos),
-      new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.7 })
-    );
-    this.gisGroup.add(arrowMesh);
   }
 
   toggleGisLayer(forceState = null) {
@@ -638,21 +550,6 @@ export class SceneManager {
 
     if (this.building && this.building.update) {
       this.building.update(delta);
-    }
-
-    if (this.gisGroup && this.gisGroup.visible && this.gisBeacons) {
-      const time = performance.now() * 0.003;
-      for (let bIdx = 0; bIdx < this.gisBeacons.length; bIdx++) {
-        const b = this.gisBeacons[bIdx];
-        b.pinMesh.rotation.y += 0.02;
-        b.pinMesh.position.y = b.baseY + Math.sin(time + bIdx * 1.5) * 0.45;
-        if (b.groundRing) {
-          const s = 1 + Math.sin(time * 2 + bIdx) * 0.15;
-          b.groundRing.scale.set(s, s, 1);
-        }
-      }
-      if (this.gisRing30) this.gisRing30.rotation.z += 0.002;
-      if (this.gisRing70) this.gisRing70.rotation.z -= 0.0015;
     }
 
     if (this.agentCrowd) {
