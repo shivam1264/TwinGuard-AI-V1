@@ -1164,19 +1164,19 @@ export class Building3D {
       if (isUrbanPlaza) {
         // Cast-Iron Tree Grate
         const grateGeo = new THREE.PlaneGeometry(2.3 * scale, 2.3 * scale);
-        grateGeo.rotation.x = -Math.PI / 2;
+        grateGeo.rotateX(-Math.PI / 2);
         grateGeo.translate(tx, 0.035, tz);
         treeGrateGeos.push(grateGeo);
 
         // Inner Mulch Soil Earth Bed
         const mulchGeo = new THREE.CircleGeometry(0.85 * scale, 16);
-        mulchGeo.rotation.x = -Math.PI / 2;
+        mulchGeo.rotateX(-Math.PI / 2);
         mulchGeo.translate(tx, 0.03, tz);
         treeMulchGeos.push(mulchGeo);
       } else {
         // Natural Park Lawn Mulch Ring
         const mulchGeo = new THREE.RingGeometry(0.25 * scale, 1.7 * scale, 16);
-        mulchGeo.rotation.x = -Math.PI / 2;
+        mulchGeo.rotateX(-Math.PI / 2);
         mulchGeo.translate(tx, 0.025, tz);
         treeMulchGeos.push(mulchGeo);
       }
@@ -1213,7 +1213,7 @@ export class Building3D {
 
       // 3. Base Mulch Soil Ring
       const mulchGeo = new THREE.RingGeometry(0.15 * scale, 0.95 * scale, 14);
-      mulchGeo.rotation.x = -Math.PI / 2;
+      mulchGeo.rotateX(-Math.PI / 2);
       mulchGeo.translate(cx, 0.025, cz);
       treeMulchGeos.push(mulchGeo);
     };

@@ -88,14 +88,21 @@ export class SceneManager {
     this.scene.add(this.cloudDome);
 
     // 3. Pre-Filtered Radiance Environment Map (PMREM) for Photorealistic Glass Reflections
-    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-    pmremGenerator.compileEquirectangularShader();
-    const skyScene = new THREE.Scene();
-    skyScene.add(this.sky.clone());
-    skyScene.add(this.cloudDome.clone());
-    const envMap = pmremGenerator.fromScene(skyScene, 0.04);
-    this.scene.environment = envMap.texture;
-    pmremGenerator.dispose();
+    this.scene.background = new THREE.Color(0xd8e6f3);
+    try {
+      const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+      const skyScene = new THREE.Scene();
+      const skyClone = this.sky.clone();
+      skyClone.scale.setScalar(9000);
+      skyScene.add(skyClone);
+      const envMap = pmremGenerator.fromScene(skyScene, 0.04, 0.1, 10000);
+      if (envMap && envMap.texture) {
+        this.scene.environment = envMap.texture;
+      }
+      pmremGenerator.dispose();
+    } catch (err) {
+      console.warn('PMREM environment generation skipped:', err);
+    }
 
     // 4. Soft Atmospheric Distance Fog (Blends distant terrain into horizon)
     this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0018);
