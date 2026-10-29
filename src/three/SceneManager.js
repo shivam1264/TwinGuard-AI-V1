@@ -241,6 +241,57 @@ export class SceneManager {
     }
   }
 
+  setFacadeModeDirect(mode) {
+    if (this.building && this.building.facadeMode !== mode) {
+      const newMode = this.building.toggleFacadeMode();
+      if (this.onFacadeModeChange) {
+        this.onFacadeModeChange(newMode);
+      }
+      return newMode;
+    }
+    return mode;
+  }
+
+  zoomIn(amount = 6) {
+    if (!this.camera || !this.controls) return;
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const len = offset.length();
+    if (len > 4) {
+      offset.multiplyScalar(Math.max(4, len - amount) / len);
+      this.camera.position.copy(this.controls.target).add(offset);
+      this.controls.update();
+    }
+  }
+
+  zoomOut(amount = 6) {
+    if (!this.camera || !this.controls) return;
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const len = offset.length();
+    offset.multiplyScalar((len + amount) / len);
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
+  }
+
+  getCameraYaw() {
+    if (!this.camera || !this.controls) return 0;
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    return Math.atan2(offset.x, offset.z) * (180 / Math.PI);
+  }
+
+  setBimLayer(layerName, isVisible) {
+    if (layerName === 'occupants' && this.agentCrowd) {
+      this.agentCrowd.group.visible = isVisible;
+    }
+    if (layerName === 'fireSafety' && this.fireSystem) {
+      this.fireSystem.activeFires.forEach(f => {
+        if (f.group) f.group.visible = isVisible;
+      });
+    }
+    if (layerName === 'structure' && this.building) {
+      if (this.building.roofGroup) this.building.roofGroup.visible = isVisible;
+    }
+  }
+
   toggleFacadeMode() {
     if (this.building) {
       const newMode = this.building.toggleFacadeMode();

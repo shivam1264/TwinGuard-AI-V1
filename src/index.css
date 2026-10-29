@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #070b14;
-  --bg-secondary: #0c1220;
-  --bg-card: rgba(14, 23, 42, 0.75);
-  --bg-card-hover: rgba(20, 33, 61, 0.85);
-  --border-cyan: rgba(0, 240, 255, 0.25);
-  --border-cyan-glow: rgba(0, 240, 255, 0.6);
-  --neon-cyan: #00f0ff;
-  --neon-green: #00ff88;
-  --neon-red: #ff3344;
-  --neon-amber: #ffaa00;
-  --text-primary: #f0f6fc;
-  --text-muted: #8b9bb4;
-  --font-hud: 'Chakra Petch', sans-serif;
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: #ffffff;
+  --border-cyan: rgba(59, 130, 246, 0.2);
+  --border-cyan-glow: rgba(59, 130, 246, 0.5);
+  --neon-cyan: #2563eb;
+  --neon-green: #10b981;
+  --neon-red: #ef4444;
+  --neon-amber: #f59e0b;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --font-hud: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   --font-sans: 'Inter', sans-serif;
 }
@@ -36,17 +36,17 @@ body {
 
 /* Glassmorphism Panels */
 .glass-panel {
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--border-cyan);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 0 12px rgba(0, 240, 255, 0.04);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 20px 0 rgba(15, 23, 42, 0.05);
 }
 
 .glass-panel-danger {
-  background: rgba(45, 12, 18, 0.8);
-  border-color: rgba(255, 51, 68, 0.5);
-  box-shadow: 0 8px 32px 0 rgba(255, 51, 68, 0.25), inset 0 0 15px rgba(255, 51, 68, 0.1);
+  background: rgba(254, 242, 242, 0.95);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 20px 0 rgba(239, 68, 68, 0.15);
 }
 
 /* HUD Typography */
@@ -56,19 +56,6 @@ body {
 
 .font-mono {
   font-family: var(--font-mono);
-}
-
-/* Glowing text effects */
-.glow-cyan {
-  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.3);
-}
-
-.glow-green {
-  text-shadow: 0 0 10px rgba(0, 255, 136, 0.6), 0 0 20px rgba(0, 255, 136, 0.3);
-}
-
-.glow-red {
-  text-shadow: 0 0 10px rgba(255, 51, 68, 0.7), 0 0 25px rgba(255, 51, 68, 0.4);
 }
 
 /* Scanline Effect for CCTV cameras */
@@ -88,40 +75,20 @@ body {
   pointer-events: none;
 }
 
-/* Pulsing radar dot */
-@keyframes radar-pulse {
-  0% { transform: scale(0.9); opacity: 1; }
-  50% { transform: scale(1.6); opacity: 0.3; }
-  100% { transform: scale(2.2); opacity: 0; }
-}
-
-.radar-ping {
-  position: relative;
-}
-
-.radar-ping::after {
-  content: '';
-  position: absolute;
-  top: -2px; left: -2px; right: -2px; bottom: -2px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  animation: radar-pulse 1.8s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-}
-
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(7, 11, 20, 0.8);
+  background: rgba(241, 245, 249, 0.8);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 240, 255, 0.3);
+  background: rgba(148, 163, 184, 0.5);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.7);
+  background: rgba(100, 116, 139, 0.8);
 }
 
 /* Badge styling */
@@ -130,7 +97,7 @@ body {
   letter-spacing: 0.05em;
   font-size: 0.72rem;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
