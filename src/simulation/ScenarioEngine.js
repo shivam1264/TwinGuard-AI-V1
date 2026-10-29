@@ -174,3 +174,4 @@ export class ScenarioEngine {
     return Array.from(this.activeIncidents.values());
   }
 }
+
