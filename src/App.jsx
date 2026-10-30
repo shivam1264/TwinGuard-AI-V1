@@ -17,6 +17,7 @@ import { ScenarioConfigModal } from './components/ScenarioConfigModal';
 import { StrategyRankModal } from './components/StrategyRankModal';
 import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
+import { EmergencyControlModal } from './components/EmergencyControlModal';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
@@ -114,11 +115,17 @@ export function App() {
   const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
+  const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState(() => {
     if (AIEngine && AIEngine.getActiveScenario) {
       return AIEngine.getActiveScenario();
     }
     return sampleFireScenario;
+  });
+  const [bimLayers, setBimLayers] = useState({
+    structure: true,
+    fireSafety: true,
+    occupants: true
   });
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
   const [systemStatus, setSystemStatus] = useState("STANDBY");
@@ -492,6 +499,8 @@ export function App() {
               setIsCctvOpen(true);
             } else if (mode === 'SYSTEMS') {
               setIsAnalyticsOpen(true);
+            } else if (mode === 'EMERGENCY') {
+              setIsEmergencyControlOpen(true);
             } else if (mode === 'INFO') {
               setActiveSidebarMode('INFO');
             }
@@ -502,7 +511,10 @@ export function App() {
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
           onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
+          onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
           onSetCameraPreset={handleSetCameraPreset}
+          isSimulating={isSimulating}
+          elapsedSeconds={stats.elapsedSeconds}
         />
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
@@ -691,6 +703,16 @@ export function App() {
           handleSetFloorView(floor);
           handleSetCameraPreset(`FLOOR_${floor}`);
         }}
+      />
+
+      {/* MODAL 10: Emergency Control & Rapid Intervention Dispatch */}
+      <EmergencyControlModal
+        isOpen={isEmergencyControlOpen}
+        onClose={() => setIsEmergencyControlOpen(false)}
+        sceneManager={sceneManagerRef.current}
+        activeScenario={activeScenario}
+        isSimulating={isSimulating}
+        elapsedSeconds={stats.elapsedSeconds}
       />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}

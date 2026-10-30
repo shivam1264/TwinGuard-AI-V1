@@ -69,6 +69,7 @@ export class SimulationClock {
     return this._running;
   }
 }
+import { EmergencyVehiclesManager } from './EmergencyVehiclesManager.js';
 
 export class SceneManager {
   constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread) {
@@ -244,6 +245,8 @@ export class SceneManager {
 
     // Phase 5D: Initialize zone-to-grid mapper for grid-level hazard integration
     this._zoneToGridMapper = new ZoneToGridMapper(this.navGrid);
+
+    this.emergencyManager = new EmergencyVehiclesManager(this.scene);
   }
 
   initKeyboardControls() {
@@ -581,7 +584,18 @@ export class SceneManager {
     } else if (presetName === 'WEST_FACADE') {
       targetPos.set(-75, 22, 0);
       targetLook.set(0, 19, 0);
-    
+    } else if (presetName === 'EMERGENCY_FOCUS' || presetName === 'STAGING_AREA') {
+      const targetSide = this.emergencyManager ? this.emergencyManager.targetGate.side : 'west';
+      if (targetSide === 'west') {
+        targetPos.set(-72, 22, 24);
+        targetLook.set(-42, 2, 0);
+      } else if (targetSide === 'east') {
+        targetPos.set(72, 22, 24);
+        targetLook.set(42, 2, 0);
+      } else {
+        targetPos.set(0, 22, 85);
+        targetLook.set(0, 2, 40);
+      }
     } else if (presetName === 'FLOOR_PLAN') {
       const fl = (this.building && parseInt(this.building.floorMode, 10)) || 1;
       const baseY = (fl - 1) * (this.building ? this.building.floorHeight : 3.8);
@@ -987,6 +1001,11 @@ export class SceneManager {
       this.renderRouteOverlays(optimizationResult.assignments);
       this.updateExitHoloBadges(optimizationResult.exitStats);
     }
+
+    if (this.emergencyManager) {
+      this.emergencyManager.dispatch(null, fireLocations);
+    }
+
     return optimizationResult;
   }
 
@@ -1035,6 +1054,9 @@ export class SceneManager {
     }
     const targetRooms = rooms || (this.building ? this.building.roomsData : []);
     this.agentCrowd.spawnAgentsForRooms(targetRooms);
+    if (this.emergencyManager) {
+      this.emergencyManager.reset();
+    }
   }
 
   animate = () => {
@@ -1077,6 +1099,10 @@ export class SceneManager {
 
     if (this.building && this.building.update) {
       this.building.update(delta);
+    }
+
+    if (this.emergencyManager) {
+      this.emergencyManager.update(delta, this.elapsedSeconds, this.isSimulating);
     }
 
     if (this.agentCrowd) {
@@ -1143,6 +1169,34 @@ export class SceneManager {
     }
   };
 
+  getEmergencyStatus() {
+    return this.emergencyManager ? this.emergencyManager.getStatus() : null;
+  }
+
+  dispatchEmergency(targetGateId = null) {
+    if (this.emergencyManager) {
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach((f, rId) => {
+          if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
+        });
+      }
+      this.emergencyManager.dispatch(targetGateId, fireLocations);
+    }
+  }
+
+  toggleEmergencySiren() {
+    return this.emergencyManager ? this.emergencyManager.toggleSirenAudio() : false;
+  }
+
+  toggleEmergencySpray() {
+    return this.emergencyManager ? this.emergencyManager.toggleSpray() : false;
+  }
+
+  focusEmergencyStaging() {
+    this.setCameraPreset('EMERGENCY_FOCUS');
+  }
+
   dispose() {
     this.isDisposed = true;
     if (this.animationFrameId) {
@@ -1157,6 +1211,9 @@ export class SceneManager {
     window.removeEventListener('blur', this.handleBlur);
     if (this.campusSite) {
       this.campusSite.dispose();
+    }
+    if (this.emergencyManager) {
+      this.emergencyManager.dispose();
     }
     if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
