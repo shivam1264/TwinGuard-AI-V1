@@ -1,21 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box,
+  Home,
   Layers,
   ArrowUpDown,
   Video,
-  Sliders,
-  Building,
-  Navigation as NavigationIcon,
-  ChevronLeft,
-  ChevronRight,
+  Activity,
+  Building2,
   PanelLeftClose,
   PanelLeftOpen,
   Milestone,
   Flame,
-  CheckCircle2,
-  AlertTriangle
+  FileText,
+  Info
 } from 'lucide-react';
+import { FLOOR_THEMES } from '../simulation/Doorways';
 
 export const LeftSidebar = ({
   isCollapsed = false,
@@ -25,21 +23,22 @@ export const LeftSidebar = ({
   activeFloorView = 'ALL',
   onSelectFloor,
   rooms = [],
+  exits = [],
+  hasFire = false,
   onOpenCctv,
-  onOpenSystems
+  onOpenSystems,
+  onSetCameraPreset
 }) => {
-  const [topTab, setTopTab] = useState('BUILDING'); // 'BUILDING' or 'NAVIGATION'
-
-  // Determine status color dot for each floor
-  const getFloorStatus = (floorNum) => {
-    const floorRooms = rooms.filter(r => r.floor === floorNum);
-    const hasFire = floorRooms.some(r => r.hasFire);
-    if (hasFire) return 'hazard'; // Red dot
-
+  const getFloorInfo = (floorNum) => {
+    const floorRooms = rooms.filter((r) => r.floor === floorNum);
+    const floorHasFire = floorRooms.some((r) => r.hasFire);
     const totalOccupants = floorRooms.reduce((sum, r) => sum + (r.peopleCount || 0), 0);
-    if (totalOccupants > 15) return 'warning'; // Amber dot
-
-    return 'safe'; // Green dot
+    const theme = FLOOR_THEMES[floorNum] || { name: `${floorNum}th Floor`, prefix: `L${floorNum}` };
+    return {
+      occupants: totalOccupants,
+      subName: theme.subName || theme.name?.replace(/^\d+(st|nd|rd|th)\s+Floor\s*•?\s*/i, '') || 'Workspace',
+      hasFire: floorHasFire
+    };
   };
 
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
@@ -49,38 +48,67 @@ export const LeftSidebar = ({
     return `${suffixes[num] || `${num}th`} Floor`;
   };
 
+  const floorSubtitles = {
+    10: 'Executive',
+    9: 'Global',
+    8: 'Biotech',
+    7: 'Product',
+    6: 'R&D',
+    5: 'Engineering',
+    4: 'Design',
+    3: 'Operations',
+    2: 'Marketing',
+    1: 'Lobby & Entrance'
+  };
+
   const menuItems = [
-    { id: '3D_VIEW', label: '3D View', icon: Box },
-    { id: 'FLOOR_VIEW', label: 'Floor View', icon: Layers },
-    { id: 'STAIRS_FOCUS', label: 'Stairwells', icon: Milestone },
-    { id: 'ELEVATORS', label: 'Elevators', icon: ArrowUpDown },
-    { id: 'CCTV', label: 'CCTV', icon: Video, action: onOpenCctv },
-    { id: 'SYSTEMS', label: 'Systems', icon: Sliders, action: onOpenSystems }
+    { id: '3D_VIEW', label: 'Home View (3D)', icon: Home, badge: null, badgeColor: null },
+    { id: 'FLOOR_VIEW', label: 'Floor Stack (BIM)', icon: Layers, badge: '10 Lvl', badgeColor: '#f1f5f9' },
+    { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3 Cores', badgeColor: '#f0fdf4', badgeText: '#16a34a' },
+    { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3', badgeColor: '#f1f5f9' },
+    { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100', badgeColor: '#f0fdf4', badgeText: '#16a34a' },
+    { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'Live', badgeColor: '#dcfce7', badgeText: '#15803d' },
+    { id: 'EMERGENCY', label: 'Emergency Control', icon: Flame, iconColor: '#ef4444', badge: null },
+    { id: 'INFO', label: 'Building Information', icon: FileText, badge: null }
   ];
 
   // ==========================================
-  // COLLAPSED RAIL VIEW (Width ~64px / w-16)
+  // 1. COLLAPSED RAIL
   // ==========================================
   if (isCollapsed) {
     return (
-      <aside className="w-16 bg-white border-r border-slate-200/90 flex flex-col items-center py-3.5 px-2 gap-3.5 shrink-0 select-none transition-all duration-300 ease-in-out shadow-xs z-20">
-        {/* Expand Toggle Button */}
+      <aside
+        className="flex flex-col items-center shrink-0 select-none z-20"
+        style={{
+          width: '64px',
+          background: '#ffffff',
+          borderRight: '1px solid #e2e8f0',
+          padding: '16px 8px',
+          gap: '10px',
+        }}
+      >
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 border border-slate-200/90 flex items-center justify-center transition-all shadow-xs"
+          className="flex items-center justify-center cursor-pointer transition-all"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '11px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            color: '#475569',
+          }}
           title="Expand Left Panel"
         >
-          <PanelLeftOpen className="w-4 h-4" />
+          <PanelLeftOpen style={{ width: '16px', height: '16px' }} />
         </button>
 
-        <div className="w-8 border-t border-slate-200/80 my-0.5" />
+        <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
-        {/* 6 Core Navigation Icons (Marked in Pink in User Reference) */}
-        <div className="flex flex-col gap-2 w-full items-center">
-          {menuItems.map((item) => {
+        <div className="flex flex-col items-center" style={{ gap: '6px', width: '100%' }}>
+          {menuItems.slice(0, 6).map((item) => {
             const Icon = item.icon;
             const isActive = activeMode === item.id;
-
             return (
               <button
                 key={item.id}
@@ -88,34 +116,39 @@ export const LeftSidebar = ({
                   if (item.action) item.action();
                   onSelectMode(item.id);
                 }}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center relative transition-all group ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                className="flex items-center justify-center relative transition-all cursor-pointer"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '11px',
+                  background: isActive ? '#2563eb' : 'transparent',
+                  color: isActive ? '#ffffff' : item.iconColor || '#64748b',
+                  border: 'none',
+                  boxShadow: isActive ? '0 4px 12px -2px rgba(37, 99, 235, 0.35)' : 'none',
+                }}
                 title={item.label}
               >
-                <Icon className="w-4 h-4" />
-
-                {/* Floating tooltip on hover */}
-                <span className="absolute left-full ml-2.5 px-2.5 py-1 bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                  {item.label}
-                </span>
+                <Icon style={{ width: '17px', height: '17px' }} />
               </button>
             );
           })}
         </div>
 
-        <div className="w-8 border-t border-slate-200/80 my-0.5" />
-
-        {/* Mini Floor Indicator Button */}
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/90 flex flex-col items-center justify-center transition-all mt-auto"
+          className="flex flex-col items-center justify-center transition-all cursor-pointer mt-auto"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '11px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+            color: '#16a34a',
+          }}
           title={`Active Floor: ${activeFloorView === 'ALL' ? 'All Floors' : `Level ${activeFloorView}`}`}
         >
-          <span className="text-[8px] font-bold text-slate-400 uppercase leading-none">LVL</span>
-          <span className="text-xs font-extrabold text-blue-600 leading-tight mt-0.5">
+          <span style={{ fontSize: '7px', fontWeight: 800, color: '#94a3b8' }}>LVL</span>
+          <span style={{ fontSize: '11px', fontWeight: 900, color: '#16a34a', fontFamily: 'monospace' }}>
             {activeFloorView === 'ALL' ? 'ALL' : `L${activeFloorView}`}
           </span>
         </button>
@@ -124,151 +157,272 @@ export const LeftSidebar = ({
   }
 
   // ==========================================
-  // EXPANDED FULL VIEW (Width ~260px / w-64)
+  // 2. EXPANDED VIEW — Exactly Matching Mockup Image
   // ==========================================
   return (
-    <aside className="w-64 bg-white border-r border-slate-200/90 flex flex-col shrink-0 p-4 gap-4 select-none overflow-y-auto transition-all duration-300 ease-in-out shadow-xs z-20">
-      {/* Top Header Row with Segmented Switcher & Collapse Button */}
-      <div className="flex items-center gap-2">
-        {/* Switcher: [Building] | [Navigation] */}
-        <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200/60 flex-1">
-          <button
-            onClick={() => setTopTab('BUILDING')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              topTab === 'BUILDING'
-                ? 'bg-white text-blue-600 shadow-xs border border-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
+    <aside
+      className="flex flex-col shrink-0 select-none overflow-hidden z-20"
+      style={{
+        width: '280px',
+        background: '#ffffff',
+        borderRight: '1px solid #e2e8f0',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+      {/* ── Scrollable Body ── */}
+      <div
+        className="flex-1 overflow-y-auto no-scrollbar flex flex-col"
+        style={{
+          padding: '16px 14px 12px 14px',
+          gap: '16px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        {/* ─── SECTION 1: MAIN MENU ─── */}
+        <div className="flex flex-col" style={{ gap: '3px' }}>
+          <div
+            style={{
+              fontSize: '10.5px',
+              fontWeight: 700,
+              color: '#94a3b8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              padding: '0 8px',
+              marginBottom: '6px',
+            }}
           >
-            <Building className="w-3.5 h-3.5" />
-            <span>Building</span>
-          </button>
+            MAIN MENU
+          </div>
 
-          <button
-            onClick={() => setTopTab('NAVIGATION')}
-            className={`flex-1 py-1.5 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
-              topTab === 'NAVIGATION'
-                ? 'bg-white text-blue-600 shadow-xs border border-slate-200/50'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <NavigationIcon className="w-3.5 h-3.5" />
-            <span>Navigation</span>
-          </button>
-        </div>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeMode === item.id;
 
-        {/* Collapse Button */}
-        <button
-          onClick={onToggleCollapse}
-          className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 border border-slate-200/90 flex items-center justify-center transition-all shrink-0"
-          title="Collapse Left Panel"
-        >
-          <PanelLeftClose className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Main View Mode Selector (Spacious & Clean) */}
-      <div className="flex flex-col gap-1.5">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeMode === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (item.action) item.action();
-                onSelectMode(item.id);
-              }}
-              className={`px-3 py-2.5 rounded-xl text-xs flex items-center gap-3 transition-all ${
-                isActive
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200/90 shadow-xs font-bold'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold'
-              }`}
-            >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
-              <span className="tracking-wide">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Horizontal Divider */}
-      <div className="border-t border-slate-200/80 my-0.5" />
-
-      {/* FLOORS Section (Clean, non-crammed typography) */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex items-center justify-between mb-2.5 px-0.5">
-          <span className="text-[11px] font-black text-slate-400 tracking-wider uppercase">
-            FLOORS
-          </span>
-          <button
-            onClick={() => onSelectFloor('ALL')}
-            className={`text-[11px] font-bold px-2 py-0.5 rounded-md transition-all ${
-              activeFloorView === 'ALL'
-                ? 'text-blue-600 bg-blue-50 border border-blue-200/80'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-            }`}
-          >
-            Show All
-          </button>
-        </div>
-
-        {/* 10-Floor Stack (L10 down to L1) */}
-        <div className="flex flex-col gap-1 overflow-y-auto pr-1">
-          {floorsList.map((fl) => {
-            const status = getFloorStatus(fl);
-            const isSelected = activeFloorView === String(fl);
+            if (isActive) {
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.action) item.action();
+                    onSelectMode(item.id);
+                  }}
+                  className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                  style={{
+                    height: '42px',
+                    padding: '0 12px',
+                    borderRadius: '12px',
+                    background: '#2563eb',
+                    boxShadow: '0 4px 12px -2px rgba(37, 99, 235, 0.35)',
+                    color: '#ffffff',
+                    border: 'none',
+                  }}
+                >
+                  <div className="flex items-center min-w-0 flex-1" style={{ gap: '10px' }}>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: '26px',
+                        height: '26px',
+                        borderRadius: '8px',
+                        background: 'rgba(255, 255, 255, 0.2)',
+                      }}
+                    >
+                      <Icon style={{ width: '15px', height: '15px', color: '#ffffff' }} />
+                    </div>
+                    <span className="truncate" style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff' }}>
+                      {item.label}
+                    </span>
+                  </div>
+                </button>
+              );
+            }
 
             return (
               <button
-                key={fl}
-                onClick={() => onSelectFloor(isSelected ? 'ALL' : String(fl))}
-                className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between transition-all ${
-                  isSelected
-                    ? 'bg-blue-50 text-blue-700 font-extrabold border-l-4 border-blue-600 shadow-xs'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
-                }`}
+                key={item.id}
+                onClick={() => {
+                  if (item.action) item.action();
+                  onSelectMode(item.id);
+                }}
+                className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                style={{
+                  height: '40px',
+                  padding: '0 12px',
+                  borderRadius: '11px',
+                  background: 'transparent',
+                  color: '#475569',
+                  border: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f8fafc';
+                  e.currentTarget.style.color = '#0f172a';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#475569';
+                }}
               >
-                <div className="flex items-center gap-2.5">
-                  <span className={`font-mono font-bold text-xs ${isSelected ? 'text-blue-700' : 'text-slate-500'}`}>
-                    L{fl}
-                  </span>
-                  <span className="text-xs truncate max-w-[120px]">
-                    {getOrdinalName(fl)}
+                <div className="flex items-center min-w-0 flex-1" style={{ gap: '10px' }}>
+                  <Icon style={{ width: '16px', height: '16px', color: item.iconColor || '#64748b', shrink: 0 }} />
+                  <span className="truncate" style={{ fontSize: '12.5px', fontWeight: 600 }}>
+                    {item.label}
                   </span>
                 </div>
-
-                {/* Status Dot */}
-                <div className="flex items-center gap-1.5">
-                  {status === 'hazard' ? (
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-xs shadow-red-500/50 animate-pulse ring-2 ring-red-200" title="Fire Alert Active" />
-                  ) : status === 'warning' ? (
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-200" title="High Crowd Density" />
-                  ) : (
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="Clear & Operational" />
-                  )}
-                </div>
+                {item.badge && (
+                  <span
+                    className="shrink-0"
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: item.badgeText || '#64748b',
+                      background: item.badgeColor || '#f1f5f9',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+
+        {/* ─── SECTION 2: BUILDING FLOORS ─── */}
+        <div className="flex flex-col" style={{ gap: '4px' }}>
+          <div className="flex items-center justify-between" style={{ padding: '0 8px', marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
+              BUILDING FLOORS
+            </span>
+            <button
+              onClick={() => onSelectFloor('ALL')}
+              className="cursor-pointer transition-all"
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: activeFloorView === 'ALL' ? '#ffffff' : '#2563eb',
+                background: activeFloorView === 'ALL' ? '#2563eb' : '#ffffff',
+                border: '1px solid #bfdbfe',
+                padding: '2px 10px',
+                borderRadius: '999px',
+              }}
+            >
+              Show All
+            </button>
+          </div>
+
+          {/* Floor Rows (10th down to 1st) */}
+          <div className="flex flex-col" style={{ gap: '2px' }}>
+            {floorsList.map((fl) => {
+              const info = getFloorInfo(fl);
+              const isSelected = activeFloorView === String(fl);
+
+              return (
+                <button
+                  key={fl}
+                  onClick={() => onSelectFloor(String(fl))}
+                  className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                  style={{
+                    height: '42px',
+                    padding: '0 10px',
+                    borderRadius: '11px',
+                    background: isSelected ? '#eff6ff' : 'transparent',
+                    border: isSelected ? '1px solid #bfdbfe' : '1px solid transparent',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <div className="flex items-center" style={{ gap: '10px' }}>
+                    {/* Circular Level Badge */}
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: '#f0fdf4',
+                        border: '1px solid #dcfce7',
+                        color: '#16a34a',
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      L{fl}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: isSelected ? '#2563eb' : '#0f172a', lineHeight: 1.1 }}>
+                        {getOrdinalName(fl)}
+                      </div>
+                      <div style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: 500 }}>
+                        {floorSubtitles[fl] || 'Workspace'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Occupants Count (Green) */}
+                  <div
+                    style={{
+                      fontSize: '11.5px',
+                      fontWeight: 800,
+                      color: '#16a34a',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {info.occupants}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Bottom Card: BUILDING INFO */}
-      <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-3.5 flex items-center gap-3 shrink-0">
-        <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-          <Building className="w-4 h-4" />
-        </div>
-        <div>
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            BUILDING INFO
+      {/* ── Bottom Information Card ── */}
+      <div style={{ padding: '12px 14px', borderTop: '1px solid #f1f5f9' }}>
+        <div
+          className="flex items-center"
+          style={{
+            padding: '10px 12px',
+            borderRadius: '14px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            gap: '10px',
+          }}
+        >
+          <div
+            className="flex items-center justify-center shrink-0"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '9px',
+              background: '#f0fdf4',
+              border: '1px solid #d1fae5',
+              color: '#16a34a',
+            }}
+          >
+            <Building2 style={{ width: '16px', height: '16px' }} />
           </div>
-          <div className="text-xs font-extrabold text-slate-800 leading-tight mt-0.5">
-            10 Floors • 3 Elevators
-          </div>
-          <div className="text-[11px] text-slate-500 font-medium">
-            Total Area: 25,400 m²
+          <div>
+            <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+              10 Floors • 100 Rooms
+            </div>
+            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500, marginTop: '2px' }}>
+              Gross Area: 25,400 m²
+            </div>
           </div>
         </div>
       </div>

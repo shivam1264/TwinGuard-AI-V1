@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Play,
+  Flame,
   Pause,
   RotateCcw,
   Gauge,
   Layers,
   Camera,
   Maximize2,
-  ChevronDown
+  ChevronDown,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 export const BottomControlDock = ({
@@ -44,44 +46,88 @@ export const BottomControlDock = ({
   const handleSelectCamera = (opt) => {
     setCurrentCameraLabel(opt.label);
     setCameraMenuOpen(false);
-    onSetCameraPreset(opt.id);
+    if (onSetCameraPreset) onSetCameraPreset(opt.id);
   };
 
   return (
-    <div className="h-20 px-6 bg-white border-t border-slate-200/90 flex items-center justify-between gap-5 shrink-0 z-30 shadow-lg select-none">
-      {/* Left: Start Evacuation & Reset Buttons (Spacious & High-End) */}
-      <div className="flex items-center gap-3.5">
-        {/* Big Prominent Action Button */}
+    <div
+      className="flex items-center justify-between shrink-0 z-30 select-none"
+      style={{
+        height: '66px',
+        padding: '0 20px',
+        background: '#ffffff',
+        borderTop: '1px solid #e2e8f0',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+      {/* ── 1. Left Group: Evacuation Action & Reset ── */}
+      <div className="flex items-center" style={{ gap: '12px' }}>
         {!isSimulating ? (
           <button
             onClick={onStartEvacuation}
-            className="px-6 py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-xl shadow-md shadow-red-500/30 flex items-center gap-3.5 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+            className="flex items-center cursor-pointer transition-all focus:outline-none"
+            style={{
+              height: '42px',
+              padding: '0 18px',
+              borderRadius: '999px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              boxShadow: '0 4px 14px -2px rgba(239, 68, 68, 0.4)',
+              color: '#ffffff',
+              gap: '10px',
+              border: 'none',
+            }}
           >
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
-              <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.25)',
+              }}
+            >
+              <Flame style={{ width: '13px', height: '13px', fill: 'white', color: 'white' }} />
             </div>
             <div className="text-left">
-              <div className="text-xs font-black tracking-wider uppercase leading-none">
+              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
                 START EVACUATION
               </div>
-              <div className="text-[10px] text-red-100 font-medium leading-none mt-1">
-                Simulate and manage evacuation
+              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
+                Simulate and manage routes
               </div>
             </div>
           </button>
         ) : (
           <button
             onClick={onPauseResume}
-            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white rounded-xl shadow-md shadow-amber-500/30 flex items-center gap-3.5 transition-all"
+            className="flex items-center cursor-pointer transition-all focus:outline-none"
+            style={{
+              height: '42px',
+              padding: '0 18px',
+              borderRadius: '999px',
+              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+              boxShadow: '0 4px 14px -2px rgba(249, 115, 22, 0.4)',
+              color: '#ffffff',
+              gap: '10px',
+              border: 'none',
+            }}
           >
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
-              <Pause className="w-4 h-4 fill-white text-white" />
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.25)',
+              }}
+            >
+              <Pause style={{ width: '12px', height: '12px', fill: 'white', color: 'white' }} />
             </div>
             <div className="text-left">
-              <div className="text-xs font-black tracking-wider uppercase leading-none">
+              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
                 PAUSE EVACUATION
               </div>
-              <div className="text-[10px] text-amber-100 font-medium leading-none mt-1">
+              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
                 Simulation in progress
               </div>
             </div>
@@ -91,145 +137,228 @@ export const BottomControlDock = ({
         {/* Reset Button */}
         <button
           onClick={onReset}
-          className="px-4 py-3 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/90 rounded-xl flex items-center gap-2.5 transition-all shadow-xs"
+          className="flex items-center cursor-pointer transition-all focus:outline-none"
+          style={{
+            height: '42px',
+            padding: '0 14px',
+            borderRadius: '999px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            gap: '8px',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
         >
-          <RotateCcw className="w-4 h-4 text-slate-500" />
+          <div
+            className="flex items-center justify-center shrink-0"
+            style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '50%',
+              background: '#f1f5f9',
+              color: '#64748b',
+            }}
+          >
+            <RotateCcw style={{ width: '12px', height: '12px' }} />
+          </div>
           <div className="text-left">
-            <div className="text-xs font-extrabold leading-none">RESET</div>
-            <div className="text-[10px] text-slate-400 font-medium leading-none mt-1">
-              Clear all and reset
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+              RESET
+            </div>
+            <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
+              Clear scenario
             </div>
           </div>
         </button>
       </div>
 
-      {/* Center 1: Simulation Speed (Clear, spacious, distinctly separated buttons) */}
-      <div className="hidden md:flex items-center gap-3 px-3.5 py-2 bg-slate-50 border border-slate-200/90 rounded-xl">
-        <div className="flex items-center gap-1.5 text-slate-500">
-          <Gauge className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700">Simulation Speed</span>
+      {/* ── 2. Center-Left: Simulation Speed Capsule ── */}
+      <div className="flex items-center" style={{ gap: '10px' }}>
+        <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+          <Gauge style={{ width: '15px', height: '15px', color: '#64748b' }} />
+          <span>Simulation Speed</span>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-slate-200/70 p-1 rounded-xl">
-          {speedOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onSetSpeed(opt.value)}
-              className={`px-3 py-1 rounded-lg font-mono font-bold text-xs transition-all ${
-                simSpeed === opt.value
-                  ? 'bg-blue-600 text-white shadow-xs font-black'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/90'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div
+          className="flex items-center"
+          style={{
+            background: '#f1f5f9',
+            padding: '3px',
+            borderRadius: '999px',
+            gap: '2px',
+          }}
+        >
+          {speedOptions.map((opt) => {
+            const isSelected = simSpeed === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onSetSpeed(opt.value)}
+                className="cursor-pointer transition-all"
+                style={{
+                  height: '28px',
+                  padding: '0 12px',
+                  borderRadius: '999px',
+                  fontSize: '11px',
+                  fontWeight: isSelected ? 800 : 600,
+                  background: isSelected ? '#2563eb' : 'transparent',
+                  color: isSelected ? '#ffffff' : '#64748b',
+                  border: 'none',
+                  boxShadow: isSelected ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Center 2: BIM Layers Toggle & Checkboxes (Spacious & Clean) */}
-      <div className="hidden lg:flex items-center gap-3.5 px-3.5 py-2 bg-slate-50 border border-slate-200/90 rounded-xl">
-        {/* Toggle Header */}
-        <div className="flex items-center gap-2.5">
-          <Layers className="w-4 h-4 text-slate-500" />
-          <span className="text-xs font-bold text-slate-700">BIM Layers</span>
+      {/* ── 3. Center-Right: BIM Layers & Toggles ── */}
+      <div className="flex items-center" style={{ gap: '12px' }}>
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+            <Layers style={{ width: '15px', height: '15px', color: '#64748b' }} />
+            <span>BIM Layers</span>
+          </div>
 
           {/* Toggle Switch */}
-          <button
+          <div
             onClick={() => setBimToggle(!bimToggle)}
-            className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
-              bimToggle ? 'bg-blue-600' : 'bg-slate-300'
-            }`}
+            className="cursor-pointer transition-colors relative flex items-center"
+            style={{
+              width: '34px',
+              height: '18px',
+              borderRadius: '999px',
+              background: bimToggle ? '#2563eb' : '#cbd5e1',
+              padding: '2px',
+            }}
           >
             <div
-              className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform ${
-                bimToggle ? 'translate-x-4' : 'translate-x-0'
-              }`}
+              className="transition-transform"
+              style={{
+                width: '14px',
+                height: '14px',
+                borderRadius: '50%',
+                background: '#ffffff',
+                transform: bimToggle ? 'translateX(16px)' : 'translateX(0)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }}
             />
-          </button>
+          </div>
         </div>
 
-        {/* Checkboxes: Structure, Fire Safety, Occupants */}
-        <div className="flex items-center gap-3.5 text-xs pl-3 border-l border-slate-200">
-          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+        {/* Checkbox Pills */}
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
             <input
               type="checkbox"
               checked={bimLayers.structure}
-              onChange={(e) => onToggleBimLayer('structure', e.target.checked)}
-              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+              onChange={() => onToggleBimLayer('structure')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
             />
-            <span className="text-xs font-medium">Structure</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Structure</span>
           </label>
 
-          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
             <input
               type="checkbox"
               checked={bimLayers.fireSafety}
-              onChange={(e) => onToggleBimLayer('fireSafety', e.target.checked)}
-              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+              onChange={() => onToggleBimLayer('fireSafety')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
             />
-            <span className="text-xs font-medium">Fire Safety</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Fire Safety</span>
           </label>
 
-          <label className="flex items-center gap-1.5 cursor-pointer text-slate-700 hover:text-slate-900 select-none">
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
             <input
               type="checkbox"
               checked={bimLayers.occupants}
-              onChange={(e) => onToggleBimLayer('occupants', e.target.checked)}
-              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+              onChange={() => onToggleBimLayer('occupants')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
             />
-            <span className="text-xs font-medium">Occupants</span>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Occupants</span>
           </label>
         </div>
       </div>
 
-      {/* Right: Camera View Dropdown & Fullscreen Button */}
-      <div className="flex items-center gap-2.5">
-        {/* Camera View Dropdown */}
+      {/* ── 4. Right: Camera View Dropdown & Fullscreen ── */}
+      <div className="flex items-center" style={{ gap: '10px' }}>
         <div className="relative">
           <button
             onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
-            className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl text-xs font-semibold text-slate-700 flex items-center gap-2.5 transition-colors shadow-xs"
+            className="flex items-center cursor-pointer transition-all"
+            style={{
+              height: '38px',
+              padding: '0 12px',
+              borderRadius: '10px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              gap: '8px',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
           >
-            <Camera className="w-4 h-4 text-blue-600" />
-            <div className="text-left hidden sm:block">
-              <span className="text-[9px] text-slate-400 font-bold block leading-none">
-                Camera View
-              </span>
-              <span className="text-xs font-bold text-slate-900 leading-tight">
-                {currentCameraLabel}
-              </span>
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                background: '#f0fdf4',
+                color: '#16a34a',
+              }}
+            >
+              <Camera style={{ width: '13px', height: '13px' }} />
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            <div className="text-left">
+              <div style={{ fontSize: '8.5px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', lineHeight: 1 }}>
+                Camera View
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1, marginTop: '2px' }}>
+                {currentCameraLabel}
+              </div>
+            </div>
+            <ChevronDown style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
           </button>
 
-          {/* Camera Options Menu */}
+          {/* Camera Dropdown Menu */}
           {cameraMenuOpen && (
-            <div className="absolute right-0 bottom-full mb-2 w-52 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 flex flex-col gap-1 z-30 animate-in fade-in zoom-in-95 duration-150">
+            <div
+              className="absolute right-0 bottom-full mb-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-50 flex flex-col"
+              style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
+            >
               {cameraOptions.map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => handleSelectCamera(opt)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium text-left flex items-center justify-between transition-colors ${
-                    currentCameraLabel === opt.label
-                      ? 'bg-blue-50 text-blue-700 font-bold'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
+                  className="px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
                 >
                   <span>{opt.label}</span>
+                  {currentCameraLabel === opt.label && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Fullscreen Expand Button */}
+        {/* Maximize / Fullscreen Button */}
         <button
           onClick={onToggleFullscreen}
-          className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-600 hover:text-slate-900 transition-colors shadow-xs"
+          className="flex items-center justify-center cursor-pointer transition-colors"
+          style={{
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            color: '#64748b',
+          }}
           title="Toggle Fullscreen"
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0f172a'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#64748b'; }}
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 style={{ width: '14px', height: '14px' }} />
         </button>
       </div>
     </div>

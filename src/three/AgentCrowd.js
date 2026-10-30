@@ -1,3 +1,4 @@
+import { AIEngine } from "../ai/index.js";
 import * as THREE from 'three';
 import { getRoomSeatingSpots } from '../simulation/Doorways.js';
 
@@ -126,6 +127,7 @@ export class AgentCrowd {
     this.clear();
     let idCounter = 1;
 
+    const totalExpected = rooms.reduce((sum, r) => sum + (r.peopleCount || 0), 0);
     rooms.forEach(room => {
       const count = room.peopleCount || 0;
       const floor = room.floor || 1;
@@ -141,6 +143,8 @@ export class AgentCrowd {
         const z = spot.z;
         const y = floorBaseY + 0.04;
 
+        const demoProfile = AIEngine.generateAgentProfile(idCounter, totalExpected);
+
         this.createAgent({
           id: `agent_${idCounter++}`,
           roomId: room.id,
@@ -151,7 +155,8 @@ export class AgentCrowd {
           z,
           facingRot: spot.rotY,
           isSeated: spot.isSeated,
-          state: 'IDLE'
+          state: 'IDLE',
+          ...demoProfile
         });
       }
     });
@@ -412,12 +417,16 @@ export class AgentCrowd {
       z: data.z,
       state: data.state,
       isSeated: !!data.isSeated,
-      speed: 3.2 + Math.random() * 0.6,
+      speed: data.speed || (3.2 + Math.random() * 0.6),
       animCycle: Math.random() * Math.PI * 2,
       path: [],
       currentWaypointIdx: 0,
       assignedExitColor: null,
-      roomId: data.roomId
+      roomId: data.roomId,
+      mobilityType: data.mobilityType || 'STANDARD',
+      mobilityLabel: data.mobilityLabel || 'Standard Staff',
+      reactionDelay: data.reactionDelay || 0,
+      remainingHesitation: data.remainingHesitation || 0
     };
 
     this.agents.push(agent);
@@ -474,11 +483,12 @@ export class AgentCrowd {
     this.agents.forEach(agent => {
       const assignment = assignmentMap.get(agent.id);
       if (assignment) {
-        this.standUpAgent(agent);
         agent.path = assignment.path || [];
         agent.currentWaypointIdx = 0;
         agent.state = 'EVACUATING';
         agent.assignedExitColor = assignment.exitColor;
+        if (agent.isSeated) this.standUpAgent(agent);
+        agent.remainingHesitation = agent.reactionDelay || 0;
 
         agent.beacon.material.color = new THREE.Color(0xff5500);
         agent.shirtMat.emissive = new THREE.Color(0xff3300);
@@ -487,29 +497,20 @@ export class AgentCrowd {
     });
   }
 
-  update(delta, simSpeed = 1.0) {
-    if (simSpeed === 0) {
-      if (this.cachedStats) return this.cachedStats;
-      let safeCount = 0;
-      for (let i = 0; i < this.agents.length; i++) {
-        if (this.agents[i].state === 'SAFE') safeCount++;
-      }
-      this.cachedStats = {
-        total: this.agents.length,
-        evacuated: safeCount,
-        inTransit: this.agents.length - safeCount,
-        isCompleted: safeCount === this.agents.length && this.agents.length > 0
-      };
-      return this.cachedStats;
-    }
-
-    this.cachedStats = null;
-    const effectiveDelta = delta * simSpeed;
-    let evacuatedCount = 0;
+  update(delta, simSpeed = 1.0, fireLocations = []) {
+    // 1. Microscopic behavioral physics computed by Decoupled AI Module
+    const aiResult = AIEngine.updateCrowdPhysics(
+      this.agents,
+      delta,
+      simSpeed,
+      fireLocations,
+      this.floorMode
+    );
 
     const isSingleFloor = this.floorMode && this.floorMode !== 'ALL' && this.floorMode !== 'EXPLODED';
     const targetFloorNum = isSingleFloor ? parseInt(this.floorMode, 10) : null;
 
+    // 2. Synchronize 3D Articulated Meshes to AI coordinates
     for (let i = 0; i < this.agents.length; i++) {
       const agent = this.agents[i];
 
@@ -519,7 +520,18 @@ export class AgentCrowd {
       }
 
       if (agent.state === 'SAFE') {
-        evacuatedCount++;
+        agent.mesh.visible = true;
+        agent.mesh.position.set(agent.x, agent.y, agent.z);
+        agent.leftLeg.rotation.x = 0;
+        agent.rightLeg.rotation.x = 0;
+        agent.leftKnee.rotation.x = 0;
+        agent.rightKnee.rotation.x = 0;
+        agent.leftArm.rotation.x = 0;
+        agent.rightArm.rotation.x = 0;
+        agent.leftElbow.rotation.x = 0;
+        agent.rightElbow.rotation.x = 0;
+        agent.torso.position.y = 0.86;
+        agent.headGroup.position.y = 1.48;
         continue;
       }
 
@@ -527,86 +539,43 @@ export class AgentCrowd {
         continue;
       }
 
-      // Evacuating Human Locomotion
-      if (agent.state === 'EVACUATING' && agent.path.length > 0) {
-        if (agent.isSeated) {
-          this.standUpAgent(agent);
-        }
+      if (agent.displayPos) {
+        agent.mesh.position.set(agent.displayPos.x, agent.displayPos.y, agent.displayPos.z);
+      } else {
+        agent.mesh.position.set(agent.x, agent.y, agent.z);
+      }
 
-        const targetWaypoint = agent.path[agent.currentWaypointIdx];
+      if (agent.facingAngle !== undefined) {
+        agent.mesh.rotation.y = agent.facingAngle;
+      }
 
-        if (targetWaypoint) {
-          const dx = targetWaypoint.x - agent.x;
-          const dy = targetWaypoint.y - agent.y;
-          const dz = targetWaypoint.z - agent.z;
-          const distSq = dx * dx + dy * dy + dz * dz;
+      if (agent.remainingHesitation > 0) {
+        continue; // Pre-evacuation hesitation
+      }
 
-          const distH_Sq = dx * dx + dz * dz;
-          if (distH_Sq > 0.0025) {
-            agent.mesh.rotation.y = Math.atan2(dx, dz);
-          }
+      if (agent.stride !== undefined) {
+        const stride = agent.stride;
+        agent.leftLeg.rotation.x = stride;
+        agent.rightLeg.rotation.x = -stride;
+        agent.leftKnee.rotation.x = Math.max(0, -stride * 0.65);
+        agent.rightKnee.rotation.x = Math.max(0, stride * 0.65);
+        agent.leftArm.rotation.x = -stride * 0.45;
+        agent.rightArm.rotation.x = stride * 0.45;
+        agent.leftElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
+        agent.rightElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
 
-          agent.animCycle += effectiveDelta * agent.speed * 5.0;
-          const stride = Math.sin(agent.animCycle) * 0.52;
-
-          // Articulated Hip & Knee Locomotion
-          agent.leftLeg.rotation.x = stride;
-          agent.rightLeg.rotation.x = -stride;
-
-          // Natural knee flexion during back swing
-          agent.leftKnee.rotation.x = Math.max(0, -stride * 0.65);
-          agent.rightKnee.rotation.x = Math.max(0, stride * 0.65);
-
-          // Coordinated Arm Counter-Swing
-          agent.leftArm.rotation.x = -stride * 0.45;
-          agent.rightArm.rotation.x = stride * 0.45;
-          agent.leftElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
-          agent.rightElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
-
-          // Natural Rhythmic Pelvis Bounce
-          const runBounce = Math.abs(Math.sin(agent.animCycle * 2)) * 0.035;
-          agent.torso.position.y = 0.86 + runBounce;
-          agent.headGroup.position.y = 1.48 + runBounce;
-
-          if (distSq < 0.4225) { // 0.65m waypoint threshold
-            agent.currentWaypointIdx++;
-            if (agent.currentWaypointIdx >= agent.path.length) {
-              agent.state = 'SAFE';
-              agent.mesh.visible = true; // Safe in muster zone
-              agent.leftLeg.rotation.x = 0;
-              agent.rightLeg.rotation.x = 0;
-              agent.leftKnee.rotation.x = 0;
-              agent.rightKnee.rotation.x = 0;
-              agent.leftArm.rotation.x = 0;
-              agent.rightArm.rotation.x = 0;
-              agent.leftElbow.rotation.x = 0;
-              agent.rightElbow.rotation.x = 0;
-              agent.torso.position.y = 0.86;
-              agent.headGroup.position.y = 1.48;
-              evacuatedCount++;
-              continue;
-            }
-          } else {
-            const totalDist = Math.sqrt(distSq);
-            const step = agent.speed * effectiveDelta;
-            const moveRatio = Math.min(1.0, step / totalDist);
-
-            agent.x += dx * moveRatio;
-            agent.y += dy * moveRatio;
-            agent.z += dz * moveRatio;
-
-            // Canonical Navigation Coordinates: No vertical explosion offset
-            agent.mesh.position.set(agent.x, agent.y, agent.z);
-          }
-        }
+        const runBounce = Math.abs(Math.sin((agent.animCycle || 0) * 2)) * 0.035;
+        agent.torso.position.y = 0.86 + runBounce;
+        agent.headGroup.position.y = 1.48 + runBounce;
       }
     }
 
     const currentStats = {
       total: this.agents.length,
-      evacuated: evacuatedCount,
-      inTransit: this.agents.length - evacuatedCount,
-      isCompleted: evacuatedCount === this.agents.length && this.agents.length > 0
+      evacuated: aiResult.safeCount,
+      inTransit: this.agents.length - aiResult.safeCount,
+      isCompleted: aiResult.safeCount === this.agents.length && this.agents.length > 0,
+      telemetry: aiResult.telemetry
     };
     this.cachedStats = currentStats;
     return currentStats;
@@ -640,6 +609,62 @@ export class AgentCrowd {
         });
       }
     }
+  }
+
+
+  standUpAgent(agent) {
+    if (!agent) return;
+    agent.isSeated = false;
+    agent.y = (agent.floor - 1) * this.floorHeight + 0.05;
+    agent.torso.position.set(0, 0.86, 0);
+    agent.torso.rotation.x = 0;
+    agent.headGroup.position.set(0, 1.48, 0);
+    agent.leftLeg.position.set(-0.095, 0.45, 0);
+    agent.leftLeg.rotation.set(0, 0, 0);
+    agent.rightLeg.position.set(0.095, 0.45, 0);
+    agent.rightLeg.rotation.set(0, 0, 0);
+    agent.leftKnee.position.set(0, -0.19, 0);
+    agent.leftKnee.rotation.set(0, 0, 0);
+    agent.rightKnee.position.set(0, -0.19, 0);
+    agent.rightKnee.rotation.set(0, 0, 0);
+    agent.mesh.position.set(agent.x, agent.y, agent.z);
+  }
+
+  rerouteAgents(newAssignments) {
+    if (!newAssignments || newAssignments.length === 0) return;
+    const assignmentMap = new Map();
+    newAssignments.forEach(a => assignmentMap.set(a.agentId, a));
+
+    this.agents.forEach(agent => {
+      if (agent.state === 'SAFE') return;
+
+      const assignment = assignmentMap.get(agent.id);
+      if (!assignment) return;
+
+      if (assignment.isTrapped) {
+        agent.state = 'TRAPPED';
+        agent.beacon.material.color = new THREE.Color(0xff0044);
+        return;
+      }
+
+      if (assignment.path && assignment.path.length > 0) {
+        let bestIdx = 0;
+        let minDistSq = Infinity;
+        for (let i = 0; i < assignment.path.length; i++) {
+          const pt = assignment.path[i];
+          const dSq = Math.hypot(pt.x - agent.x, pt.z - agent.z);
+          if (dSq < minDistSq) {
+            minDistSq = dSq;
+            bestIdx = i;
+          }
+        }
+
+        agent.path = assignment.path;
+        agent.currentWaypointIdx = Math.min(bestIdx + 1, assignment.path.length - 1);
+        agent.state = 'EVACUATING';
+        agent.assignedExitColor = assignment.exitColor;
+      }
+    });
   }
 
   clearPathLines() {

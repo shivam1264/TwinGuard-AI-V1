@@ -98,6 +98,42 @@ app.get('/api/state', (req, res) => {
   res.json(simulationState);
 });
 
+// GIS Geospatial Context & Emergency Infrastructure
+app.get('/api/gis-context', (req, res) => {
+  res.json({
+    origin: {
+      latitude: 28.498600,
+      longitude: 77.087800,
+      elevationMsl: 218.0,
+      datum: 'WGS-84 / UTM Zone 43N'
+    },
+    musterZones: [
+      { id: 'muster_alpha', name: 'Muster Point Alpha (South Park Plaza)', capacity: 350, geoPos: { latitude: 28.498168, longitude: 77.087800 } },
+      { id: 'muster_bravo', name: 'Muster Point Bravo (West Perimeter Lawn)', capacity: 250, geoPos: { latitude: 28.498780, longitude: 77.087310 } }
+    ],
+    hydrants: [
+      { id: 'hydrant_101', code: 'FH-101', pressureBar: 3.5, flowRateLpm: 1200, status: 'ACTIVE_CERTIFIED' },
+      { id: 'hydrant_102', code: 'FH-102', pressureBar: 3.8, flowRateLpm: 1400, status: 'ACTIVE_CERTIFIED' },
+      { id: 'hydrant_103', code: 'FH-103', pressureBar: 4.0, flowRateLpm: 1500, status: 'ACTIVE_CERTIFIED' }
+    ],
+    emergencyServices: [
+      { id: 'station_07', name: 'Municipal Fire Station #07', distanceKm: 1.2, etaMinutes: 3.5, status: 'DISPATCH_READY' },
+      { id: 'hospital_metro', name: 'Metro City Trauma Hospital', distanceKm: 1.8, etaMinutes: 4.8, status: 'TRIAGE_PREPARED' }
+    ]
+  });
+});
+
+app.post('/api/block-stairwell', (req, res) => {
+  const { coreName, floorNum } = req.body;
+  io.emit('stairwell-blocked', { coreName, floorNum });
+  res.json({ success: true, coreName, floorNum });
+});
+
+app.post('/api/clear-incidents', (req, res) => {
+  io.emit('incidents-cleared');
+  res.json({ success: true });
+});
+
 app.post('/api/trigger-fire', (req, res) => {
   const { roomId, intensity = 1.0 } = req.body;
   const room = simulationState.rooms.find(r => r.id === roomId);
