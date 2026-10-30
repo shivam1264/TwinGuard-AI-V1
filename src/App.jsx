@@ -489,8 +489,11 @@ export function App() {
           activeFloorView={activeFloorView}
           onSelectFloor={handleSetFloorView}
           rooms={rooms}
+          exits={exits}
+          hasFire={hasAnyFire}
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
+          onSetCameraPreset={handleSetCameraPreset}
         />
 
 
