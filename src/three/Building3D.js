@@ -2578,6 +2578,10 @@ export class Building3D {
         fan.mesh.rotation.y += fan.speed * delta;
       });
     }
+
+    if (this.campusEnv && this.campusEnv.update) {
+      this.campusEnv.update(delta);
+    }
   }
 
 buildFloorFurnishingsInstanced(group, floorNum, baseY) {

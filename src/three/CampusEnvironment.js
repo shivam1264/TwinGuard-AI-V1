@@ -9,6 +9,7 @@ export class CampusEnvironment {
     this.group.name = 'CampusEnvironment';
     parentGroup.add(this.group);
 
+    this.movingVehicles = [];
     this.initMaterials();
     this.buildGroundAndPlaza();
     this.buildRoadNetworkAndParking();
@@ -17,6 +18,7 @@ export class CampusEnvironment {
     this.buildVehiclesAndEVChargers();
     // this.buildSurroundingCityscape(); // Side buildings disabled as requested
     this.buildMusterZones();
+    this.buildMovingTraffic();
   }
 
   initMaterials() {
@@ -1092,5 +1094,162 @@ export class CampusEnvironment {
     createZone(38, 0, 'MUSTER B (EAST)');
     createZone(0, 36, 'MUSTER C (SOUTH)');
   }
-}
 
+  // ── 8. MOVING ROAD TRAFFIC SIMULATION ──
+  createMovingCarMesh(colorStyle = 'obsidian') {
+    const carGroup = new THREE.Group();
+
+    const carMats = {
+      obsidian: this.carPaintObsidian,
+      pearl: this.carPaintPearl,
+      sapphire: this.carPaintSapphire,
+      silver: this.carPaintSilver,
+      crimson: new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.2, metalness: 0.85 }),
+      emerald: new THREE.MeshStandardMaterial({ color: 0x047857, roughness: 0.22, metalness: 0.85 })
+    };
+    const bodyMat = carMats[colorStyle] || this.carPaintObsidian;
+
+    // 1. Lower Chassis
+    const chassisGeo = new THREE.BoxGeometry(2.1, 0.62, 4.6);
+    const chassis = new THREE.Mesh(chassisGeo, bodyMat);
+    chassis.position.y = 0.46;
+    chassis.castShadow = true;
+    carGroup.add(chassis);
+
+    // 2. Cabin Glasshouse & Roof
+    const cabinGeo = new THREE.BoxGeometry(1.86, 0.52, 2.5);
+    const cabin = new THREE.Mesh(cabinGeo, bodyMat);
+    cabin.position.set(0, 0.98, -0.22);
+    cabin.castShadow = true;
+    carGroup.add(cabin);
+
+    // 3. Tinted Glass
+    const glassGeo = new THREE.BoxGeometry(1.88, 0.48, 2.54);
+    const glass = new THREE.Mesh(glassGeo, this.carGlassMat);
+    glass.position.set(0, 0.98, -0.22);
+    carGroup.add(glass);
+
+    // 4. Glowing Headlights (Front points towards +Z)
+    const headlightMat = new THREE.MeshBasicMaterial({ color: 0xfffbeb });
+    for (const hx of [-0.72, 0.72]) {
+      const headlight = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.08), headlightMat);
+      headlight.position.set(hx, 0.48, 2.31);
+      carGroup.add(headlight);
+    }
+
+    // 5. Glowing Ruby Taillights (Rear points towards -Z)
+    const taillightMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    for (const tx of [-0.72, 0.72]) {
+      const taillight = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.08), taillightMat);
+      taillight.position.set(tx, 0.54, -2.31);
+      carGroup.add(taillight);
+    }
+
+    // 6. 4 Rubber Wheels
+    const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 12);
+    wheelGeo.rotateZ(Math.PI / 2);
+    for (const wx of [-1.02, 1.02]) {
+      for (const wz of [-1.4, 1.4]) {
+        const wheel = new THREE.Mesh(wheelGeo, this.carWheelMat);
+        wheel.position.set(wx, 0.34, wz);
+        carGroup.add(wheel);
+      }
+    }
+
+    return carGroup;
+  }
+
+  buildMovingTraffic() {
+    const trafficConfigs = [
+      // ── South Boulevard (Z around 58, 4 lanes) ──
+      // Eastbound Inner Lane (Z = 62.5, direction = +1)
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x: -105, z: 62.5, min: -125, max: 125, speed: 18.5, color: 'pearl' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x: -35,  z: 62.5, min: -125, max: 125, speed: 17.0, color: 'sapphire' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x:  35,  z: 62.5, min: -125, max: 125, speed: 19.0, color: 'obsidian' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x:  95,  z: 62.5, min: -125, max: 125, speed: 17.5, color: 'crimson' },
+
+      // Eastbound Outer Lane (Z = 66.5, direction = +1)
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x: -75,  z: 66.5, min: -125, max: 125, speed: 16.0, color: 'silver' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x:   5,  z: 66.5, min: -125, max: 125, speed: 16.5, color: 'emerald' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x:  70,  z: 66.5, min: -125, max: 125, speed: 15.5, color: 'pearl' },
+
+      // Westbound Inner Lane (Z = 53.5, direction = -1)
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:  110, z: 53.5, min: -125, max: 125, speed: 18.0, color: 'obsidian' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:   45, z: 53.5, min: -125, max: 125, speed: 19.5, color: 'silver' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:  -25, z: 53.5, min: -125, max: 125, speed: 17.5, color: 'sapphire' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:  -90, z: 53.5, min: -125, max: 125, speed: 18.5, color: 'pearl' },
+
+      // Westbound Outer Lane (Z = 49.5, direction = -1)
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:   85, z: 49.5, min: -125, max: 125, speed: 15.0, color: 'crimson' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:   15, z: 49.5, min: -125, max: 125, speed: 16.0, color: 'obsidian' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:  -55, z: 49.5, min: -125, max: 125, speed: 15.5, color: 'silver' },
+
+      // ── North Perimeter Road (Z around -56, 2 lanes) ──
+      // Eastbound Lane (Z = -52.5, direction = +1)
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x: -85, z: -52.5, min: -125, max: 125, speed: 15.0, color: 'pearl' },
+      { axis: 'x', dir: 1, rot: Math.PI / 2, x:  25, z: -52.5, min: -125, max: 125, speed: 16.5, color: 'sapphire' },
+
+      // Westbound Lane (Z = -59.5, direction = -1)
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x:  75, z: -59.5, min: -125, max: 125, speed: 15.5, color: 'obsidian' },
+      { axis: 'x', dir: -1, rot: -Math.PI / 2, x: -35, z: -59.5, min: -125, max: 125, speed: 16.0, color: 'silver' },
+
+      // ── West Avenue (X around -62, 2 lanes) ──
+      // Southbound Lane (X = -58.5, direction = +1 along Z)
+      { axis: 'z', dir: 1, rot: 0, x: -58.5, z: -45, min: -65, max: 65, speed: 14.5, color: 'crimson' },
+      { axis: 'z', dir: 1, rot: 0, x: -58.5, z:  15, min: -65, max: 65, speed: 15.0, color: 'obsidian' },
+
+      // Northbound Lane (X = -65.5, direction = -1 along Z)
+      { axis: 'z', dir: -1, rot: Math.PI, x: -65.5, z:  45, min: -65, max: 65, speed: 15.5, color: 'pearl' },
+      { axis: 'z', dir: -1, rot: Math.PI, x: -65.5, z: -15, min: -65, max: 65, speed: 14.0, color: 'silver' },
+
+      // ── East Avenue (X around 62, 2 lanes) ──
+      // Southbound Lane (X = 65.5, direction = +1 along Z)
+      { axis: 'z', dir: 1, rot: 0, x: 65.5, z: -40, min: -65, max: 65, speed: 15.0, color: 'sapphire' },
+      { axis: 'z', dir: 1, rot: 0, x: 65.5, z:  20, min: -65, max: 65, speed: 14.5, color: 'pearl' },
+
+      // Northbound Lane (X = 58.5, direction = -1 along Z)
+      { axis: 'z', dir: -1, rot: Math.PI, x: 58.5, z:  50, min: -65, max: 65, speed: 15.5, color: 'obsidian' },
+      { axis: 'z', dir: -1, rot: Math.PI, x: 58.5, z: -10, min: -65, max: 65, speed: 14.0, color: 'emerald' }
+    ];
+
+    trafficConfigs.forEach((cfg) => {
+      const carMesh = this.createMovingCarMesh(cfg.color);
+      carMesh.position.set(cfg.x, 0.02, cfg.z);
+      carMesh.rotation.y = cfg.rot;
+      this.group.add(carMesh);
+
+      this.movingVehicles.push({
+        mesh: carMesh,
+        axis: cfg.axis,
+        direction: cfg.dir,
+        speed: cfg.speed,
+        minCoord: cfg.min,
+        maxCoord: cfg.max
+      });
+    });
+  }
+
+  update(delta) {
+    if (!this.movingVehicles || this.movingVehicles.length === 0) return;
+
+    for (let i = 0; i < this.movingVehicles.length; i++) {
+      const v = this.movingVehicles[i];
+      if (v.axis === 'x') {
+        v.mesh.position.x += v.speed * v.direction * delta;
+        if (v.direction === 1 && v.mesh.position.x > v.maxCoord) {
+          v.mesh.position.x = v.minCoord;
+        } else if (v.direction === -1 && v.mesh.position.x < v.minCoord) {
+          v.mesh.position.x = v.maxCoord;
+        }
+      } else if (v.axis === 'z') {
+        v.mesh.position.z += v.speed * v.direction * delta;
+        if (v.direction === 1 && v.mesh.position.z > v.maxCoord) {
+          v.mesh.position.z = v.minCoord;
+        } else if (v.direction === -1 && v.mesh.position.z < v.minCoord) {
+          v.mesh.position.z = v.maxCoord;
+        }
+      }
+    }
+  }
+
+}
