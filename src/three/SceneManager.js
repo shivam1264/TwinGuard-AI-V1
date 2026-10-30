@@ -45,7 +45,7 @@ export class SceneManager {
     const width = this.container.clientWidth || window.innerWidth || 1200;
     const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
     // Set near to 0.4 and far to 18000 for full architectural depth and giant sky vault without z-fighting
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.4, 18000);
+    this.camera = new THREE.PerspectiveCamera(38, width / height, 0.4, 25000);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -114,7 +114,7 @@ export class SceneManager {
     }
 
     // 4. Soft Atmospheric Distance Fog (Blends distant terrain into horizon)
-    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0018);
+    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0012);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -136,11 +136,11 @@ export class SceneManager {
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 180;
-    sunLight.shadow.camera.left = -65;
-    sunLight.shadow.camera.right = 65;
-    sunLight.shadow.camera.top = 65;
-    sunLight.shadow.camera.bottom = -65;
+    sunLight.shadow.camera.far = 320;
+    sunLight.shadow.camera.left = -110;
+    sunLight.shadow.camera.right = 110;
+    sunLight.shadow.camera.top = 110;
+    sunLight.shadow.camera.bottom = -110;
     sunLight.shadow.bias = -0.0004;
     sunLight.shadow.normalBias = 0.02;
     this.scene.add(sunLight);
@@ -495,47 +495,35 @@ export class SceneManager {
   setCameraPreset(presetName, targetRoomId = null, animate = true) {
     if (!this.camera || !this.controls) return;
 
-    let targetPos = new THREE.Vector3(3, 20, 68);
-    let targetLook = new THREE.Vector3(0, 19, 0);
+    // Professional Architectural 3/4 Perspective Framing (Building occupies ~70% of viewport height)
+    let targetPos = new THREE.Vector3(-44, 18, 58);
+    let targetLook = new THREE.Vector3(0, 17, 0);
 
-    if (presetName === 'HERO_VIEW') {
-      targetPos.set(0, 20, 70);
-      targetLook.set(0, 19, 0);
+    if (presetName === 'HERO_VIEW' || presetName === 'DEFAULT') {
+      // Golden Ratio 3/4 Perspective framing south plaza, entrance canopy, and west corner
+      targetPos.set(-44, 18, 58);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'CUTAWAY_VIEW') {
-      targetPos.set(16, 22, 64);
-      targetLook.set(0, 19, 0);
+      targetPos.set(-36, 18, 50);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'FULL_BUILDING') {
-      targetPos.set(68, 48, 75);
-      targetLook.set(0, 18, 0);
+      targetPos.set(-52, 24, 68);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'SOUTH_FACADE') {
-      targetPos.set(0, 22, 75);
-      targetLook.set(0, 19, 0);
-    } else if (presetName === 'NORTH_FACADE') {
-      targetPos.set(0, 22, -75);
-      targetLook.set(0, 19, 0);
-    } else if (presetName === 'EAST_FACADE') {
-      targetPos.set(75, 22, 0);
-      targetLook.set(0, 19, 0);
-    } else if (presetName === 'WEST_FACADE') {
-      targetPos.set(-75, 22, 0);
-      targetLook.set(0, 19, 0);
+      targetPos.set(0, 18, 60);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'TOP_DOWN') {
-      targetPos.set(0, 120, 1);
-      targetLook.set(0, 19, 0);
-    } else if (presetName === 'FLOOR_PLAN') {
-      const fl = (this.building && parseInt(this.building.floorMode, 10)) || 1;
-      const baseY = (fl - 1) * (this.building ? this.building.floorHeight : 3.8);
-      targetPos.set(0, baseY + 38, 12);
-      targetLook.set(0, baseY + 0.5, 0);
+      targetPos.set(0, 135, 1);
+      targetLook.set(0, 0, 0);
     } else if (presetName === 'AXONOMETRIC') {
-      targetPos.set(62, 68, 68);
-      targetLook.set(0, 19, 0);
+      targetPos.set(56, 52, 60);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'SECTION') {
-      targetPos.set(0, 20, 62);
-      targetLook.set(0, 19, 0);
+      targetPos.set(0, 18, 55);
+      targetLook.set(0, 17, 0);
     } else if (presetName === 'ENTRANCE') {
-      targetPos.set(0, 6.5, 42);
-      targetLook.set(0, 3.5, 24);
+      targetPos.set(-8, 5.5, 34);
+      targetLook.set(0, 3.5, 20);
     } else if (presetName === 'ROOF') {
       targetPos.set(0, 56, 32);
       targetLook.set(0, 38, -2);

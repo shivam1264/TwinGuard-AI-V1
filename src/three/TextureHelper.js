@@ -1352,4 +1352,207 @@ export class TextureHelper {
     return texture;
   }
 
+
+  // Realistic Modern Office Glass Curtain Wall Texture (for surrounding skyline & commercial mid-rises)
+  static createSurroundingBuildingGlassTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Deep architectural blue/grey reflective glass tint
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const floorH = 64;
+    const windowW = 32;
+
+    for (let y = 0; y < 512; y += floorH) {
+      // Dark spandrel / floor slab band
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, y, 512, 12);
+
+      // Window panes with randomized warm interior lighting & blinds
+      for (let x = 0; x < 512; x += windowW) {
+        const isLit = (Math.sin(x * 12.3 + y * 7.1) > 0.15);
+        const hasBlinds = (Math.cos(x * 5.4 + y * 9.2) > 0.3);
+
+        if (isLit) {
+          // Warm LED interior office illumination
+          ctx.fillStyle = hasBlinds ? '#fef08a' : '#fef9c3';
+          ctx.fillRect(x + 2, y + 14, windowW - 4, floorH - 16);
+
+          if (hasBlinds) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+            for (let by = y + 16; by < y + floorH - 4; by += 4) {
+              ctx.fillRect(x + 2, by, windowW - 4, 1.5);
+            }
+          }
+        } else {
+          // Cool tinted reflective sky reflection
+          const grad = ctx.createLinearGradient(x, y + 14, x + windowW, y + floorH);
+          grad.addColorStop(0, '#1e3a5f');
+          grad.addColorStop(0.5, '#2d4a6f');
+          grad.addColorStop(1, '#15253b');
+          ctx.fillStyle = grad;
+          ctx.fillRect(x + 2, y + 14, windowW - 4, floorH - 16);
+        }
+
+        // Vertical Aluminum Mullions
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(x, y + 12, 2, floorH - 12);
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 8);
+    return texture;
+  }
+
+  // Precast Concrete / Granite Architectural Facade Panels (for nearby campus buildings)
+  static createCommercialFacadeTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const panelW = 128;
+    const panelH = 64;
+
+    for (let y = 0; y < 512; y += panelH) {
+      for (let x = 0; x < 512; x += panelW) {
+        const offset = (y / panelH) % 2 === 0 ? 0 : panelW / 2;
+        const px = (x + offset) % 512;
+        const shade = Math.floor(Math.sin(px * 3 + y * 7) * 8);
+
+        ctx.fillStyle = `rgb(${203 + shade}, ${213 + shade}, ${225 + shade})`;
+        ctx.fillRect(px + 1, y + 1, panelW - 2, panelH - 2);
+
+        // Shadow reveal groove
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px, y, panelW, panelH);
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(6, 6);
+    return texture;
+  }
+
+  // Parking Lot Surface with Stall Striping & EV Markings
+  static createParkingLotTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    // Rich dark asphalt
+    ctx.fillStyle = '#262c36';
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Fine asphalt aggregate noise
+    for (let i = 0; i < 4000; i++) {
+      const g = Math.floor(Math.random() * 30 + 35);
+      ctx.fillStyle = `rgb(${g},${g},${g})`;
+      ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+    }
+
+    // White parking bay divider lines (vertical stalls)
+    ctx.strokeStyle = '#f8fafc';
+    ctx.lineWidth = 4;
+    for (let x = 32; x < 512; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x, 20);
+      ctx.lineTo(x, 220);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x, 292);
+      ctx.lineTo(x, 492);
+      ctx.stroke();
+    }
+
+    // Stall end limit lines
+    ctx.beginPath();
+    ctx.moveTo(20, 20);
+    ctx.lineTo(492, 20);
+    ctx.moveTo(20, 492);
+    ctx.lineTo(492, 492);
+    ctx.stroke();
+
+    // Central driving aisle directional arrow
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(256, 236);
+    ctx.lineTo(240, 260);
+    ctx.lineTo(250, 260);
+    ctx.lineTo(250, 276);
+    ctx.lineTo(262, 276);
+    ctx.lineTo(262, 260);
+    ctx.lineTo(272, 260);
+    ctx.closePath();
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  }
+
+  // Premium Architectural Granite Pedestrian Paver Texture
+  static createPaverStoneTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillRect(0, 0, 512, 512);
+
+    const stoneW = 64;
+    const stoneH = 32;
+
+    for (let y = 0; y < 512; y += stoneH) {
+      for (let x = 0; x < 512; x += stoneW) {
+        const offset = (y / stoneH) % 2 === 0 ? 0 : stoneW / 2;
+        const px = (x + offset) % 512;
+        const v = Math.floor(Math.sin(px * 11 + y * 13) * 12);
+
+        ctx.fillStyle = `rgb(${235 + v}, ${238 + v}, ${242 + v})`;
+        ctx.fillRect(px + 1.5, y + 1.5, stoneW - 3, stoneH - 3);
+
+        // Fine granite speckles
+        for (let s = 0; s < 12; s++) {
+          ctx.fillStyle = 'rgba(100, 116, 139, 0.25)';
+          ctx.fillRect(px + Math.random() * (stoneW - 4), y + Math.random() * (stoneH - 4), 1.5, 1.5);
+        }
+      }
+    }
+
+    // Shadow joint lines
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+    ctx.lineWidth = 1.5;
+    for (let y = 0; y <= 512; y += stoneH) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 8);
+    return texture;
+  }
+
 }
