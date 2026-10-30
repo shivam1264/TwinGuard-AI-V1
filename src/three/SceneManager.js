@@ -597,17 +597,70 @@ export class SceneManager {
     }
   }
 
-  startEvacuation() {
+  blockStairwell(coreName, floorNum = null) {
+    if (this.scenarioEngine && this.scenarioEngine.blockStairwellCore) {
+      this.scenarioEngine.blockStairwellCore(coreName, floorNum);
+    }
+
+    // If currently simulating, recalculate paths dynamically!
+    if (this.isSimulating) {
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => {
+          if (f.basePos) fireLocations.push(f.basePos);
+        });
+      }
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+      const newPlan = this.crowdOptimizer
+        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType)
+        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents) : null);
+
+      if (newPlan && newPlan.assignments) {
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(newPlan.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(newPlan.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      }
+      return newPlan;
+    }
+    return null;
+  }
+
+  startEvacuation(scenario = null, strategy = null) {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
     const fireLocations = [];
-    this.fireSystem.activeFires.forEach(f => {
-      fireLocations.push(f.basePos);
-    });
+    if (this.fireSystem && this.fireSystem.activeFires) {
+      this.fireSystem.activeFires.forEach(f => {
+        if (f.basePos) fireLocations.push(f.basePos);
+      });
+    }
 
-    const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
-    this.agentCrowd.assignRoutes(optimizationResult.assignments);
+    const activeScenario = scenario || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null);
+    const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+    const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
+    const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+    let optimizationResult;
+    if (this.crowdOptimizer) {
+      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+    } else if (this.routeOptimizer) {
+      optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+    }
+
+    if (optimizationResult && optimizationResult.assignments) {
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      this.renderRouteOverlays(optimizationResult.assignments);
+      this.updateExitHoloBadges(optimizationResult.exitStats);
+    }
     return optimizationResult;
   }
 

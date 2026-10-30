@@ -520,6 +520,18 @@ export class AgentCrowd {
 
       if (agent.state === 'SAFE') {
         evacuatedCount++;
+        agent.mesh.visible = true;
+        agent.mesh.position.set(agent.x, 0.15, agent.z);
+        agent.leftLeg.rotation.x = 0;
+        agent.rightLeg.rotation.x = 0;
+        agent.leftKnee.rotation.x = 0;
+        agent.rightKnee.rotation.x = 0;
+        agent.leftArm.rotation.x = 0;
+        agent.rightArm.rotation.x = 0;
+        agent.leftElbow.rotation.x = 0;
+        agent.rightElbow.rotation.x = 0;
+        agent.torso.position.y = 0.86;
+        agent.headGroup.position.y = 1.48;
         continue;
       }
 
@@ -618,14 +630,14 @@ export class AgentCrowd {
     const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
 
     this.agents.forEach(agent => {
-      // Always canonical world Y position
-      agent.mesh.position.y = agent.y;
+      agent.displayPos = null;
+      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y;
 
       if (mode === 'ALL' || mode === 'EXPLODED') {
-        agent.mesh.visible = agent.state !== 'SAFE';
+        agent.mesh.visible = true;
       } else {
         const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
-        agent.mesh.visible = isOnTargetFloor && agent.state !== 'SAFE';
+        agent.mesh.visible = isOnTargetFloor;
       }
     });
 
