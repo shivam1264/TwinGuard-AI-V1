@@ -15,7 +15,7 @@ export class CampusEnvironment {
     this.buildLandscapingAndVegetation();
     this.buildStreetFurnitureAndWater();
     this.buildVehiclesAndEVChargers();
-    this.buildSurroundingCityscape();
+    // this.buildSurroundingCityscape(); // Side buildings disabled as requested
     this.buildMusterZones();
   }
 
@@ -1093,3 +1093,4 @@ export class CampusEnvironment {
     createZone(0, 36, 'MUSTER C (SOUTH)');
   }
 }
+
