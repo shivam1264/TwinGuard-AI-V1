@@ -8,7 +8,8 @@ import { Pathfinder } from '../simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
 
 export class SceneManager {
-  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange) {
+  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread) {
+    this.onFireSpread = onFireSpread;
     this.container = containerElement;
     this.onStatsUpdate = onStatsUpdate;
     this.onRoomSelect = onRoomSelect;
@@ -125,7 +126,10 @@ export class SceneManager {
     this.building = new Building3D(this.scene);
     this.fireSystem = new FireParticles(this.scene, (parentRoomId, targetRoomId) => {
       this.triggerFire(targetRoomId);
-    });
+      if (this.onFireSpread) {
+        this.onFireSpread(targetRoomId);
+      }
+    }, this.building);
     this.agentCrowd = new AgentCrowd(this.scene);
 
     this.navGrid = new NavGrid();
@@ -526,6 +530,9 @@ export class SceneManager {
       if (this.fireSystem && this.fireSystem.group) {
         this.fireSystem.group.visible = isVisible;
       }
+      this.fireSystem?.activeFires?.forEach(fire => {
+        if (fire.group) fire.group.visible = isVisible;
+      });
       if (this.building && this.building.layers && this.building.layers.mep) {
         this.building.layers.mep.visible = isVisible;
       }
@@ -640,7 +647,7 @@ export class SceneManager {
     }
 
     if (this.fireSystem) {
-      this.fireSystem.update(delta);
+      this.fireSystem.update(delta, this.camera);
     }
 
     if (this.building && this.building.update) {

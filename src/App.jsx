@@ -147,6 +147,9 @@ export function App() {
       },
       (newFacadeMode) => {
         setFacadeMode(newFacadeMode);
+      },
+      (spreadRoomId) => {
+        handleTriggerFire(spreadRoomId, false);
       }
     );
 
