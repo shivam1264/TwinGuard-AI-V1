@@ -150,9 +150,10 @@ export class RouteOptimizationEngine {
    * Distributes crowd load across Exit A, Exit B, and Exit C
    */
   optimizeEvacuationRoutes(agents) {
-    // Reset exit loads
+    // Reset exit loads (assigned per optimization)
     this.exits.forEach(ex => ex.currentLoad = 0);
-    this.navGraph.edges.forEach(edge => edge.currentOccupancy = 0);
+    // Edge occupancy is now maintained live via NavigationGraph.updateLiveOccupancy()
+    // Do not reset here - it would erase real-time congestion data
 
     const assignments = [];
     const bottlenecks = [];

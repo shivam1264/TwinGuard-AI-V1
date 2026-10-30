@@ -11,6 +11,9 @@ export class AgentCrowd {
     this.floorMode = 'ALL';
     this.floorHeight = 3.8; // Realistic commercial ceiling height
 
+    // Phased evacuation delay state
+    this.phasedEvacuationDelays = new Map(); // agentId -> remaining delay seconds
+
     // === Stylized Realistic Human Geometries (Pre-Allocated Shared Pool) ===
 
     // 1. Anatomical Head with Jawline & Chin
@@ -417,7 +420,9 @@ export class AgentCrowd {
       path: [],
       currentWaypointIdx: 0,
       assignedExitColor: null,
-      roomId: data.roomId
+      roomId: data.roomId,
+      delayTimer: data.delayTimer || 0,
+      originalDelayTimer: data.delayTimer || 0
     };
 
     this.agents.push(agent);
@@ -477,7 +482,15 @@ export class AgentCrowd {
         this.standUpAgent(agent);
         agent.path = assignment.path || [];
         agent.currentWaypointIdx = 0;
-        agent.state = 'EVACUATING';
+        // Handle phased evacuation delays
+        const delayTimer = assignment.delayTimer || 0;
+        agent.delayTimer = delayTimer;
+        agent.originalDelayTimer = delayTimer;
+        if (delayTimer > 0) {
+          agent.state = 'WAITING';
+        } else {
+          agent.state = 'EVACUATING';
+        }
         agent.assignedExitColor = assignment.exitColor;
         // Store current exit and route condition for urgent reevaluation checks
         agent.currentExitId = assignment.exitId;
@@ -523,6 +536,28 @@ export class AgentCrowd {
 
       if (agent.state === 'SAFE') {
         evacuatedCount++;
+        continue;
+      }
+
+      // Handle phased evacuation waiting state
+      if (agent.state === 'WAITING') {
+        // Decrement delay timer
+        agent.delayTimer = Math.max(0, agent.delayTimer - effectiveDelta);
+        // Check if waiting zone has become dangerous (emergency override)
+        if (this.isWaitingZoneDangerous(agent)) {
+          // Emergency override - start evacuating immediately
+          agent.delayTimer = 0;
+          agent.state = 'EVACUATING';
+        } else if (agent.delayTimer <= 0) {
+          // Delay expired, start evacuating
+          agent.state = 'EVACUATING';
+        }
+        // Keep agent visible but in waiting state
+        if (isSingleFloor && Number(agent.floor) !== targetFloorNum) {
+          agent.mesh.visible = false;
+        } else {
+          agent.mesh.visible = true;
+        }
         continue;
       }
 
@@ -615,6 +650,32 @@ export class AgentCrowd {
     return currentStats;
   }
 
+  /**
+   * Check if an agent's current waiting zone has become dangerous due to fire/smoke.
+   * Returns true if the agent should emergency-evacuate despite their delay timer.
+   */
+  isWaitingZoneDangerous(agent) {
+    if (!this.fireSystem || !this.fireSystem.activeFires) return false;
+    if (!Number.isFinite(agent.x) || !Number.isFinite(agent.z)) return false;
+
+    const agentFloor = agent.floor;
+    const DANGER_RADIUS = 8.0; // meters
+
+    for (const fire of this.fireSystem.activeFires) {
+      if (!fire.basePos) continue;
+
+      // Check if fire is on the same floor
+      if (Math.abs(agent.y - fire.basePos.y) > 2.5) continue;
+
+      // Check distance to fire
+      const dist = Math.hypot(agent.x - fire.basePos.x, agent.z - fire.basePos.z);
+      if (dist < DANGER_RADIUS) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   setFloorMode(mode) {
     this.floorMode = mode;
     const isSingleFloor = mode !== 'ALL' && mode !== 'EXPLODED';
@@ -656,10 +717,26 @@ export class AgentCrowd {
 
   clear() {
     this.clearPathLines();
+    this.phasedEvacuationDelays.clear();
     while (this.group.children.length > 0) {
       const obj = this.group.children[0];
       this.group.remove(obj);
     }
     this.agents = [];
+  }
+
+  /**
+   * Clear all phased evacuation delays.
+   * Called on simulation reset to clear any pending delay timers.
+   */
+  clearPhasedDelays() {
+    this.phasedEvacuationDelays.clear();
+    this.agents.forEach(agent => {
+      agent.delayTimer = 0;
+      agent.originalDelayTimer = 0;
+      if (agent.state === 'WAITING') {
+        agent.state = 'IDLE';
+      }
+    });
   }
 }

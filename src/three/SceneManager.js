@@ -6,6 +6,7 @@ import { FireParticles } from './FireParticles.js';
 import { AgentCrowd } from './AgentCrowd.js';
 import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
+import { NavigationGraph } from '../simulation/NavigationGraph.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
 import { createTowerGraph, loadBuilding, applyScenario } from '../simulation/BuildingGraph.js';
 import { advanceHazardState, injectFireSource, createHazardState } from '../simulation/HazardPropagation.js';
@@ -221,6 +222,9 @@ export class SceneManager {
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
+
+    // Navigation graph for topological routing and live congestion tracking
+    this.navigationGraph = new NavigationGraph(10, 3.8);
 
     // Phase 5C: Initialize building graph for hazard routing
     const rawGraph = createTowerGraph();
@@ -813,7 +817,7 @@ export class SceneManager {
     const optimizationResult = this.crowdOptimizer.optimizeRoutes(
       this.agentCrowd.agents,
       fireLocations,
-      { routingContext: this.routingHazardContext }
+      { routingContext: this.routingHazardContext, strategyType: this.activeStrategyType }
     );
 
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
@@ -870,12 +874,13 @@ export class SceneManager {
     }
   }
 
-  startEvacuation() {
+  startEvacuation(strategyType = 'LOAD_BALANCED') {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
     this.pausedElapsedSeconds = 0;
     this.lastRoutingContextHash = null;
     this.reevaluationCooldown = 0;
+    this.activeStrategyType = strategyType;
 
     // Start the clock
     if (!this._clock.running) {
@@ -895,7 +900,7 @@ export class SceneManager {
     const optimizationResult = this.crowdOptimizer.optimizeRoutes(
       this.agentCrowd.agents,
       fireLocations,
-      { routingContext: this.routingHazardContext }
+      { routingContext: this.routingHazardContext, strategyType }
     );
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
     return optimizationResult;
@@ -921,8 +926,14 @@ export class SceneManager {
     this._lastStatsUpdate = 0;
     this._lastEvacuated = -1;
     this._lastElapsedSec = -1;
+    this.activeStrategyType = 'LOAD_BALANCED';
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
+    this.navGrid.clearCongestion();
+    // Reset live congestion tracking
+    if (this.navigationGraph) {
+      this.navigationGraph.resetAllHazards();
+    }
     this.routingHazardContext = null;
     // Phase 5C: Clear hazard state but preserve activeScenario for restart
     this.hazardState = null;
@@ -933,6 +944,10 @@ export class SceneManager {
     // Phase 5D: Clear zone-to-grid mapper
     if (this._zoneToGridMapper) {
       this._zoneToGridMapper.clearAllDynamicHazards();
+    }
+    // Clear phased evacuation delays
+    if (this.agentCrowd) {
+      this.agentCrowd.clearPhasedDelays();
     }
     const targetRooms = rooms || (this.building ? this.building.roomsData : []);
     this.agentCrowd.spawnAgentsForRooms(targetRooms);
@@ -1005,6 +1020,16 @@ export class SceneManager {
 
       // 6. Update agents with current valid routes (after hazard/routing updates)
       const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
+
+      // Update live edge occupancy from agent positions (for congestion-aware routing)
+      if (this.navigationGraph && this.isSimulating) {
+        this.navigationGraph.updateLiveOccupancy(this.agentCrowd.agents);
+      }
+
+      // Update live grid congestion from agent positions (for pathfinding)
+      if (this.navGrid && this.isSimulating) {
+        this.navGrid.updateAgentCongestion(this.agentCrowd.agents);
+      }
 
       if (this.isSimulating) {
         const currentFloorSec = Math.floor(this.elapsedSeconds);

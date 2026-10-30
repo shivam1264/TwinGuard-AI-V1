@@ -22,15 +22,18 @@ export class NavGrid {
     this.grid = [];
     this.blockedStatic = [];
     this.hazardCosts = [];
+    this.congestionCosts = [];
 
     for (let r = 0; r < this.rows; r++) {
       this.grid[r] = [];
       this.blockedStatic[r] = [];
       this.hazardCosts[r] = [];
+      this.congestionCosts[r] = [];
       for (let c = 0; c < this.cols; c++) {
         this.grid[r][c] = 0;
         this.blockedStatic[r][c] = false;
         this.hazardCosts[r][c] = 0;
+        this.congestionCosts[r][c] = 0;
       }
     }
   }
@@ -148,6 +151,71 @@ export class NavGrid {
           this.grid[r][c] = 0;
         }
         this.hazardCosts[r][c] = 0;
+      }
+    }
+  }
+
+  /**
+   * Update congestion costs from live agent positions.
+   * Maps each EVACUATING agent to grid cells and computes local density.
+   * Congestion is a soft cost that does not make cells unwalkable.
+   * Separate from hazardCosts so fire/smoke and crowd effects remain distinct.
+   */
+  updateAgentCongestion(agents) {
+    // Clear previous congestion
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        this.congestionCosts[r][c] = 0;
+      }
+    }
+
+    if (!agents || agents.length === 0) return;
+
+    const EVACUATING_STATES = ['EVACUATING'];
+    const CELL_RADIUS = 2; // 2 cells = 1.0m radius (0.5m cell size)
+    const MAX_CONGESTION_COST = 500; // Cap to prevent total blockage
+    const BASE_COST_PER_AGENT = 25;
+
+    // Track agent counts per cell for density calculation
+    const cellCounts = new Map();
+
+    for (const agent of agents) {
+      if (!EVACUATING_STATES.includes(agent.state)) continue;
+      if (!Number.isFinite(agent.x) || !Number.isFinite(agent.y) || !Number.isFinite(agent.z)) continue;
+
+      const g = this.worldToGrid(agent.x, agent.z);
+      const key = `${g.c},${g.r}`;
+      cellCounts.set(key, (cellCounts.get(key) || 0) + 1);
+    }
+
+    // Apply congestion cost based on local density
+    for (const [key, count] of cellCounts) {
+      const [c, r] = key.split(',').map(Number);
+      if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) continue;
+
+      // Compute density from nearby cells (Moore neighborhood)
+      let localDensity = 0;
+      for (let dr = -CELL_RADIUS; dr <= CELL_RADIUS; dr++) {
+        for (let dc = -CELL_RADIUS; dc <= CELL_RADIUS; dc++) {
+          const nc = c + dc;
+          const nr = r + dr;
+          if (nr >= 0 && nr < this.rows && nc >= 0 && nc < this.cols) {
+            const nkey = `${nc},${nr}`;
+            localDensity += cellCounts.get(nkey) || 0;
+          }
+        }
+      }
+
+      // Congestion cost scales with local density
+      const cost = Math.min(MAX_CONGESTION_COST, localDensity * BASE_COST_PER_AGENT);
+      this.congestionCosts[r][c] = cost;
+    }
+  }
+
+  clearCongestion() {
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        this.congestionCosts[r][c] = 0;
       }
     }
   }

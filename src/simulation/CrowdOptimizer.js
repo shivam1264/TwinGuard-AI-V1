@@ -22,9 +22,10 @@ export class CrowdOptimizer {
 
 optimizeRoutes(agents, fireLocations = [], options = {}) {
     const { blockedExitIds = [], strategyType = 'LOAD_BALANCED' } = options;
-    // Reset load and sync blocked state from scenario
+    // Compute live exit loads from agents currently targeting each exit (not SAFE)
+    this._updateLiveExitLoads(agents);
+    // Sync blocked state from scenario
     this.exits.forEach(e => {
-      e.load = 0;
       e.isBlocked = blockedExitIds.includes(e.id);
       if (e.isBlocked) {
         e.status = 'BLOCKED / SMOKE COMPROMISED';
@@ -38,6 +39,10 @@ optimizeRoutes(agents, fireLocations = [], options = {}) {
     let requiresOperatorReview = false;
 
     const allOperational = this.exits.filter(e => !e.isBlocked);
+
+    // Initialize tentative loads from live exit loads (updated each frame by SceneManager)
+    const tentativeLoads = new Map();
+    this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     agents.forEach((agent, index) => {
       let bestExit = null;
@@ -57,6 +62,30 @@ let fallbackAssignment = false;
       }
 
       const candidates = [];
+
+      // Pre-compute doorway and seed for path building
+      const doorway = getRoomDoorway(agent.roomId);
+      const seed = agent.id ? agent.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) : 1;
+
+      // Determine PHASED_ZONE delay based on fire floor and agent floor
+      let delayTimer = 0;
+      if (strategyType === 'PHASED_ZONE' && fireLocations.length > 0) {
+        // Determine fire floor from fire locations
+        const fireFloor = Math.round(fireLocations[0].y / 3.8) + 1;
+        const agentFloor = agent.floor || 1;
+        const floorDiff = Math.abs(agentFloor - fireFloor);
+
+        if (floorDiff === 0) {
+          // Fire floor - immediate evacuation (1-2s delay)
+          delayTimer = 1.0 + Math.random() * 1.0;
+        } else if (floorDiff === 1) {
+          // Adjacent floor - secondary priority (3-6s delay)
+          delayTimer = 3.0 + Math.random() * 3.0;
+        } else {
+          // Other floors - sheltered in place (45-51s delay)
+          delayTimer = 45.0 + Math.random() * 6.0;
+        }
+      }
 
       for (const exit of availableExits) {
         const stairEntry = this.stairwellEntries[exit.id];
@@ -80,7 +109,8 @@ let fallbackAssignment = false;
         });
 
         // Anti-Stampede Staircase Congestion Penalty based on Strategy
-        const loadRatio = exit.capacity > 0 ? exit.load / exit.capacity : 999;
+        const tentativeLoad = tentativeLoads.get(exit.id) || 0;
+        const loadRatio = exit.capacity > 0 ? tentativeLoad / exit.capacity : 999;
         let congestionPenalty = Math.pow(loadRatio, 2.2) * 55;
 
         if (strategyType === 'NEAREST_CORE') {
@@ -113,14 +143,34 @@ let fallbackAssignment = false;
       );
       const candidatePool = permittedCandidates.length > 0 ? permittedCandidates : candidates;
 
+      // Build full paths for ALL viable exits and compute their scores
+      const candidatePaths = [];
       for (const candidate of candidatePool) {
+        const exit = candidate.exit;
+        const stairEntry = this.stairwellEntries[exit.id];
+
+        // Build full 3D path for this exit
+        const full3DPath = this.buildFull3DPath(agent, exit, doorway, stairEntry, seed);
+
         const score = permittedCandidates.length > 0 ? candidate.score : candidate.baselineScore;
-        if (score < bestScore) {
-          bestScore = score;
-          bestExit = candidate.exit;
-          bestRoute = candidate.route;
-        }
+
+        candidatePaths.push({
+          exit,
+          route: candidate.route,
+          score,
+          path: full3DPath,
+          baselineScore: candidate.baselineScore
+        });
       }
+
+      // Sort by score (best first)
+      candidatePaths.sort((a, b) => a.score - b.score);
+
+      // Primary route is the best one
+      const bestCandidate = candidatePaths[0];
+      bestExit = bestCandidate.exit;
+      bestRoute = bestCandidate.route;
+      bestScore = bestCandidate.score;
 
       if (bestExit) {
         if (hazardAware && permittedCandidates.length === 0) {
@@ -128,93 +178,17 @@ let fallbackAssignment = false;
           requiresOperatorReview = true;
         }
 
-        bestExit.load++;
-        const stairEntry = this.stairwellEntries[bestExit.id];
-
-        // 1. MUST ROUTE THROUGH ROOM'S PHYSICAL DOORWAY!
-        // Retrieve designated 3-stage doorway waypoints (inside ➔ threshold ➔ corridor)
-        const doorway = getRoomDoorway(agent.roomId);
-
-        // Path 1: From agent's position inside room to inside doorway staging point
-        const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
-
-        // Path 2: From corridor staging point along central corridor to stairwell
-        const pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z);
-
-        // Stitch together seamlessly
-        const full3DPath = [];
-
-        pathInsideRoom.forEach(pt => {
-          full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
-        });
-
-        // Exact physical door transit (guaranteed zero wall clipping)
-        full3DPath.push({ x: doorway.inside.x, y: agent.y, z: doorway.inside.z });
-        full3DPath.push({ x: doorway.door.x, y: agent.y, z: doorway.door.z });
-        full3DPath.push({ x: doorway.corridor.x, y: agent.y, z: doorway.corridor.z });
-
-        pathInCorridor.forEach((pt, idx) => {
-          if (idx > 0) {
-            full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
-          }
-        });
-
-        // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
-        if (agent.floor > 1 && (bestExit.id === 'exit_west' || bestExit.id === 'exit_east')) {
-          const isWest = bestExit.id === 'exit_west';
-          const flight1X = isWest ? -27.2 : 27.2;
-          const flight2X = isWest ? -28.8 : 28.8;
-          const landingX = isWest ? -26.4 : 26.4;
-
-          for (let fl = agent.floor; fl >= 2; fl--) {
-            const flBaseY = (fl - 1) * this.floorHeight;
-
-            // 1. Step onto current Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY + 0.15, z: 0.0 });
-
-            // 2. Walk to Flight 1 Top (descending along -Z)
-            full3DPath.push({ x: flight1X, y: flBaseY + 0.15, z: -0.75 });
-
-            // 3. Step-by-step down Flight 1 to Mid-Landing
-            full3DPath.push({ x: flight1X, y: flBaseY - 0.95, z: -1.75 });
-            full3DPath.push({ x: flight1X, y: flBaseY - 1.90, z: -2.75 });
-
-            // 4. Turn across Mid-Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 1.90, z: -2.75 });
-
-            // 5. Step-by-step down Flight 2 to Lower Floor Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 2.85, z: -1.75 });
-            full3DPath.push({ x: flight2X, y: flBaseY - 3.80 + 0.15, z: -0.75 });
-
-            // 6. Arrive at lower Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY - 3.80 + 0.15, z: 0.0 });
-          }
+        // Only increment tentative load if agent is new or changing exits
+        const isNewAgent = !agent.currentExitId;
+        const isChangingExit = agent.currentExitId && agent.currentExitId !== bestExit.id;
+        if (isNewAgent || isChangingExit) {
+          tentativeLoads.set(bestExit.id, (tentativeLoads.get(bestExit.id) || 0) + 1);
         }
+        // If agent keeps same exit, live load already accounts for them
 
-        // 3. Step out through the Ground Floor Emergency Exit into safety plaza & Muster Zone
-        const isWest = bestExit.id === 'exit_west';
-        const isEast = bestExit.id === 'exit_east';
-        const isSouth = bestExit.id === 'exit_south';
-
-        // Organic crowd dispersal jitter inside muster circle so people don't overlap
-        const seed = agent.id ? agent.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) : 1;
-        const jAngle = (seed % 100) * (Math.PI * 2 / 100);
-        const jDist = 1.0 + ((seed * 7) % 35) * 0.1; // 1.0m to 4.5m radius inside muster ring
-        const jitterX = Math.cos(jAngle) * jDist;
-        const jitterZ = Math.sin(jAngle) * jDist;
-
-        if (isWest) {
-          full3DPath.push({ x: -29.2, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: -33.5, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
-        } else if (isEast) {
-          full3DPath.push({ x: 29.2, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
-        } else if (isSouth) {
-          full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
-          full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
-          full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
+        // If changing exits, decrement old exit's tentative load
+        if (isChangingExit && agent.currentExitId) {
+          tentativeLoads.set(agent.currentExitId, Math.max(0, (tentativeLoads.get(agent.currentExitId) || 0) - 1));
         }
 
         assignments.push({
@@ -222,14 +196,26 @@ let fallbackAssignment = false;
           exitId: bestExit.id,
           exitName: bestExit.name,
           exitColor: bestExit.color,
-          path: full3DPath,
+          path: bestCandidate.path,
           targetExit: { x: bestExit.x, z: bestExit.z },
           hazardAware,
           routeEvaluation: hazardAware ? 'hazard-aware' : 'unverified',
           routeCondition: bestRoute?.condition || null,
           routeReasons: bestRoute?.reasons || [],
           noPermittedCandidate: fallbackAssignment,
-          requiresOperatorReview: fallbackAssignment
+          requiresOperatorReview: fallbackAssignment,
+          // Phased evacuation delay timer
+          delayTimer: delayTimer,
+          // Alternative routes for dynamic reevaluation
+          alternatives: candidatePaths.slice(1).map(c => ({
+            exitId: c.exit.id,
+            exitName: c.exit.name,
+            exitColor: c.exit.color,
+            path: c.path,
+            score: c.score,
+            routeCondition: c.route?.condition || null,
+            routeReasons: c.route?.reasons || []
+          }))
         });
       }
     });
@@ -271,8 +257,9 @@ let fallbackAssignment = false;
   // Only reassign agents whose current route is prohibited, or who haven't made significant progress
   reevaluateRoutes(agents, currentAssignments, fireLocations = [], options = {}) {
     const { blockedExitIds = [] } = options;
+    // Compute live exit loads from agents currently targeting each exit (not SAFE)
+    this._updateLiveExitLoads(agents);
     this.exits.forEach(e => {
-      e.load = 0;
       e.isBlocked = blockedExitIds.includes(e.id);
       if (e.isBlocked) {
         e.status = 'BLOCKED / SMOKE COMPROMISED';
@@ -283,6 +270,10 @@ let fallbackAssignment = false;
     const routingContext = options.routingContext || null;
     const hazardAware = routingContext?.availability?.available === true;
     let requiresOperatorReview = false;
+
+    // Initialize tentative loads from live exit loads (updated each frame by SceneManager)
+    const tentativeLoads = new Map();
+    this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     // Build a map of current assignments for quick lookup
     const currentAssignmentMap = new Map();
@@ -348,7 +339,8 @@ let fallbackAssignment = false;
         });
 
         // Anti-Stampede Staircase Congestion Penalty
-        const loadRatio = exit.load / exit.capacity;
+        const tentativeLoad = tentativeLoads.get(exit.id) || 0;
+        const loadRatio = tentativeLoad / exit.capacity;
         const congestionPenalty = Math.pow(loadRatio, 2.2) * 55;
         const jitter = (index % 11) * 0.3;
 
@@ -396,11 +388,11 @@ let fallbackAssignment = false;
         for (const candidate of candidatePool) {
           const score = permittedCandidates.length > 0 ? candidate.score : candidate.baselineScore;
           if (score < bestScore) {
-            bestScore = score;
-            bestExit = candidate.exit;
-            bestRoute = candidate.route;
-          }
+bestScore = score;
+          bestExit = candidate.exit;
+          bestRoute = candidate.route;
         }
+}
       }
 
       if (bestExit) {
@@ -409,94 +401,24 @@ let fallbackAssignment = false;
           requiresOperatorReview = true;
         }
 
-        bestExit.load++;
-        const stairEntry = this.stairwellEntries[bestExit.id];
+        // Only increment tentative load if agent is new or changing exits
+        const isNewAgent = !agent.currentExitId;
+        const isChangingExit = agent.currentExitId && agent.currentExitId !== bestExit.id;
+        if (isNewAgent || isChangingExit) {
+          tentativeLoads.set(bestExit.id, (tentativeLoads.get(bestExit.id) || 0) + 1);
+        }
+        // If agent keeps same exit, live load already accounts for them
 
-        // 1. MUST ROUTE THROUGH ROOM'S PHYSICAL DOORWAY!
-        // Retrieve designated 3-stage doorway waypoints (inside ➔ threshold ➔ corridor)
+        // If changing exits, decrement old exit's tentative load
+        if (isChangingExit && agent.currentExitId) {
+          tentativeLoads.set(agent.currentExitId, Math.max(0, (tentativeLoads.get(agent.currentExitId) || 0) - 1));
+        }
+
+        // Build the path for the best exit
         const doorway = getRoomDoorway(agent.roomId);
-
-        // Path 1: From agent's position inside room to inside doorway staging point
-        const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
-
-        // Path 2: From corridor staging point along central corridor to stairwell
-        const pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z);
-
-        // Stitch together seamlessly
-        const full3DPath = [];
-
-        pathInsideRoom.forEach(pt => {
-          full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
-        });
-
-        // Exact physical door transit (guaranteed zero wall clipping)
-        full3DPath.push({ x: doorway.inside.x, y: agent.y, z: doorway.inside.z });
-        full3DPath.push({ x: doorway.door.x, y: agent.y, z: doorway.door.z });
-        full3DPath.push({ x: doorway.corridor.x, y: agent.y, z: doorway.corridor.z });
-
-        pathInCorridor.forEach((pt, idx) => {
-          if (idx > 0) {
-            full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
-          }
-        });
-
-        // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
-        if (agent.floor > 1 && (bestExit.id === 'exit_west' || bestExit.id === 'exit_east')) {
-          const isWest = bestExit.id === 'exit_west';
-          const flight1X = isWest ? -27.2 : 27.2;
-          const flight2X = isWest ? -28.8 : 28.8;
-          const landingX = isWest ? -26.4 : 26.4;
-
-          for (let fl = agent.floor; fl >= 2; fl--) {
-            const flBaseY = (fl - 1) * this.floorHeight;
-
-            // 1. Step onto current Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY + 0.15, z: 0.0 });
-
-            // 2. Walk to Flight 1 Top (descending along -Z)
-            full3DPath.push({ x: flight1X, y: flBaseY + 0.15, z: -0.75 });
-
-            // 3. Step-by-step down Flight 1 to Mid-Landing
-            full3DPath.push({ x: flight1X, y: flBaseY - 0.95, z: -1.75 });
-            full3DPath.push({ x: flight1X, y: flBaseY - 1.90, z: -2.75 });
-
-            // 4. Turn across Mid-Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 1.90, z: -2.75 });
-
-            // 5. Step-by-step down Flight 2 to Lower Floor Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 2.85, z: -1.75 });
-            full3DPath.push({ x: flight2X, y: flBaseY - 3.80 + 0.15, z: -0.75 });
-
-            // 6. Arrive at lower Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY - 3.80 + 0.15, z: 0.0 });
-          }
-        }
-
-        // 3. Step out through the Ground Floor Emergency Exit into safety plaza & Muster Zone
-        const isWest = bestExit.id === 'exit_west';
-        const isEast = bestExit.id === 'exit_east';
-        const isSouth = bestExit.id === 'exit_south';
-
-        // Organic crowd dispersal jitter inside muster circle so people don't overlap
+        const stairEntry = this.stairwellEntries[bestExit.id];
         const seed = agent.id ? agent.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) : 1;
-        const jAngle = (seed % 100) * (Math.PI * 2 / 100);
-        const jDist = 1.0 + ((seed * 7) % 35) * 0.1; // 1.0m to 4.5m radius inside muster ring
-        const jitterX = Math.cos(jAngle) * jDist;
-        const jitterZ = Math.sin(jAngle) * jDist;
-
-        if (isWest) {
-          full3DPath.push({ x: -29.2, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: -33.5, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
-        } else if (isEast) {
-          full3DPath.push({ x: 29.2, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
-          full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
-        } else if (isSouth) {
-          full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
-          full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
-          full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
-        }
+        const full3DPath = this.buildFull3DPath(agent, bestExit, doorway, stairEntry, seed);
 
         assignments.push({
           agentId: agent.id,
@@ -510,7 +432,22 @@ let fallbackAssignment = false;
           routeCondition: bestRoute?.condition || null,
           routeReasons: bestRoute?.reasons || [],
           noPermittedCandidate: fallbackAssignment,
-          requiresOperatorReview: fallbackAssignment
+          requiresOperatorReview: fallbackAssignment,
+          // Build alternative routes for other viable exits
+          alternatives: candidatePool
+            .filter(c => c.exit.id !== bestExit.id)
+            .map(c => {
+              const altPath = this.buildFull3DPath(agent, c.exit, doorway, this.stairwellEntries[c.exit.id], seed);
+              return {
+                exitId: c.exit.id,
+                exitName: c.exit.name,
+                exitColor: c.exit.color,
+                path: altPath,
+                score: permittedCandidates.length > 0 ? c.score : c.baselineScore,
+                routeCondition: c.route?.condition || null,
+                routeReasons: c.route?.reasons || []
+              };
+            })
         });
       }
     });
@@ -539,5 +476,115 @@ let fallbackAssignment = false;
       routeEvaluation: hazardAware ? 'hazard-aware' : 'unverified',
       requiresOperatorReview
     };
+  }
+
+  /**
+   * Update exit loads from live agent data.
+   * Counts agents currently targeting each exit (not SAFE, has currentExitId).
+   * Called at start of each optimization to reflect real-time congestion.
+   */
+  _updateLiveExitLoads(agents) {
+    if (!agents || agents.length === 0) {
+      this.exits.forEach(e => { e.load = 0; });
+      return;
+    }
+    // Reset loads first
+    this.exits.forEach(e => { e.load = 0; });
+    // Count agents targeting each exit
+    for (const agent of agents) {
+      if (agent.state === 'SAFE') continue;
+      if (!agent.currentExitId) continue;
+      const exit = this.exits.find(e => e.id === agent.currentExitId);
+      if (exit) exit.load = (exit.load || 0) + 1;
+    }
+  }
+
+  /**
+   * Build a complete 3D evacuation path for an agent to a specific exit.
+   * Includes: room interior → doorway → corridor → stairwell descent → exit portal → muster zone.
+   */
+  buildFull3DPath(agent, exit, doorway, stairEntry, seed) {
+    // Path 1: From agent's position inside room to inside doorway staging point
+    const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
+
+    // Path 2: From corridor staging point along central corridor to stairwell
+    const pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z);
+
+    // Stitch together seamlessly
+    const full3DPath = [];
+
+    pathInsideRoom.forEach(pt => {
+      full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
+    });
+
+    // Exact physical door transit (guaranteed zero wall clipping)
+    full3DPath.push({ x: doorway.inside.x, y: agent.y, z: doorway.inside.z });
+    full3DPath.push({ x: doorway.door.x, y: agent.y, z: doorway.door.z });
+    full3DPath.push({ x: doorway.corridor.x, y: agent.y, z: doorway.corridor.z });
+
+    pathInCorridor.forEach((pt, idx) => {
+      if (idx > 0) {
+        full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
+      }
+    });
+
+    // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
+    if (agent.floor > 1 && (exit.id === 'exit_west' || exit.id === 'exit_east')) {
+      const isWest = exit.id === 'exit_west';
+      const flight1X = isWest ? -27.2 : 27.2;
+      const flight2X = isWest ? -28.8 : 28.8;
+      const landingX = isWest ? -26.4 : 26.4;
+
+      for (let fl = agent.floor; fl >= 2; fl--) {
+        const flBaseY = (fl - 1) * this.floorHeight;
+
+        // 1. Step onto current Floor Landing
+        full3DPath.push({ x: landingX, y: flBaseY + 0.15, z: 0.0 });
+
+        // 2. Walk to Flight 1 Top (descending along -Z)
+        full3DPath.push({ x: flight1X, y: flBaseY + 0.15, z: -0.75 });
+
+        // 3. Step-by-step down Flight 1 to Mid-Landing
+        full3DPath.push({ x: flight1X, y: flBaseY - 0.95, z: -1.75 });
+        full3DPath.push({ x: flight1X, y: flBaseY - 1.90, z: -2.75 });
+
+        // 4. Turn across Mid-Landing
+        full3DPath.push({ x: flight2X, y: flBaseY - 1.90, z: -2.75 });
+
+        // 5. Step-by-step down Flight 2 to Lower Floor Landing
+        full3DPath.push({ x: flight2X, y: flBaseY - 2.85, z: -1.75 });
+        full3DPath.push({ x: flight2X, y: flBaseY - 3.80 + 0.15, z: -0.75 });
+
+        // 6. Arrive at lower Floor Landing
+        full3DPath.push({ x: landingX, y: flBaseY - 3.80 + 0.15, z: 0.0 });
+      }
+    }
+
+    // 3. Step out through the Ground Floor Emergency Exit into safety plaza & Muster Zone
+    const isWest = exit.id === 'exit_west';
+    const isEast = exit.id === 'exit_east';
+    const isSouth = exit.id === 'exit_south';
+
+    // Organic crowd dispersal jitter inside muster circle so people don't overlap
+    const jAngle = (seed % 100) * (Math.PI * 2 / 100);
+    const jDist = 1.0 + ((seed * 7) % 35) * 0.1; // 1.0m to 4.5m radius inside muster ring
+    const jitterX = Math.cos(jAngle) * jDist;
+    const jitterZ = Math.sin(jAngle) * jDist;
+
+    if (isWest) {
+      full3DPath.push({ x: -29.2, y: 0.15, z: 0.0 });
+      full3DPath.push({ x: -33.5, y: 0.15, z: 0.0 });
+      full3DPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+    } else if (isEast) {
+      full3DPath.push({ x: 29.2, y: 0.15, z: 0.0 });
+      full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
+      full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+    } else if (isSouth) {
+      full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
+      full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
+      full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
+    }
+
+    return full3DPath;
   }
 }

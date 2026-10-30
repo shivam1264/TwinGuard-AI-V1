@@ -458,6 +458,10 @@ export class NavigationGraph {
     }
   }
 
+  getConnection(edgeId) {
+    return this.edges.get(edgeId) || null;
+  }
+
   blockStairwell(coreName, floorNum = null) {
     const isWest = coreName.toLowerCase().includes('west') || coreName.toLowerCase().includes('a');
     const prefix = isWest ? 'edge_stair_west' : 'edge_stair_east';
@@ -498,6 +502,85 @@ export class NavigationGraph {
       edge.hazardLevel = 0.0;
       edge.currentOccupancy = 0;
     });
+  }
+
+  /**
+   * Update live edge occupancy from agent positions.
+   * Maps each evacuating agent's 3D position to the closest navigation edge.
+   * Called each simulation frame to keep congestion data current.
+   */
+  updateLiveOccupancy(agents) {
+    // Reset all occupancy
+    this.edges.forEach(edge => {
+      edge.currentOccupancy = 0;
+    });
+
+    if (!agents || agents.length === 0) return;
+
+    // Build floor-indexed edge list for efficient lookup
+    const edgesByFloor = new Map();
+    this.edges.forEach(edge => {
+      if (edge.floor != null && edge.floor >= 1 && edge.floor <= this.floorCount) {
+        if (!edgesByFloor.has(edge.floor)) edgesByFloor.set(edge.floor, []);
+        edgesByFloor.get(edge.floor).push(edge);
+      }
+    });
+
+    const MAX_EDGE_DISTANCE = 3.0; // Max distance from agent to edge line segment
+
+    for (const agent of agents) {
+      if (agent.state !== 'EVACUATING') continue;
+      if (!Number.isFinite(agent.x) || !Number.isFinite(agent.y) || !Number.isFinite(agent.z)) continue;
+
+      const agentFloor = Math.max(1, Math.min(this.floorCount, Math.round(agent.y / this.floorHeight) + 1));
+      const floorEdges = edgesByFloor.get(agentFloor);
+      if (!floorEdges || floorEdges.length === 0) continue;
+
+      let closestEdge = null;
+      let closestDist = MAX_EDGE_DISTANCE;
+
+      for (const edge of floorEdges) {
+        const fromNode = this.nodes.get(edge.from);
+        const toNode = this.nodes.get(edge.to);
+        if (!fromNode || !toNode) continue;
+
+        // Distance from point to line segment in 3D
+        const dist = this._pointToSegmentDistance(agent, fromNode.pos, toNode.pos);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestEdge = edge;
+        }
+      }
+
+      if (closestEdge) {
+        closestEdge.currentOccupancy = (closestEdge.currentOccupancy || 0) + 1;
+        // Also increment reverse edge if bidirectional (same physical space)
+        if (closestEdge.isBidirectional) {
+          const revEdge = this.edges.get(`${closestEdge.id}_rev`);
+          if (revEdge) revEdge.currentOccupancy = (revEdge.currentOccupancy || 0) + 1;
+        }
+      }
+    }
+  }
+
+  _pointToSegmentDistance(point, segStart, segEnd) {
+    const x = point.x, y = point.y, z = point.z;
+    const x1 = segStart.x, y1 = segStart.y, z1 = segStart.z;
+    const x2 = segEnd.x, y2 = segEnd.y, z2 = segEnd.z;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dz = z2 - z1;
+    const lenSq = dx * dx + dy * dy + dz * dz;
+
+    if (lenSq === 0) return Math.hypot(x - x1, y - y1, z - z1);
+
+    const t = Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy + (z - z1) * dz) / lenSq));
+    const projX = x1 + t * dx;
+    const projY = y1 + t * dy;
+    const projZ = z1 + t * dz;
+
+    return Math.hypot(x - projX, y - projY, z - projZ);
   }
 
   /**

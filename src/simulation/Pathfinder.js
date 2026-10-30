@@ -51,7 +51,7 @@ export class Pathfinder {
     ];
 
     let iterations = 0;
-    const maxIterations = 3500;
+    const maxIterations = 5000;
 
     while (openSet.length > 0 && iterations < maxIterations) {
       iterations++;
@@ -82,7 +82,8 @@ export class Pathfinder {
         }
 
         const hazardCost = this.navGrid.hazardCosts[nr]?.[nc] || 0;
-        const tentativeG = (gScore.get(currentKey) || 0) + n.cost + hazardCost;
+        const congestionCost = this.navGrid.congestionCosts[nr]?.[nc] || 0;
+        const tentativeG = (gScore.get(currentKey) || 0) + n.cost + hazardCost + congestionCost;
 
         if (tentativeG < (gScore.get(nKey) ?? Infinity)) {
           cameFrom.set(nKey, current);
