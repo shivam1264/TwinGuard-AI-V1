@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 export const ViewportOverlay = ({
-  facadeMode = 'CUTAWAY',
+  facadeMode = 'FULL',
   onSetFacadeMode,
   activeFloorView = 'ALL',
   onSelectFloor,

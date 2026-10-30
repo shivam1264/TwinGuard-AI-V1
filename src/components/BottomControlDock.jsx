@@ -37,7 +37,8 @@ export const BottomControlDock = ({
     { id: 'DEFAULT', label: 'Isometric View' },
     { id: 'HERO_VIEW', label: 'Hero Section View' },
     { id: 'TOP_DOWN', label: 'Top Down View' },
-    { id: 'STAIRS_FOCUS', label: 'Stair Shaft View' }
+    { id: 'STAIRS_FOCUS', label: 'Stair Shaft View' },
+    { id: 'CAMPUS_OVERVIEW', label: 'Campus Master Plan' }
   ];
 
   const handleSelectCamera = (opt) => {

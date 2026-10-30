@@ -12,6 +12,10 @@ import { IncidentsModal } from './components/IncidentsModal';
 import { ReportsModal } from './components/ReportsModal';
 import { RoomModal } from './components/RoomModal';
 import { FireTriggerBubble } from './components/FireTriggerBubble';
+import { SettingsModal } from './components/SettingsModal';
+import { ScenarioConfigModal } from './components/ScenarioConfigModal';
+import { StrategyRankModal } from './components/StrategyRankModal';
+import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -91,7 +95,7 @@ export function App() {
   const [bottlenecks, setBottlenecks] = useState([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simSpeed, setSimSpeed] = useState(1.0);
-  const [facadeMode, setFacadeMode] = useState('CUTAWAY');
+  const [facadeMode, setFacadeMode] = useState('FULL');
   const [activeFloorView, setActiveFloorView] = useState('ALL');
   const [activeTab, setActiveTab] = useState('LIVE_VIEW');
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
@@ -107,6 +111,15 @@ export function App() {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [activeScenario, setActiveScenario] = useState(() => {
+    if (AIEngine && AIEngine.getActiveScenario) {
+      return AIEngine.getActiveScenario();
+    }
+    return sampleFireScenario;
+  });
 
   const [bimLayers, setBimLayers] = useState({
     structure: true,
@@ -117,9 +130,6 @@ export function App() {
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
   const [systemStatus, setSystemStatus] = useState('STANDBY');
   const [serverConnected, setServerConnected] = useState(false);
-
-  // Phase 5C: Active scenario for hazard state
-  const [activeScenario] = useState(sampleFireScenario);
 
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
@@ -141,9 +151,8 @@ export function App() {
           setSystemStatus('COMPLETED');
         }
       },
-      (clickedRoomId) => {
-        // Single click: open inspection modal
-        setActiveModalRoomId(clickedRoomId);
+      () => {
+        // Single click popup removed
       },
       (matchedRoom, screenPos) => {
         // Double tap / double click: show minimalist fire trigger pill
@@ -151,10 +160,14 @@ export function App() {
       },
       (newFacadeMode) => {
         setFacadeMode(newFacadeMode);
+      },
+      (spreadRoomId) => {
+        handleTriggerFire(spreadRoomId, false);
       }
     );
 
     sceneManagerRef.current = manager;
+    window.__sceneManager = manager;
     manager.syncOccupants(rooms);
 
     return () => {
@@ -282,6 +295,46 @@ export function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ roomId, count: newCount })
       }).catch(() => {});
+    }
+  };
+
+  // Apply Emergency Scenario from Scenario Studio (AI Module)
+  const handleApplyScenario = (newScenario) => {
+    if (AIEngine && AIEngine.setScenario) {
+      AIEngine.setScenario(newScenario);
+      setActiveScenario(newScenario);
+
+      const updatedRooms = AIEngine.applyScenarioToRooms ? AIEngine.applyScenarioToRooms(INITIAL_ROOMS) : INITIAL_ROOMS;
+      setRooms(updatedRooms);
+
+      const updatedExits = AIEngine.applyScenarioToExits ? AIEngine.applyScenarioToExits(INITIAL_EXITS) : INITIAL_EXITS;
+      setExits(updatedExits);
+
+      if (newScenario.hazard && newScenario.hazard.roomId) {
+        setSystemStatus('ALARM');
+        if (sceneManagerRef.current) {
+          sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+        }
+      }
+
+      if (sceneManagerRef.current && sceneManagerRef.current.syncOccupants) {
+        sceneManagerRef.current.syncOccupants(updatedRooms);
+      }
+    }
+  };
+
+  const handleApplyStrategyToSimulation = (selectedStrategy) => {
+    if (AIEngine && AIEngine.setActiveStrategy) {
+      AIEngine.setActiveStrategy(selectedStrategy);
+    }
+    if (sceneManagerRef.current) {
+      const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
+      if (result) {
+        if (result.exitStats) setExits(result.exitStats);
+        if (result.bottlenecks) setBottlenecks(result.bottlenecks);
+      }
+      setIsSimulating(true);
+      setSystemStatus('EVACUATING');
     }
   };
 
@@ -416,6 +469,9 @@ export function App() {
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenReports={() => setIsReportsOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
+        onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         serverConnected={serverConnected}
       />
 
@@ -594,6 +650,34 @@ export function App() {
           onTriggerFire={handleTriggerFire}
           onUpdateCrowd={handleUpdateCrowd}
           onSelectFloor={handleSetFloorView}
+        />
+      )}
+
+      {/* MODAL 7: Scenario Studio Modal (AI Engine) */}
+      <ScenarioConfigModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentScenario={activeScenario}
+        onApplyScenario={handleApplyScenario}
+        rooms={rooms}
+      />
+
+      {/* MODAL 8: AI Evacuation Strategy Ranker (TOPSIS Engine) */}
+      <StrategyRankModal
+        isOpen={isStrategyModalOpen}
+        onClose={() => setIsStrategyModalOpen(false)}
+        scenario={activeScenario}
+        rooms={rooms}
+        exits={exits}
+        onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
+      />
+
+      {/* MODAL 9: System Settings Modal */}
+      {isSettingsOpen && (
+        <SettingsModal
+          onClose={() => setIsSettingsOpen(false)}
+          onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
+          onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         />
       )}
 

@@ -8,9 +8,9 @@ export class CrowdOptimizer {
     this.floorHeight = 3.8; // Realistic commercial ceiling height
 
     this.exits = [
-      { id: 'exit_west', name: 'Exit A (West Emergency Core)', x: -29, z: 0, capacity: 60, load: 0, color: '#00ff88' },
-      { id: 'exit_east', name: 'Exit B (East Fire Escape Core)', x: 29, z: 0, capacity: 60, load: 0, color: '#00f0ff' },
-      { id: 'exit_south', name: 'Exit C (South Grand Plaza Exit)', x: 0, z: 23, capacity: 80, load: 0, color: '#9d4edd' }
+      { id: 'exit_west', name: 'Exit A (West Emergency Core)', x: -29, z: 0, capacity: 60, load: 0, color: '#00ff88', isBlocked: false },
+      { id: 'exit_east', name: 'Exit B (East Fire Escape Core)', x: 29, z: 0, capacity: 60, load: 0, color: '#00f0ff', isBlocked: false },
+      { id: 'exit_south', name: 'Exit C (South Grand Plaza Exit)', x: 0, z: 23, capacity: 80, load: 0, color: '#9d4edd', isBlocked: false }
     ];
 
     this.stairwellEntries = {
@@ -20,23 +20,42 @@ export class CrowdOptimizer {
     };
   }
 
-  optimizeRoutes(agents, fireLocations = [], options = {}) {
-    this.exits.forEach(e => e.load = 0);
+optimizeRoutes(agents, fireLocations = [], options = {}) {
+    const { blockedExitIds = [], strategyType = 'LOAD_BALANCED' } = options;
+    // Reset load and sync blocked state from scenario
+    this.exits.forEach(e => {
+      e.load = 0;
+      e.isBlocked = blockedExitIds.includes(e.id);
+      if (e.isBlocked) {
+        e.status = 'BLOCKED / SMOKE COMPROMISED';
+      }
+    });
+
     const bottlenecks = [];
     const assignments = [];
     const routingContext = options.routingContext || null;
     const hazardAware = routingContext?.availability?.available === true;
     let requiresOperatorReview = false;
 
+    const allOperational = this.exits.filter(e => !e.isBlocked);
+
     agents.forEach((agent, index) => {
       let bestExit = null;
       let bestRoute = null;
       let bestScore = Infinity;
-      let fallbackAssignment = false;
+let fallbackAssignment = false;
 
       // Available exits: Upper floors (L2 to L10) must use stairwell towers (West or East)
       // Ground floor (L1) can use West, East, or South Grand Exit!
-      const availableExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
+      const allOperational = this.exits.filter(e => !e.isBlocked);
+      const floorExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
+      let availableExits = floorExits.filter(e => !e.isBlocked);
+
+      // Fallback: If both floor stairwells are compromised, fallback to any operational exit
+      if (availableExits.length === 0) {
+        availableExits = allOperational.length > 0 ? allOperational : this.exits;
+      }
+
       const candidates = [];
 
       for (const exit of availableExits) {
@@ -60,9 +79,22 @@ export class CrowdOptimizer {
           }
         });
 
-        // Anti-Stampede Staircase Congestion Penalty
-        const loadRatio = exit.load / exit.capacity;
-        const congestionPenalty = Math.pow(loadRatio, 2.2) * 55;
+        // Anti-Stampede Staircase Congestion Penalty based on Strategy
+        const loadRatio = exit.capacity > 0 ? exit.load / exit.capacity : 999;
+        let congestionPenalty = Math.pow(loadRatio, 2.2) * 55;
+
+        if (strategyType === 'NEAREST_CORE') {
+          // Uncontrolled rush: greedily heads to nearest exit, causing massive bottleneck
+          congestionPenalty = 0;
+        } else if (strategyType === 'DYNAMIC_CORE_BALANCING' || strategyType === 'LOAD_BALANCED') {
+          // Dynamic load balancing with strong deterrence against oversubscribed exits
+          congestionPenalty = Math.pow(loadRatio, 2.6) * 90;
+        } else if (strategyType === 'PHASED_ZONE') {
+          // Phased floor priority
+          const isFireFloor = fireLocations.some(f => Math.abs(agent.y - f.y) < 2.5);
+          congestionPenalty = isFireFloor ? Math.pow(loadRatio, 1.5) * 30 : Math.pow(loadRatio, 2.3) * 70;
+        }
+
         const jitter = (index % 11) * 0.3;
 
         const baselineScore = distToStair + congestionPenalty + firePenalty + jitter;
@@ -203,6 +235,13 @@ export class CrowdOptimizer {
     });
 
     this.exits.forEach(exit => {
+      if (exit.isBlocked) {
+        exit.loadPercentage = 0;
+        exit.status = 'BLOCKED / SMOKE COMPROMISED';
+        bottlenecks.push(`⛔ ${exit.name} is BLOCKED by toxic smoke ingress - All occupants rerouted`);
+        return;
+      }
+
       const loadPercentage = Math.round((exit.load / exit.capacity) * 100);
       let status = 'OPTIMAL';
       if (loadPercentage > 120) {
@@ -231,7 +270,14 @@ export class CrowdOptimizer {
   // Phase 5C: Reevaluate routes while preserving agent progress
   // Only reassign agents whose current route is prohibited, or who haven't made significant progress
   reevaluateRoutes(agents, currentAssignments, fireLocations = [], options = {}) {
-    this.exits.forEach(e => e.load = 0);
+    const { blockedExitIds = [] } = options;
+    this.exits.forEach(e => {
+      e.load = 0;
+      e.isBlocked = blockedExitIds.includes(e.id);
+      if (e.isBlocked) {
+        e.status = 'BLOCKED / SMOKE COMPROMISED';
+      }
+    });
     const bottlenecks = [];
     const assignments = [];
     const routingContext = options.routingContext || null;
@@ -264,7 +310,14 @@ export class CrowdOptimizer {
 
       // Available exits: Upper floors (L2 to L10) must use stairwell towers (West or East)
       // Ground floor (L1) can use West, East, or South Grand Exit!
-      const availableExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
+      const floorExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
+      let availableExits = floorExits.filter(e => !e.isBlocked);
+
+      // Fallback: If both floor stairwells are compromised, fallback to any operational exit
+      if (availableExits.length === 0) {
+        availableExits = allOperational.length > 0 ? allOperational : this.exits;
+      }
+
       const candidates = [];
 
       // Check if current route is still valid and agent has made significant progress
