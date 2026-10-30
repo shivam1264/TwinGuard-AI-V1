@@ -574,77 +574,16 @@ export function App() {
 
       {/* MODAL 2: Evacuation Analytics & Stairwell Core Intel */}
       {isAnalyticsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-            <div style={{ padding: '22px 28px 18px 28px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }} className="flex items-center justify-between shrink-0">
-              <div className="flex items-center" style={{ gap: '14px' }}>
-                <div
-                  className="flex items-center justify-center shrink-0"
-                  style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '12px',
-                    background: '#f0fdf4',
-                    border: '1px solid #d1fae5',
-                    color: '#0d7a5f',
-                    boxShadow: '0 2px 6px -1px rgba(13, 122, 95, 0.15)',
-                  }}
-                >
-                  <BarChart3 style={{ width: '20px', height: '20px' }} />
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
-                    Stairwell Cores & 10-Floor Population Analytics
-                  </h2>
-                  <p style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500, marginTop: '4px', lineHeight: 1.2 }}>
-                    Live occupancy, egress flow rates & evacuation throughput telemetry
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center" style={{ gap: '10px' }}>
-                <div
-                  className="flex items-center"
-                  style={{
-                    gap: '6px',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    color: '#0d7a5f',
-                    background: '#f0fdf4',
-                    padding: '6px 12px',
-                    borderRadius: '10px',
-                    border: '1px solid #d1fae5',
-                  }}
-                >
-                  <Clock style={{ width: '14px', height: '14px' }} />
-                  <span>{String(Math.floor((stats.elapsedSeconds || 0) / 60)).padStart(2, '0')}:{String((stats.elapsedSeconds || 0) % 60).padStart(2, '0')}s</span>
-                </div>
-                <button
-                  onClick={() => setIsAnalyticsOpen(false)}
-                  className="flex items-center justify-center cursor-pointer transition-colors"
-                  style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '10px',
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    color: '#94a3b8',
-                  }}
-                  title="Close Dialog"
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#94a3b8'; }}
-                >
-                  <X style={{ width: '16px', height: '16px' }} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/40 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-6 animate-in fade-in duration-150 select-none">
+          <div className="bg-[#f8fafc] border border-slate-200/90 rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="flex-1 overflow-y-auto p-4 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <BottleneckAnalytics
                 stats={stats}
                 exits={exits}
                 rooms={rooms}
                 bottlenecks={bottlenecks}
+                onClose={() => setIsAnalyticsOpen(false)}
+                onReset={handleReset}
               />
             </div>
           </div>
