@@ -12,6 +12,9 @@ import { IncidentsModal } from './components/IncidentsModal';
 import { ReportsModal } from './components/ReportsModal';
 import { RoomModal } from './components/RoomModal';
 import { FireTriggerBubble } from './components/FireTriggerBubble';
+import { ScenarioConfigModal } from './components/ScenarioConfigModal';
+import { StrategyRankModal } from './components/StrategyRankModal';
+import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -107,6 +110,9 @@ export function App() {
   const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [activeScenario, setActiveScenario] = useState(() => AIEngine.getActiveScenario());
 
   const [bimLayers, setBimLayers] = useState({
     structure: true,
@@ -275,6 +281,78 @@ export function App() {
     }
   };
 
+  // Apply Emergency Scenario from Scenario Studio (AI Module Phase 1)
+  const handleApplyScenario = (newScenario) => {
+    AIEngine.setScenario(newScenario);
+    setActiveScenario(newScenario);
+
+    const updatedRooms = AIEngine.applyScenarioToRooms(INITIAL_ROOMS);
+    setRooms(updatedRooms);
+
+    const updatedExits = AIEngine.applyScenarioToExits(INITIAL_EXITS);
+    setExits(updatedExits);
+
+    if (newScenario.hazard?.roomId) {
+      setSystemStatus('ALARM');
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+      }
+    }
+
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.syncOccupants(updatedRooms);
+    }
+
+    const nowTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const isBlocked = newScenario.structuralFailures?.blockedExits?.length > 0;
+    const scenarioIncident = {
+      id: `inc_${Date.now()}`,
+      time: nowTime,
+      title: `Scenario Configured: ${newScenario.name}`,
+      subtitle: isBlocked
+        ? `Threat: Level ${newScenario.hazard?.floor} | ${newScenario.structuralFailures.blockedExits.join(', ')} COMPROMISED`
+        : `Threat: Level ${newScenario.hazard?.floor} (${newScenario.hazard?.type}) | Normal Exit Readiness`,
+      severity: isBlocked ? 'High' : 'Medium',
+      floor: newScenario.hazard?.floor || 1,
+      roomId: newScenario.hazard?.roomId
+    };
+
+    setIncidents((prev) => [scenarioIncident, ...prev]);
+  };
+
+
+  const handleApplyStrategyToSimulation = (selectedStrategy) => {
+    AIEngine.setActiveStrategy(selectedStrategy);
+
+    if (sceneManagerRef.current) {
+      const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
+      if (result) {
+        setExits(result.exitStats);
+        setBottlenecks(result.bottlenecks || []);
+      }
+      setIsSimulating(true);
+      setSystemStatus('EVACUATING');
+    }
+
+    const stratIncident = {
+      id: `strat_${Date.now()}`,
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }),
+      title: `AI Strategy Activated: ${selectedStrategy.shortName || selectedStrategy.name}`,
+      subtitle: `${selectedStrategy.category} • Headless rollouts deployed to 3D Twin`,
+      severity: 'Info'
+    };
+    setIncidents((prev) => [stratIncident, ...prev]);
+  };
+
   // Start Evacuation Simulation
   const handleStartEvacuation = () => {
     if (!sceneManagerRef.current) return;
@@ -399,6 +477,7 @@ export function App() {
             setIsAnalyticsOpen(false);
             setIsIncidentsOpen(false);
             setIsReportsOpen(false);
+            setIsStrategyModalOpen(false);
           }
         }}
         incidentCount={incidents.length}
@@ -406,6 +485,8 @@ export function App() {
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenReports={() => setIsReportsOpen(true)}
+        onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
+        onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         serverConnected={serverConnected}
       />
 
@@ -437,7 +518,7 @@ export function App() {
           onSelectFloor={handleSetFloorView}
           rooms={rooms}
           onOpenCctv={() => setIsCctvOpen(true)}
-          onOpenSystems={() => setIsAnalyticsOpen(true)}
+          onOpenSystems={() => setIsScenarioModalOpen(true)}
         />
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
@@ -586,6 +667,26 @@ export function App() {
           onSelectFloor={handleSetFloorView}
         />
       )}
+
+
+      {/* MODAL 8: AI Multi-Strategy Simulation & TOPSIS Ranker (Phase 3 AI Module) */}
+      <StrategyRankModal
+        isOpen={isStrategyModalOpen}
+        onClose={() => setIsStrategyModalOpen(false)}
+        scenario={activeScenario}
+        rooms={rooms}
+        exits={exits}
+        onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
+      />
+
+      {/* MODAL 7: Emergency Scenario Configuration Studio (AI Module Phase 1) */}
+      <ScenarioConfigModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentScenario={activeScenario}
+        onApplyScenario={handleApplyScenario}
+        rooms={rooms}
+      />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}
       {fireBubbleData && (

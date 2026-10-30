@@ -1,3 +1,4 @@
+import { AIEngine } from "../ai/index.js";
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Building3D } from './Building3D.js';
@@ -567,12 +568,16 @@ export class SceneManager {
     if (this.isSimulating) {
       const fireLocations = [];
       this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
-      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+      const activeScenario = AIEngine.getActiveScenario();
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = AIEngine.getActiveStrategy();
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
       this.agentCrowd.assignRoutes(optimizationResult.assignments);
     }
   }
 
-  startEvacuation() {
+  startEvacuation(scenario = null, strategy = null) {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
@@ -581,7 +586,12 @@ export class SceneManager {
       fireLocations.push(f.basePos);
     });
 
-    const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+    const activeScenario = scenario || AIEngine.getActiveScenario();
+    const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+    const activeStrategy = strategy || AIEngine.getActiveStrategy();
+    const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+    const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
     return optimizationResult;
   }
@@ -648,7 +658,11 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
-      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
+      }
+      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0, fireLocations);
 
       if (this.isSimulating) {
         this.elapsedSeconds += delta * this.simSpeed;

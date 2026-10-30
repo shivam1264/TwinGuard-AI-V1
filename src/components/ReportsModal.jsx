@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   FileText,
   X,
@@ -8,8 +8,11 @@ import {
   CheckCircle2,
   Clock,
   Users,
-  Building
+  Building,
+  AlertTriangle,
+  Award
 } from 'lucide-react';
+import { AIEngine } from '../ai';
 
 export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
   const total = stats.total || 0;
@@ -17,9 +20,13 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
   const elapsed = stats.elapsedSeconds || 0;
   const evacPercent = total > 0 ? Math.round((evacuated / total) * 100) : 0;
 
+  const nfpaAudit = useMemo(() => {
+    return AIEngine.auditNFPACompliance();
+  }, [stats]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
+      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
@@ -27,11 +34,14 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
               <FileText className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold text-slate-900">
-                Evacuation & Safety Audit Report
+              <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+                <span>Evacuation & Safety Audit Report</span>
+                <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black uppercase">
+                  NFPA 101
+                </span>
               </h2>
               <p className="text-xs text-slate-500 font-medium">
-                Facility Digital Twin Automated Egress Assessment
+                Facility Digital Twin Automated Egress Assessment & Statutory Audit
               </p>
             </div>
           </div>
@@ -64,24 +74,37 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
             </div>
           </div>
 
-          {/* Compliance Checklist */}
-          <div className="flex flex-col gap-2">
-            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Life Safety & NFPA-101 Standards
-            </h3>
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2.5">
-              <div className="flex items-center gap-2 text-emerald-700">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Dual Protected Switchback Emergency Stairwell Cores (West Core A & East Core B) Verified.</span>
-              </div>
-              <div className="flex items-center gap-2 text-emerald-700">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Multi-level 100-Room AI Vision Sensor Grid actively transmitting.</span>
-              </div>
-              <div className="flex items-center gap-2 text-emerald-700">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Stairwell egress capacity load within safe thresholds.</span>
-              </div>
+          {/* NFPA 101 Statutory Compliance Evaluation */}
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>{nfpaAudit.standard}</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                {nfpaAudit.overallStatus} ({nfpaAudit.overallScore}%)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              {nfpaAudit.evaluatedClauses.map((clause, idx) => (
+                <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-slate-800 text-[11px]">{clause.code} • {clause.title}</span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                      clause.status === 'COMPLIANT'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {clause.status}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 italic">{clause.requirement}</div>
+                  <div className="text-[11px] text-slate-700 font-medium pt-1 border-t border-slate-200/60 mt-0.5">
+                    {clause.findings}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -92,14 +115,14 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
               className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-2 transition-colors"
             >
               <Printer className="w-4 h-4" />
-              <span>Print Report</span>
+              <span>Print Audit</span>
             </button>
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-2 transition-colors"
             >
               <Download className="w-4 h-4" />
-              <span>Export PDF</span>
+              <span>Done</span>
             </button>
           </div>
         </div>
@@ -107,4 +130,3 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
     </div>
   );
 };
-

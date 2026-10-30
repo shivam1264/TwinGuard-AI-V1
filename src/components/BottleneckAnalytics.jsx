@@ -1,11 +1,21 @@
 import React, { useMemo } from 'react';
-import { ShieldCheck, AlertOctagon, Activity, Clock, CheckCircle2, Users, Layers } from 'lucide-react';
+import {
+  ShieldCheck,
+  AlertOctagon,
+  Activity,
+  Clock,
+  CheckCircle2,
+  Users,
+  Layers,
+  Sparkles
+} from 'lucide-react';
 
 export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottlenecks = [] }) => {
   const total = stats.total || 0;
   const evacuated = stats.evacuated || 0;
   const inTransit = stats.inTransit || 0;
   const elapsed = stats.elapsedSeconds || 0;
+  const telemetry = stats.telemetry;
 
   const evacProgress = total > 0 ? Math.round((evacuated / total) * 100) : 0;
 
@@ -61,6 +71,65 @@ export const BottleneckAnalytics = React.memo(({ stats, exits, rooms, bottleneck
           </div>
         </div>
       </div>
+
+      {/* Phase 2: Microscopic Behavioral AI Crowd Telemetry */}
+      {telemetry && (
+        <div className="bg-purple-50/60 p-3 rounded-xl border border-purple-200/80 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+              Microscopic Behavioral Crowd AI
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+              Phase 2 Telemetry
+            </span>
+          </div>
+
+          {/* Cognitive State Breakdown Pills */}
+          <div className="grid grid-cols-4 gap-1.5 text-center text-xs">
+            <div className="p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <div className="text-[9px] font-bold text-slate-400 uppercase">Hesitating</div>
+              <div className="font-black text-amber-600 mt-0.5">{telemetry.states?.hesitating || 0}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <div className="text-[9px] font-bold text-slate-400 uppercase">Door Queue</div>
+              <div className="font-black text-orange-600 mt-0.5">{telemetry.states?.queuingDoor || 0}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <div className="text-[9px] font-bold text-slate-400 uppercase">Corridor</div>
+              <div className="font-black text-blue-600 mt-0.5">{telemetry.states?.corridorTransit || 0}</div>
+            </div>
+            <div className="p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <div className="text-[9px] font-bold text-slate-400 uppercase">Stair Flight</div>
+              <div className="font-black text-purple-600 mt-0.5">{telemetry.states?.stairDescent || 0}</div>
+            </div>
+          </div>
+
+          {/* Real-Time Crowd Dynamics Metrics */}
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <span className="text-slate-500 font-medium">Peak Density:</span>
+              <span className={`font-mono font-black ${telemetry.peakDensity > 2.2 ? 'text-red-600' : 'text-slate-800'}`}>
+                {telemetry.peakDensity || 0} p/m²
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-white border border-purple-100 shadow-2xs">
+              <span className="text-slate-500 font-medium">Risk Exposure:</span>
+              <span className="font-mono font-black text-slate-800">
+                {Math.round(telemetry.cumulativeExposure || 0)} pts
+              </span>
+            </div>
+          </div>
+
+          {/* Active Door Clogs */}
+          {telemetry.bottleneckDoors && telemetry.bottleneckDoors.length > 0 && (
+            <div className="text-[11px] font-bold text-amber-800 bg-amber-100/70 p-2 rounded-lg flex items-center gap-1.5">
+              <span>⚠️ Door Arching Queues Active at:</span>
+              <span className="font-mono font-black">{telemetry.bottleneckDoors.join(', ')}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 10-Floor Population Distribution Matrix */}
       <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">

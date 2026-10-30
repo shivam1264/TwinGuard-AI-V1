@@ -8,7 +8,9 @@ import {
   AlertTriangle,
   FileText,
   Settings,
-  Home
+  Home,
+  Sparkles,
+  Trophy
 } from 'lucide-react';
 
 export const TopHeader = ({
@@ -20,6 +22,8 @@ export const TopHeader = ({
   onOpenIncidents,
   onOpenReports,
   onOpenSettings,
+  onOpenScenarioStudio,
+  onOpenStrategyRanker,
   serverConnected = true
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -76,6 +80,38 @@ export const TopHeader = ({
         >
           <Home className="w-4 h-4 stroke-[2.2]" />
           <span>Live View</span>
+        </button>
+
+        {/* AI Scenario Studio (Phase 1 AI Module) */}
+        <button
+          onClick={() => {
+            onSelectTab('SCENARIOS');
+            if (onOpenScenarioStudio) onOpenScenarioStudio();
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all border ${
+            activeTab === 'SCENARIOS'
+              ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 font-bold border-blue-600'
+              : 'text-purple-700 hover:text-purple-900 bg-purple-50/80 hover:bg-purple-100/80 border-purple-200/80 font-bold'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-purple-600 stroke-[2.2]" />
+          <span>AI Scenarios</span>
+        </button>
+
+        {/* AI Strategy Ranker (Phase 3 AI Module) */}
+        <button
+          onClick={() => {
+            onSelectTab('STRATEGY_RANKER');
+            if (onOpenStrategyRanker) onOpenStrategyRanker();
+          }}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all border ${
+            activeTab === 'STRATEGY_RANKER'
+              ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/25 font-bold border-amber-600'
+              : 'text-amber-800 hover:text-amber-950 bg-amber-50/90 hover:bg-amber-100 border-amber-300/80 font-bold'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-600 stroke-[2.2]" />
+          <span>Strategy Ranker</span>
         </button>
 
         {/* Analytics */}
