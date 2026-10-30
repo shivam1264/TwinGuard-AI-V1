@@ -555,7 +555,7 @@ export function App() {
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[86vh] border border-slate-200">
             <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
                 <div className="p-1.5 rounded-lg bg-emerald-50 text-[#0d7a5f] border border-emerald-100">
@@ -617,7 +617,7 @@ export function App() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 bg-white no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/40 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <BottleneckAnalytics
                 stats={stats}
                 exits={exits}

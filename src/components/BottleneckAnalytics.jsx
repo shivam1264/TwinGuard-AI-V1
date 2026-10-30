@@ -30,35 +30,36 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
     <div
       className="flex flex-col select-none no-scrollbar"
       style={{
-        gap: '14px',
+        gap: '16px',
+        padding: '4px 6px 16px 6px',
         fontFamily: "'Inter', system-ui, sans-serif",
         color: '#1e293b',
         boxSizing: 'border-box',
         width: '100%',
       }}
     >
-      {/* 1. TOP 4 METRICS ROW (Compact SaaS Cards) */}
-      <div className="grid grid-cols-4" style={{ gap: '10px' }}>
+      {/* 1. TOP 4 METRICS ROW (Clean SaaS Cards with comfortable breathing room) */}
+      <div className="grid grid-cols-4" style={{ gap: '12px' }}>
         {/* Tower Total */}
         <div
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
           }}
         >
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Tower Total
             </span>
-            <Users style={{ width: '13px', height: '13px', color: '#94a3b8' }} />
+            <Users style={{ width: '14px', height: '14px', color: '#94a3b8' }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginTop: '4px', lineHeight: 1.1 }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', marginTop: '6px', lineHeight: 1 }}>
             {total}
           </div>
-          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginTop: '3px' }}>
+          <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 500, marginTop: '4px' }}>
             10 Floors • 100 Rooms
           </div>
         </div>
@@ -68,21 +69,21 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
           }}
         >
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#0d7a5f', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#0d7a5f', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Safely Exited
             </span>
-            <CheckCircle2 style={{ width: '13px', height: '13px', color: '#0d7a5f' }} />
+            <CheckCircle2 style={{ width: '14px', height: '14px', color: '#0d7a5f' }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#0d7a5f', marginTop: '4px', lineHeight: 1.1 }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#0d7a5f', marginTop: '6px', lineHeight: 1 }}>
             {evacuated}
           </div>
-          <div style={{ fontSize: '10px', color: '#0d7a5f', fontWeight: 600, marginTop: '3px' }}>
+          <div style={{ fontSize: '10.5px', color: '#0d7a5f', fontWeight: 600, marginTop: '4px' }}>
             {evacProgress}% evacuated
           </div>
         </div>
@@ -92,21 +93,21 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
           }}
         >
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 600, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               In Stairwells
             </span>
-            <Activity style={{ width: '13px', height: '13px', color: '#f59e0b' }} />
+            <Activity style={{ width: '14px', height: '14px', color: '#f59e0b' }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#d97706', marginTop: '4px', lineHeight: 1.1 }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#d97706', marginTop: '6px', lineHeight: 1 }}>
             {inTransit}
           </div>
-          <div style={{ fontSize: '10px', color: '#b45309', fontWeight: 500, marginTop: '3px' }}>
+          <div style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 500, marginTop: '4px' }}>
             Active movement
           </div>
         </div>
@@ -116,22 +117,22 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '10px 14px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
+            borderRadius: '14px',
+            padding: '12px 16px',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
           }}
         >
           <div className="flex items-center justify-between">
-            <span style={{ fontSize: '10px', fontWeight: 600, color: remaining > 0 ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '10.5px', fontWeight: 600, color: remaining > 0 ? '#dc2626' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Remaining
             </span>
-            <AlertTriangle style={{ width: '13px', height: '13px', color: remaining > 0 ? '#dc2626' : '#94a3b8' }} />
+            <AlertTriangle style={{ width: '14px', height: '14px', color: remaining > 0 ? '#dc2626' : '#94a3b8' }} />
           </div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: remaining > 0 ? '#dc2626' : '#64748b', marginTop: '4px', lineHeight: 1.1 }}>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: remaining > 0 ? '#dc2626' : '#64748b', marginTop: '6px', lineHeight: 1 }}>
             {remaining}
           </div>
-          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginTop: '3px' }}>
-            Awaiting egress
+          <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 500, marginTop: '4px' }}>
+            Awaiting clearance
           </div>
         </div>
       </div>
@@ -141,25 +142,26 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
         style={{
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '12px 16px',
+          borderRadius: '14px',
+          padding: '14px 18px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
         }}
       >
-        <div className="flex items-center justify-between" style={{ marginBottom: '8px' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
           <div>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1e293b' }}>
               Total Evacuation Progress
             </span>
-            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginLeft: '8px' }}>
+            <span style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 500, marginLeft: '10px' }}>
               ({evacuated} of {total} occupants cleared)
             </span>
           </div>
-          <span style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 800, color: '#0d7a5f' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 800, color: '#0d7a5f' }}>
             {evacProgress}%
           </span>
         </div>
 
-        <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+        <div style={{ width: '100%', height: '7px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
           <div
             className="transition-all"
             style={{
@@ -178,20 +180,26 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
         style={{
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '14px 16px',
+          borderRadius: '14px',
+          padding: '16px 18px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
         }}
       >
-        <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
-          <div className="flex items-center" style={{ gap: '6px' }}>
-            <Layers style={{ width: '13px', height: '13px', color: '#0d7a5f' }} />
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div
+              className="flex items-center justify-center"
+              style={{ width: '24px', height: '24px', borderRadius: '7px', background: '#f0fdf4', color: '#0d7a5f' }}
+            >
+              <Layers style={{ width: '13px', height: '13px' }} />
+            </div>
+            <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1e293b' }}>
               10-Floor Population Distribution
             </span>
           </div>
           <span
             style={{
-              fontSize: '9.5px',
+              fontSize: '10px',
               fontWeight: 700,
               color: '#0d7a5f',
               background: '#f0fdf4',
@@ -204,8 +212,8 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
           </span>
         </div>
 
-        {/* 10 Floor Grid: 2 rows of 5 */}
-        <div className="grid grid-cols-5" style={{ gap: '6px' }}>
+        {/* 10 Floor Grid: 2 rows of 5 with comfortable margins */}
+        <div className="grid grid-cols-5" style={{ gap: '8px' }}>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(fl => {
             const data = floorData[fl] || { occupants: 0, hasFire: false };
             const isHazard = data.hasFire;
@@ -215,16 +223,16 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
                 key={fl}
                 className="flex items-center justify-between transition-all"
                 style={{
-                  padding: '6px 10px',
-                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
                   background: isHazard ? '#fff5f5' : '#f8fafc',
                   border: isHazard ? '1px solid #fecaca' : '1px solid #e2e8f0',
                 }}
               >
-                <div className="flex items-center" style={{ gap: '6px' }}>
+                <div className="flex items-center" style={{ gap: '8px' }}>
                   <span
                     style={{
-                      fontSize: '9.5px',
+                      fontSize: '10px',
                       fontFamily: 'monospace',
                       fontWeight: 800,
                       color: isHazard ? '#dc2626' : '#64748b',
@@ -232,15 +240,15 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
                   >
                     L{fl}
                   </span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: isHazard ? '#dc2626' : '#1e293b', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: isHazard ? '#dc2626' : '#1e293b', fontFamily: 'monospace' }}>
                     {data.occupants}p
                   </span>
                 </div>
 
                 {isHazard ? (
-                  <Flame style={{ width: '12px', height: '12px', color: '#ef4444', fill: '#ef4444' }} />
+                  <Flame style={{ width: '13px', height: '13px', color: '#ef4444', fill: '#ef4444' }} />
                 ) : (
-                  <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
                 )}
               </div>
             );
@@ -248,22 +256,23 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
         </div>
       </div>
 
-      {/* 4. STAIRWELL CORES & EGRESS THROUGHPUT (Clean Compact Single-Line Rows) */}
+      {/* 4. STAIRWELL CORES & EGRESS THROUGHPUT */}
       <div
         style={{
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '14px 16px',
+          borderRadius: '14px',
+          padding: '16px 18px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
         }}
       >
-        <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1e293b' }}>
             Stairwell Core & Egress Exit Throughput
           </span>
           <span
             style={{
-              fontSize: '9.5px',
+              fontSize: '10px',
               fontWeight: 700,
               padding: '2px 8px',
               borderRadius: '6px',
@@ -277,7 +286,7 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
           </span>
         </div>
 
-        <div className="flex flex-col" style={{ gap: '6px' }}>
+        <div className="flex flex-col" style={{ gap: '8px' }}>
           {exits.map((exit) => {
             const load = exit.load || 0;
             const capacity = exit.capacity || 60;
@@ -295,25 +304,25 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
                 key={exit.id}
                 className="flex items-center justify-between"
                 style={{
-                  padding: '8px 12px',
-                  borderRadius: '9px',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
                   background: '#f8fafc',
                   border: '1px solid #e2e8f0',
-                  gap: '12px',
+                  gap: '14px',
                 }}
               >
                 {/* Left: Indicator & Exit Name */}
-                <div className="flex items-center min-w-[220px]" style={{ gap: '8px' }}>
+                <div className="flex items-center min-w-[230px]" style={{ gap: '10px' }}>
                   <span
                     style={{
-                      width: '6px',
-                      height: '6px',
+                      width: '7px',
+                      height: '7px',
                       borderRadius: '50%',
                       background: dotColor,
                       flexShrink: 0,
                     }}
                   />
-                  <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#1e293b' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
                     {exit.name}
                   </span>
                 </div>
@@ -333,16 +342,16 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
                 </div>
 
                 {/* Right: Numbers & Load Pill */}
-                <div className="flex items-center shrink-0" style={{ gap: '8px' }}>
+                <div className="flex items-center shrink-0" style={{ gap: '10px' }}>
                   <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 600, color: '#64748b' }}>
                     {load} / {capacity}
                   </span>
                   <span
                     style={{
-                      fontSize: '9.5px',
+                      fontSize: '10px',
                       fontWeight: 800,
-                      padding: '1px 6px',
-                      borderRadius: '5px',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
                       background: badgeBg,
                       color: badgeColor,
                       border: `1px solid ${badgeBorder}`,
@@ -362,19 +371,19 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
       {bottlenecks.length > 0 ? (
         <div
           style={{
-            padding: '10px 14px',
-            borderRadius: '10px',
+            padding: '12px 16px',
+            borderRadius: '12px',
             background: '#fffbfb',
             border: '1px solid #fecaca',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '10px',
           }}
         >
-          <AlertTriangle style={{ width: '14px', height: '14px', color: '#ef4444', flexShrink: 0 }} />
+          <AlertTriangle style={{ width: '15px', height: '15px', color: '#ef4444', flexShrink: 0 }} />
           <div className="flex flex-col" style={{ gap: '2px' }}>
             {bottlenecks.map((msg, i) => (
-              <span key={i} style={{ fontSize: '10.5px', color: '#b91c1c', fontWeight: 500 }}>
+              <span key={i} style={{ fontSize: '11px', color: '#b91c1c', fontWeight: 500 }}>
                 • {msg}
               </span>
             ))}
@@ -383,17 +392,17 @@ export const BottleneckAnalytics = React.memo(({ stats = {}, exits = [], rooms =
       ) : (
         <div
           style={{
-            padding: '8px 12px',
-            borderRadius: '10px',
+            padding: '10px 14px',
+            borderRadius: '12px',
             background: '#f0fdf4',
             border: '1px solid #d1fae5',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
+            gap: '10px',
           }}
         >
-          <ShieldCheck style={{ width: '14px', height: '14px', color: '#0d7a5f', flexShrink: 0 }} />
-          <span style={{ fontSize: '11px', fontWeight: 600, color: '#0d7a5f' }}>
+          <ShieldCheck style={{ width: '15px', height: '15px', color: '#0d7a5f', flexShrink: 0 }} />
+          <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#0d7a5f' }}>
             All egress cores are operating below capacity. Safe load-balancing active.
           </span>
         </div>
