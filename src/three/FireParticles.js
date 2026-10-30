@@ -317,20 +317,16 @@ export class FireParticles {
 
   setFloorMode(mode) {
     this.floorMode = mode;
-    const EXPLOSION_OFFSET = 1.8;
     this.activeFires.forEach((fire, roomId) => {
       const floorNum = fire.floor || parseInt(roomId.replace(/\D/g, '').slice(0, 2), 10) || 1;
-      if (mode === 'ALL') {
+      // Always canonical elevation
+      fire.group.position.y = fire.basePos ? fire.basePos.y : fire.group.position.y;
+
+      if (mode === 'ALL' || mode === 'EXPLODED') {
         fire.group.visible = true;
-        fire.group.position.y = fire.basePos ? fire.basePos.y : fire.group.position.y;
-      } else if (mode === 'EXPLODED') {
-        fire.group.visible = true;
-        const baseY = fire.basePos ? fire.basePos.y : fire.group.position.y;
-        fire.group.position.y = baseY + (floorNum - 1) * EXPLOSION_OFFSET;
       } else {
         const targetFloor = parseInt(mode, 10);
         fire.group.visible = (floorNum === targetFloor);
-        fire.group.position.y = fire.basePos ? fire.basePos.y : fire.group.position.y;
       }
     });
   }

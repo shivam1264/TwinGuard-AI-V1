@@ -2501,98 +2501,72 @@ export class Building3D {
 
     setFloorMode(mode) {
     this.floorMode = mode;
-    // Subtle, architecturally clear BIM explosion offset: 1.8m vertical clearance
-    const EXPLOSION_OFFSET = 1.8;
 
-    // 1. Floor-Bound Architecture (floor slab, furniture, room walls, ceiling lights)
+    // CANONICAL PHYSICAL ARCHITECTURE:
+    // Zero vertical displacement in all modes. Layered mode is a BIM visual layer state,
+    // keeping the entire building 100% assembled at canonical world coordinates.
     for (let f = 1; f <= this.totalFloors; f++) {
       const group = this.floorGroups[f];
+      group.position.y = 0;
 
-      if (mode === 'ALL') {
+      if (mode === 'ALL' || mode === 'EXPLODED') {
         group.visible = true;
-        group.position.y = 0;
-        this.roofGroup.visible = true;
-        this.roofGroup.position.y = 0;
-      } else if (mode === 'EXPLODED') {
-        group.visible = true;
-        group.position.y = (f - 1) * EXPLOSION_OFFSET;
-        this.roofGroup.visible = true;
-        this.roofGroup.position.y = (this.totalFloors - 1) * EXPLOSION_OFFSET;
       } else {
         const targetFloor = parseInt(mode, 10);
         group.visible = (f === targetFloor);
-        group.position.y = 0;
-        this.roofGroup.visible = false;
       }
     }
 
-    // 2. Continuous Vertical Circulation Spine: Stairs & Enclosure
+    // Continuous Vertical Circulation: Stairs remain fully connected at canonical coordinates
     if (this.stairsGroup) {
       this.stairsGroup.position.y = 0;
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.stairsGroup.visible = true;
-        this.stairsGroup.children.forEach(child => {
-          child.visible = true;
-        });
-      } else {
-        const targetFloor = parseInt(mode, 10);
-        this.stairsGroup.visible = true;
-        this.stairsGroup.children.forEach(child => {
-          child.visible = (child.userData && child.userData.floor === targetFloor);
-        });
-      }
+      this.stairsGroup.visible = true;
+      this.stairsGroup.children.forEach(child => {
+        child.visible = true;
+      });
     }
 
-    // 3. Continuous Vertical Core: Elevator Bank & Shafts
+    // Continuous Vertical Core: Elevator Bank remains fully aligned at canonical coordinates
     if (this.elevatorGroup) {
       this.elevatorGroup.position.y = 0;
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.elevatorGroup.visible = true;
-        this.elevatorGroup.children.forEach(child => {
-          child.visible = true;
-        });
-      } else {
-        const targetFloor = parseInt(mode, 10);
-        this.elevatorGroup.visible = true;
-        this.elevatorGroup.children.forEach(child => {
-          child.visible = (child.userData && child.userData.floor === targetFloor);
-        });
-      }
+      this.elevatorGroup.visible = true;
+      this.elevatorGroup.children.forEach(child => {
+        child.visible = true;
+      });
     }
 
-    // 4. Continuous Structural Framework: Concrete Columns & Corner Piers
+    // Continuous Structural Framework: Concrete Columns & Corner Piers remain unbroken
     if (this.layers.structure) {
       this.layers.structure.position.y = 0;
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.layers.structure.visible = true;
-        this.layers.structure.children.forEach(child => {
-          child.visible = true;
-        });
-      } else {
-        const targetFloor = parseInt(mode, 10);
-        this.layers.structure.visible = true;
-        this.layers.structure.children.forEach(child => {
-          child.visible = (child.userData && child.userData.floor === targetFloor);
-        });
-      }
+      this.layers.structure.visible = true;
+      this.layers.structure.children.forEach(child => {
+        child.visible = true;
+      });
     }
 
-    // 5. Exterior Envelope Facade
+    // Roof & Helipad: Canonical elevation
+    if (this.roofGroup) {
+      this.roofGroup.position.y = 0;
+      this.roofGroup.visible = (mode === 'ALL' || mode === 'EXPLODED');
+    }
+
+    // Exterior Envelope Facade: Canonical elevation
     if (this.facadeCutawayGroup) {
+      // In Layered BIM mode, cut away front facade to reveal internal BIM systems inside the assembled building
+      if (mode === 'EXPLODED') {
+        this.setFacadeMode('CUTAWAY');
+      }
+
       const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
         const fl = (sub.userData && sub.userData.floor !== undefined) ? sub.userData.floor : 1;
+        sub.position.y = 0;
 
-        if (mode === 'ALL') {
+        if (mode === 'ALL' || mode === 'EXPLODED') {
           sub.visible = isShowingFacade;
-          sub.position.y = 0;
-        } else if (mode === 'EXPLODED') {
-          sub.visible = isShowingFacade;
-          sub.position.y = (fl - 1) * EXPLOSION_OFFSET;
         } else {
           const targetFloor = parseInt(mode, 10);
           sub.visible = isShowingFacade && (fl === targetFloor);
-          sub.position.y = 0;
         }
       });
     }

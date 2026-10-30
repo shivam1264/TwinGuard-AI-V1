@@ -342,7 +342,7 @@ export class SceneManager {
       : [parseInt(activeMode, 10) || 1];
 
     for (const fl of floorLevels) {
-      const floorY = (fl - 1) * this.building.floorHeight + (activeMode === 'EXPLODED' ? (fl - 1) * 5.0 : 0);
+      const floorY = (fl - 1) * this.building.floorHeight;
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorY);
       const intersection = new THREE.Vector3();
 
