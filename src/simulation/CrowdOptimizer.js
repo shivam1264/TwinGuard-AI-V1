@@ -517,7 +517,8 @@ let fallbackAssignment = false;
           routeCondition: bestRoute?.condition || null,
           routeReasons: bestRoute?.reasons || [],
           noPermittedCandidate: fallbackAssignment,
-          requiresOperatorReview: fallbackAssignment
+          requiresOperatorReview: fallbackAssignment,
+          delayTimer: delayTimer
         });
       }
     });
@@ -634,6 +635,7 @@ let fallbackAssignment = false;
       let availableExits = floorExits.filter(e => !e.isBlocked);
 
       // Fallback: If both floor stairwells are compromised, fallback to any operational exit
+      const allOperational = this.exits.filter(e => !e.isBlocked);
       if (availableExits.length === 0) {
         availableExits = allOperational.length > 0 ? allOperational : this.exits;
       }

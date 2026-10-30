@@ -950,7 +950,6 @@ export class SceneManager {
     this.pausedElapsedSeconds = 0;
     this.lastRoutingContextHash = null;
     this.reevaluationCooldown = 0;
-    this.activeStrategyType = strategyType;
 
     // Start the clock
     if (!this._clock.running) {
@@ -974,6 +973,7 @@ export class SceneManager {
     const floorBlockedMap = activeScenario?.structuralFailures?.floorBlockedExits || null;
     const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
     const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+    this.activeStrategyType = strategyType;
 
     let optimizationResult;
     if (this.crowdOptimizer) {

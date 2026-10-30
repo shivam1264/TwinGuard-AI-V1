@@ -4,6 +4,7 @@ import { NavigationGraph, EDGE_STATUS } from './NavigationGraph.js';
 import { RouteOptimizationEngine } from './RouteOptimizationEngine.js';
 import { CrowdOptimizer } from './CrowdOptimizer.js';
 import { createTowerGraph, loadBuilding } from './BuildingGraph.js';
+import { ROUTE_CONDITIONS } from './RoutingHazardAdapter.js';
 
 function createMockPathfinder() {
   return { findPath: () => [{ x: 0, z: 0 }] };
@@ -378,4 +379,72 @@ test('CrowdOptimizer: unknown hazard handling unchanged', () => {
 
   // Should prefer permitted over unknown
   assert.equal(result.assignments[0].exitId, 'exit_east');
+});
+
+test('reevaluateRoutes allOperational fallback when both stairwells compromised', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+
+  // Block both west and east exits - both stairwells compromised
+  optimizer.exits.find(e => e.id === 'exit_west').isBlocked = true;
+  optimizer.exits.find(e => e.id === 'exit_east').isBlocked = true;
+  // South exit remains operational
+  optimizer.exits.find(e => e.id === 'exit_south').isBlocked = false;
+
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: 'exit_west', state: 'EVACUATING' }),
+  ];
+
+  const currentAssignments = [
+    { agentId: 'agent_1', exitId: 'exit_west', routeCondition: ROUTE_CONDITIONS.PROHIBITED, path: [{x:0,z:0}], currentWaypointIdx: 0 },
+  ];
+
+  const routingContext = {
+    availability: { available: true },
+    routes: {
+      'L5:exit_west': { condition: ROUTE_CONDITIONS.PROHIBITED },
+      'L5:exit_east': { condition: ROUTE_CONDITIONS.PROHIBITED },
+      'L5:exit_south': { condition: ROUTE_CONDITIONS.PERMITTED },
+    }
+  };
+
+  // Should not throw ReferenceError for undefined allOperational
+  const result = optimizer.reevaluateRoutes(agents, currentAssignments, [], { routingContext });
+
+  assert.equal(result.assignments.length, 1);
+  // Agent should be reassigned to the only operational exit (south)
+  assert.equal(result.assignments[0].exitId, 'exit_south', 'Agent should fall back to south exit when both stairwells blocked');
+  // Should not require operator review since a permitted route (south) exists
+  assert.equal(result.assignments[0].requiresOperatorReview, false);
+  assert.equal(result.assignments[0].noPermittedCandidate, false);
+});
+
+test('reevaluateRoutes allOperational fallback preserves operator review when no permitted route', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+
+  // Block ALL exits - no operational exit exists
+  optimizer.exits.forEach(e => { e.isBlocked = true; });
+
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: 'exit_west', state: 'EVACUATING' }),
+  ];
+
+  const currentAssignments = [
+    { agentId: 'agent_1', exitId: 'exit_west', routeCondition: ROUTE_CONDITIONS.PROHIBITED, path: [{x:0,z:0}], currentWaypointIdx: 0 },
+  ];
+
+  const routingContext = {
+    availability: { available: true },
+    routes: {
+      'L5:exit_west': { condition: ROUTE_CONDITIONS.PROHIBITED },
+      'L5:exit_east': { condition: ROUTE_CONDITIONS.PROHIBITED },
+      'L5:exit_south': { condition: ROUTE_CONDITIONS.PROHIBITED },
+    }
+  };
+
+  const result = optimizer.reevaluateRoutes(agents, currentAssignments, [], { routingContext });
+
+  assert.equal(result.assignments.length, 1);
+  // Agent still gets an assignment (fallback to this.exits) but with operator review flags
+  assert.equal(result.assignments[0].noPermittedCandidate, true, 'Should flag no permitted candidate when all exits blocked');
+  assert.equal(result.assignments[0].requiresOperatorReview, true, 'Should require operator review when no permitted route exists');
 });

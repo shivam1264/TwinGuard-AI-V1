@@ -6,6 +6,7 @@ import { assessRisk } from './RiskAssessment.js';
 import { buildRoutingHazardContext, getExitRouteCondition, ROUTE_CONDITIONS } from './RoutingHazardAdapter.js';
 import { CrowdOptimizer } from './CrowdOptimizer.js';
 import { SimulationClock } from '../three/SceneManager.js';
+import { AgentCrowd } from '../three/AgentCrowd.js';
 
 // Mock Agent for testing
 function createMockAgent(overrides = {}) {
@@ -638,4 +639,391 @@ test('Completed agents are not reassigned during urgent reevaluation', () => {
   assert.equal(agent1Assignment, undefined, 'Completed agent should not be reassigned');
   assert.ok(agent2Assignment, 'Active agent should be reassigned');
   assert.equal(agent2Assignment.exitId, 'exit_east', 'Agent should be rerouted to permitted exit');
+});
+
+test('optimizeRoutes applies NEAREST_CORE strategy with no congestion penalty', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+    createMockAgent({ id: 'agent_2', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+  ];
+
+  const result = optimizer.optimizeRoutes(agents, [], [], 'NEAREST_CORE');
+
+  assert.equal(result.assignments.length, 2);
+  result.assignments.forEach(a => {
+    assert.ok(['exit_west', 'exit_east'].includes(a.exitId), `NEAREST_CORE: upper floor agent uses stairwell core, got ${a.exitId}`);
+  });
+});
+
+test('optimizeRoutes applies LOAD_BALANCED strategy with congestion penalty', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+    createMockAgent({ id: 'agent_2', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+  ];
+
+  const result = optimizer.optimizeRoutes(agents, [], [], 'LOAD_BALANCED');
+
+  assert.equal(result.assignments.length, 2);
+  result.assignments.forEach(a => {
+    assert.ok(['exit_west', 'exit_east'].includes(a.exitId), `LOAD_BALANCED: upper floor agent uses stairwell core, got ${a.exitId}`);
+  });
+});
+
+test('optimizeRoutes applies PHASED_ZONE strategy without error', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+    createMockAgent({ id: 'agent_2', floor: 1, x: 0, y: 0, z: 0, currentExitId: undefined }),
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  assert.equal(result.assignments.length, 2);
+  result.assignments.forEach(a => {
+    assert.ok(['exit_west', 'exit_east', 'exit_south'].includes(a.exitId), `PHASED_ZONE: agent assigned to valid exit, got ${a.exitId}`);
+  });
+});
+
+test('optimizeRoutes defaults undefined strategyType to LOAD_BALANCED', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+  ];
+
+  // Passing undefined strategyType should fall back to LOAD_BALANCED default
+  const result = optimizer.optimizeRoutes(agents, [], [], undefined);
+
+  assert.equal(result.assignments.length, 1);
+  assert.ok(['exit_west', 'exit_east'].includes(result.assignments[0].exitId));
+});
+
+test('PHASED_ZONE adjacent floor gets secondary priority delay', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 4, x: 0, y: 11.4, z: 0, currentExitId: undefined }), // adjacent to fire floor 5
+    createMockAgent({ id: 'agent_2', floor: 6, x: 0, y: 19.0, z: 0, currentExitId: undefined }), // adjacent to fire floor 5
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  assert.equal(result.assignments.length, 2);
+  result.assignments.forEach(a => {
+    assert.ok(['exit_west', 'exit_east', 'exit_south'].includes(a.exitId), `PHASED_ZONE: adjacent floor agent assigned to valid exit, got ${a.exitId}`);
+  });
+});
+
+test('PHASED_ZONE assignment includes delayTimer for fire floor agent', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  assert.equal(result.assignments.length, 1);
+  assert.ok(result.assignments[0].delayTimer >= 1.0 && result.assignments[0].delayTimer <= 2.0,
+    `Fire floor agent delayTimer should be 1-2s, got ${result.assignments[0].delayTimer}`);
+});
+
+test('PHASED_ZONE assignment includes delayTimer for adjacent floor agent', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 4, x: 0, y: 11.4, z: 0, currentExitId: undefined }),
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  assert.equal(result.assignments.length, 1);
+  assert.ok(result.assignments[0].delayTimer >= 3.0 && result.assignments[0].delayTimer <= 6.0,
+    `Adjacent floor agent delayTimer should be 3-6s, got ${result.assignments[0].delayTimer}`);
+});
+
+test('PHASED_ZONE assignment includes delayTimer for non-adjacent floor agent', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 8, x: 0, y: 26.6, z: 0, currentExitId: undefined }),
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  assert.equal(result.assignments.length, 1);
+  assert.ok(result.assignments[0].delayTimer >= 45.0 && result.assignments[0].delayTimer <= 51.0,
+    `Other floor agent delayTimer should be 45-51s, got ${result.assignments[0].delayTimer}`);
+});
+
+test('Non-PHASED_ZONE strategies do not include delayTimer', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agents = [
+    createMockAgent({ id: 'agent_1', floor: 5, x: 0, y: 15.25, z: 0, currentExitId: undefined }),
+  ];
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+
+  for (const strategy of ['NEAREST_CORE', 'LOAD_BALANCED', 'DYNAMIC_CORE_BALANCING']) {
+    const result = optimizer.optimizeRoutes(agents, fireLocations, [], strategy);
+    assert.equal(result.assignments[0].delayTimer, 0,
+      `${strategy}: delayTimer should be 0 for non-PHASED_ZONE strategies`);
+  }
+});
+
+test('AgentCrowd.assignRoutes puts agent in WAITING when delayTimer > 0', () => {
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+  // Create a minimal agent object
+  const agent = {
+    id: 'agent_1',
+    floor: 5,
+    x: 0, y: 15.25, z: 0,
+    state: 'EVACUATING',
+    isSeated: false,
+    path: [{ x: 0, z: 0 }],
+    currentWaypointIdx: 0,
+    roomId: 'f5_r1',
+    mesh: { position: { set: () => {} }, visible: true },
+    leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    leftKnee: { rotation: { x: 0 } },
+    rightKnee: { rotation: { x: 0 } },
+    torso: { position: { y: 0 } },
+    headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+    leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+    rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+    leftElbow: { rotation: { x: 0 } },
+    rightElbow: { rotation: { x: 0 } },
+    beacon: { material: { color: { set: () => {} } } },
+    shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+  };
+  agentCrowd.agents.push(agent);
+
+  const assignments = [{
+    agentId: 'agent_1',
+    exitId: 'exit_west',
+    exitName: 'West Exit',
+    exitColor: '#00ff88',
+    path: [{ x: 0, z: 0 }],
+    targetExit: { x: -29.2, z: 0 },
+    delayTimer: 5.0,
+  }];
+
+  agentCrowd.assignRoutes(assignments);
+
+  assert.equal(agent.state, 'WAITING', 'Agent with delayTimer > 0 should be in WAITING state');
+  assert.equal(agent.delayTimer, 5.0, 'Agent delayTimer should be set from assignment');
+  assert.equal(agent.originalDelayTimer, 5.0, 'Agent originalDelayTimer should be set from assignment');
+});
+
+test('AgentCrowd.assignRoutes puts agent in EVACUATING when delayTimer is 0', () => {
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+  const agent = {
+    id: 'agent_1',
+    floor: 5,
+    x: 0, y: 15.25, z: 0,
+    state: 'IDLE',
+    isSeated: false,
+    path: [{ x: 0, z: 0 }],
+    currentWaypointIdx: 0,
+    roomId: 'f5_r1',
+    mesh: { position: { set: () => {} }, visible: true },
+    leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    leftKnee: { rotation: { x: 0 } },
+    rightKnee: { rotation: { x: 0 } },
+    torso: { position: { y: 0 } },
+    headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+    leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+    rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+    leftElbow: { rotation: { x: 0 } },
+    rightElbow: { rotation: { x: 0 } },
+    beacon: { material: { color: { set: () => {} } } },
+    shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+  };
+  agentCrowd.agents.push(agent);
+
+  const assignments = [{
+    agentId: 'agent_1',
+    exitId: 'exit_west',
+    exitName: 'West Exit',
+    exitColor: '#00ff88',
+    path: [{ x: 0, z: 0 }],
+    targetExit: { x: -29.2, z: 0 },
+    delayTimer: 0,
+  }];
+
+  agentCrowd.assignRoutes(assignments);
+
+  assert.equal(agent.state, 'EVACUATING', 'Agent with delayTimer = 0 should be in EVACUATING state');
+});
+
+test('AgentCrowd.update decrements delayTimer and transitions to EVACUATING when expired', () => {
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+  const agent = {
+    id: 'agent_1',
+    floor: 5,
+    x: 0, y: 15.25, z: 0,
+    state: 'WAITING',
+    isSeated: false,
+    path: [{ x: 0, z: 0 }, { x: -26, z: 0 }],
+    currentWaypointIdx: 0,
+    roomId: 'f5_r1',
+    mesh: { position: { set: () => {} }, visible: true, rotation: { y: 0 } },
+    leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    leftKnee: { rotation: { x: 0 } },
+    rightKnee: { rotation: { x: 0 } },
+    torso: { position: { y: 0 } },
+    headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+    leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+    rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+    leftElbow: { rotation: { x: 0 } },
+    rightElbow: { rotation: { x: 0 } },
+    beacon: { material: { color: { set: () => {} } } },
+    shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+    animCycle: 0,
+    speed: 3.2,
+  };
+  agentCrowd.agents.push(agent);
+
+  agent.delayTimer = 1.0;
+  agent.originalDelayTimer = 1.0;
+
+  // First frame: timer should decrease but agent still WAITING
+  const result1 = agentCrowd.update(0.016, 1.0);
+  assert.equal(agent.state, 'WAITING', 'Agent should still be WAITING after first frame');
+  assert.ok(agent.delayTimer < 1.0, 'delayTimer should decrease');
+  assert.ok(agent.delayTimer > 0, 'delayTimer should not yet be 0');
+
+  // Advance enough frames to expire the timer
+  agentCrowd.update(1.0, 1.0);
+  assert.equal(agent.state, 'EVACUATING', 'Agent should transition to EVACUATING after delay expires');
+  assert.equal(agent.delayTimer, 0, 'delayTimer should be 0 after expiry');
+});
+
+test('AgentCrowd.update emergency override releases waiting agent when zone is dangerous', () => {
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+  const agent = {
+    id: 'agent_1',
+    floor: 5,
+    x: 0, y: 15.25, z: 0,
+    state: 'WAITING',
+    isSeated: false,
+    path: [{ x: 0, z: 0 }],
+    currentWaypointIdx: 0,
+    roomId: 'f5_r1',
+    mesh: { position: { set: () => {} }, visible: true, rotation: { y: 0 } },
+    leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    leftKnee: { rotation: { x: 0 } },
+    rightKnee: { rotation: { x: 0 } },
+    torso: { position: { y: 0 } },
+    headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+    leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+    rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+    leftElbow: { rotation: { x: 0 } },
+    rightElbow: { rotation: { x: 0 } },
+    beacon: { material: { color: { set: () => {} } } },
+    shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+    animCycle: 0,
+    speed: 3.2,
+  };
+  agentCrowd.agents.push(agent);
+  agentCrowd.fireSystem = { activeFires: [{ basePos: { x: 0, y: 15.25, z: 0 } }] };
+
+  agent.delayTimer = 45.0; // Long delay, should not expire naturally
+  agent.originalDelayTimer = 45.0;
+
+  // Fire is at same position as agent (0 distance, same floor) - emergency override
+  agentCrowd.update(0.016, 1.0);
+  assert.equal(agent.state, 'EVACUATING', 'Agent should emergency-evacuate when waiting zone is dangerous');
+  assert.equal(agent.delayTimer, 0, 'delayTimer should be 0 after emergency override');
+});
+
+test('AgentCrowd.clearPhasedDelays clears delay timers on reset', () => {
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+  const agent = {
+    id: 'agent_1',
+    floor: 5,
+    x: 0, y: 15.25, z: 0,
+    state: 'WAITING',
+    isSeated: false,
+    path: [{ x: 0, z: 0 }],
+    currentWaypointIdx: 0,
+    roomId: 'f5_r1',
+    mesh: { position: { set: () => {} }, visible: true, rotation: { y: 0 } },
+    leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+    leftKnee: { rotation: { x: 0 } },
+    rightKnee: { rotation: { x: 0 } },
+    torso: { position: { y: 0 } },
+    headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+    leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+    rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+    leftElbow: { rotation: { x: 0 } },
+    rightElbow: { rotation: { x: 0 } },
+    beacon: { material: { color: { set: () => {} } } },
+    shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+  };
+  agentCrowd.agents.push(agent);
+
+  agent.delayTimer = 45.0;
+  agent.originalDelayTimer = 45.0;
+  agent.state = 'WAITING';
+
+  agentCrowd.clearPhasedDelays();
+
+  assert.equal(agent.delayTimer, 0, 'delayTimer should be cleared');
+  assert.equal(agent.originalDelayTimer, 0, 'originalDelayTimer should be cleared');
+  assert.equal(agent.state, 'IDLE', 'WAITING agent should be set to IDLE after clear');
+});
+
+test('End-to-end: PHASED_ZONE delay flows from optimizeRoutes through assignRoutes to agent state', () => {
+  const optimizer = new CrowdOptimizer({}, createMockPathfinder());
+  const agentCrowd = new AgentCrowd({ add: () => {} });
+
+  const agents = [
+    {
+      id: 'agent_1',
+      floor: 8,
+      x: 0, y: 26.6, z: 0,
+      state: 'EVACUATING',
+      isSeated: false,
+      path: [],
+      currentWaypointIdx: 0,
+      currentExitId: undefined,
+      roomId: 'f8_r1',
+      mesh: { position: { set: () => {} }, visible: true, rotation: { y: 0 } },
+      leftLeg: { position: { y: 0 }, rotation: { x: 0 } },
+      rightLeg: { position: { y: 0 }, rotation: { x: 0 } },
+      leftKnee: { rotation: { x: 0 } },
+      rightKnee: { rotation: { x: 0 } },
+      torso: { position: { y: 0 } },
+      headGroup: { position: { y: 0 }, rotation: { x: 0 } },
+      leftArm: { position: { y: 0 }, rotation: { x: 0 } },
+      rightArm: { position: { y: 0 }, rotation: { x: 0 } },
+      leftElbow: { rotation: { x: 0 } },
+      rightElbow: { rotation: { x: 0 } },
+      beacon: { material: { color: { set: () => {} } } },
+      shirtMat: { emissive: { set: () => {} }, emissiveIntensity: 0 },
+    },
+  ];
+  agentCrowd.agents.push(agents[0]);
+
+  const fireLocations = [{ x: 0, y: 15.25, z: 0, floor: 5 }];
+  const result = optimizer.optimizeRoutes(agents, fireLocations, [], 'PHASED_ZONE');
+
+  // Verify delayTimer is in the assignment
+  assert.ok(result.assignments[0].delayTimer >= 45.0,
+    `optimizeRoutes should include delayTimer >= 45s for non-adjacent floor, got ${result.assignments[0].delayTimer}`);
+
+  // Forward assignments to AgentCrowd
+  agentCrowd.assignRoutes(result.assignments);
+
+  // Verify agent enters WAITING state
+  assert.equal(agents[0].state, 'WAITING', 'Agent should be WAITING after assignRoutes with PHASED_ZONE delay');
+  assert.equal(agents[0].delayTimer, result.assignments[0].delayTimer, 'Agent delayTimer should match assignment');
 });
