@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import {
-  Play,
+  Flame,
   Pause,
   RotateCcw,
   Gauge,
   Layers,
   Camera,
   Maximize2,
-  ChevronDown
+  ChevronDown,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 export const BottomControlDock = ({
@@ -43,52 +45,53 @@ export const BottomControlDock = ({
   const handleSelectCamera = (opt) => {
     setCurrentCameraLabel(opt.label);
     setCameraMenuOpen(false);
-    onSetCameraPreset(opt.id);
+    if (onSetCameraPreset) onSetCameraPreset(opt.id);
   };
 
   return (
     <div
       className="flex items-center justify-between shrink-0 z-30 select-none"
       style={{
-        height: '68px',
+        height: '66px',
         padding: '0 20px',
         background: '#ffffff',
         borderTop: '1px solid #e2e8f0',
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      {/* 1. Left Group: Evacuation Action & Reset */}
-      <div className="flex items-center" style={{ gap: '10px' }}>
+      {/* ── 1. Left Group: Evacuation Action & Reset ── */}
+      <div className="flex items-center" style={{ gap: '12px' }}>
         {!isSimulating ? (
           <button
             onClick={onStartEvacuation}
             className="flex items-center cursor-pointer transition-all focus:outline-none"
             style={{
-              height: '44px',
+              height: '42px',
               padding: '0 18px',
               borderRadius: '999px',
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              boxShadow: '0 4px 14px -2px rgba(239, 68, 68, 0.35)',
+              boxShadow: '0 4px 14px -2px rgba(239, 68, 68, 0.4)',
               color: '#ffffff',
               gap: '10px',
+              border: 'none',
             }}
           >
             <div
               className="flex items-center justify-center shrink-0"
               style={{
-                width: '26px',
-                height: '26px',
+                width: '24px',
+                height: '24px',
                 borderRadius: '50%',
                 background: 'rgba(255, 255, 255, 0.25)',
               }}
             >
-              <Play style={{ width: '13px', height: '13px', fill: 'white', color: 'white', marginLeft: '2px' }} />
+              <Flame style={{ width: '13px', height: '13px', fill: 'white', color: 'white' }} />
             </div>
             <div className="text-left">
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
                 START EVACUATION
               </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.8)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
+              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
                 Simulate and manage routes
               </div>
             </div>
@@ -98,31 +101,32 @@ export const BottomControlDock = ({
             onClick={onPauseResume}
             className="flex items-center cursor-pointer transition-all focus:outline-none"
             style={{
-              height: '44px',
+              height: '42px',
               padding: '0 18px',
               borderRadius: '999px',
               background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              boxShadow: '0 4px 14px -2px rgba(249, 115, 22, 0.35)',
+              boxShadow: '0 4px 14px -2px rgba(249, 115, 22, 0.4)',
               color: '#ffffff',
               gap: '10px',
+              border: 'none',
             }}
           >
             <div
               className="flex items-center justify-center shrink-0"
               style={{
-                width: '26px',
-                height: '26px',
+                width: '24px',
+                height: '24px',
                 borderRadius: '50%',
                 background: 'rgba(255, 255, 255, 0.25)',
               }}
             >
-              <Pause style={{ width: '13px', height: '13px', fill: 'white', color: 'white' }} />
+              <Pause style={{ width: '12px', height: '12px', fill: 'white', color: 'white' }} />
             </div>
             <div className="text-left">
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
                 PAUSE EVACUATION
               </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.8)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
+              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
                 Simulation in progress
               </div>
             </div>
@@ -134,112 +138,99 @@ export const BottomControlDock = ({
           onClick={onReset}
           className="flex items-center cursor-pointer transition-all focus:outline-none"
           style={{
-            height: '44px',
+            height: '42px',
             padding: '0 14px',
             borderRadius: '999px',
-            background: '#f8fafc',
+            background: '#ffffff',
             border: '1px solid #e2e8f0',
             gap: '8px',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
         >
           <div
             className="flex items-center justify-center shrink-0"
             style={{
-              width: '26px',
-              height: '26px',
+              width: '24px',
+              height: '24px',
               borderRadius: '50%',
-              background: '#e2e8f0',
-              color: '#475569',
+              background: '#f1f5f9',
+              color: '#64748b',
             }}
           >
-            <RotateCcw style={{ width: '13px', height: '13px' }} />
+            <RotateCcw style={{ width: '12px', height: '12px' }} />
           </div>
           <div className="text-left">
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#1e293b', lineHeight: 1.1 }}>RESET</div>
-            <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>Clear scenario</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+              RESET
+            </div>
+            <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
+              Clear scenario
+            </div>
           </div>
         </button>
       </div>
 
-      {/* 2. Simulation Speed Capsule */}
-      <div
-        className="hidden md:flex items-center"
-        style={{
-          height: '44px',
-          padding: '0 12px',
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '999px',
-          gap: '10px',
-        }}
-      >
-        <div className="flex items-center" style={{ gap: '6px' }}>
+      {/* ── 2. Center-Left: Simulation Speed Capsule ── */}
+      <div className="flex items-center" style={{ gap: '10px' }}>
+        <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
           <Gauge style={{ width: '15px', height: '15px', color: '#64748b' }} />
-          <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>Speed</span>
+          <span>Simulation Speed</span>
         </div>
 
         <div
           className="flex items-center"
           style={{
-            background: '#e2e8f0',
-            padding: '2px',
+            background: '#f1f5f9',
+            padding: '3px',
             borderRadius: '999px',
             gap: '2px',
           }}
         >
-          {speedOptions.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onSetSpeed(opt.value)}
-              className="cursor-pointer transition-all"
-              style={{
-                fontFamily: 'monospace',
-                fontSize: '11px',
-                fontWeight: simSpeed === opt.value ? 800 : 600,
-                padding: '3px 10px',
-                borderRadius: '999px',
-                background: simSpeed === opt.value ? '#0d7a5f' : 'transparent',
-                color: simSpeed === opt.value ? '#ffffff' : '#64748b',
-                boxShadow: simSpeed === opt.value ? '0 2px 6px -1px rgba(13, 122, 95, 0.3)' : 'none',
-                border: 'none',
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {speedOptions.map((opt) => {
+            const isSelected = simSpeed === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onSetSpeed(opt.value)}
+                className="cursor-pointer transition-all"
+                style={{
+                  height: '28px',
+                  padding: '0 12px',
+                  borderRadius: '999px',
+                  fontSize: '11px',
+                  fontWeight: isSelected ? 800 : 600,
+                  background: isSelected ? '#2563eb' : 'transparent',
+                  color: isSelected ? '#ffffff' : '#64748b',
+                  border: 'none',
+                  boxShadow: isSelected ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* 3. BIM Layers Toggle & Checkboxes */}
-      <div
-        className="hidden lg:flex items-center"
-        style={{
-          height: '44px',
-          padding: '0 14px',
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '999px',
-          gap: '14px',
-        }}
-      >
+      {/* ── 3. Center-Right: BIM Layers & Toggles ── */}
+      <div className="flex items-center" style={{ gap: '12px' }}>
         <div className="flex items-center" style={{ gap: '8px' }}>
-          <Layers style={{ width: '15px', height: '15px', color: '#64748b' }} />
-          <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>BIM Layers</span>
+          <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+            <Layers style={{ width: '15px', height: '15px', color: '#64748b' }} />
+            <span>BIM Layers</span>
+          </div>
 
-          <button
+          {/* Toggle Switch */}
+          <div
             onClick={() => setBimToggle(!bimToggle)}
-            className="cursor-pointer transition-colors"
+            className="cursor-pointer transition-colors relative flex items-center"
             style={{
               width: '34px',
               height: '18px',
               borderRadius: '999px',
+              background: bimToggle ? '#2563eb' : '#cbd5e1',
               padding: '2px',
-              background: bimToggle ? '#0d7a5f' : '#cbd5e1',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
             }}
           >
             <div
@@ -249,131 +240,124 @@ export const BottomControlDock = ({
                 height: '14px',
                 borderRadius: '50%',
                 background: '#ffffff',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                 transform: bimToggle ? 'translateX(16px)' : 'translateX(0)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
               }}
             />
-          </button>
+          </div>
         </div>
 
-        <div className="flex items-center" style={{ gap: '12px', paddingLeft: '12px', borderLeft: '1px solid #e2e8f0' }}>
-          {[
-            { key: 'structure', label: 'Structure' },
-            { key: 'fireSafety', label: 'Fire Safety' },
-            { key: 'occupants', label: 'Occupants' }
-          ].map((item) => (
-            <label
-              key={item.key}
-              className="flex items-center cursor-pointer select-none"
-              style={{ gap: '6px' }}
-            >
-              <input
-                type="checkbox"
-                checked={bimLayers[item.key]}
-                onChange={(e) => onToggleBimLayer(item.key, e.target.checked)}
-                className="cursor-pointer"
-                style={{
-                  width: '14px',
-                  height: '14px',
-                  accentColor: '#0d7a5f',
-                  borderRadius: '3px',
-                }}
-              />
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>{item.label}</span>
-            </label>
-          ))}
+        {/* Checkbox Pills */}
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
+            <input
+              type="checkbox"
+              checked={bimLayers.structure}
+              onChange={() => onToggleBimLayer('structure')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
+            />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Structure</span>
+          </label>
+
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
+            <input
+              type="checkbox"
+              checked={bimLayers.fireSafety}
+              onChange={() => onToggleBimLayer('fireSafety')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
+            />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Fire Safety</span>
+          </label>
+
+          <label className="flex items-center cursor-pointer select-none" style={{ gap: '5px' }}>
+            <input
+              type="checkbox"
+              checked={bimLayers.occupants}
+              onChange={() => onToggleBimLayer('occupants')}
+              className="accent-blue-600 w-3.5 h-3.5 rounded cursor-pointer"
+            />
+            <span style={{ fontSize: '11px', fontWeight: 600, color: '#334155' }}>Occupants</span>
+          </label>
         </div>
       </div>
 
-      {/* 4. Right: Camera View Dropdown & Fullscreen */}
-      <div className="flex items-center" style={{ gap: '8px' }}>
+      {/* ── 4. Right: Camera View Dropdown & Fullscreen ── */}
+      <div className="flex items-center" style={{ gap: '10px' }}>
         <div className="relative">
           <button
             onClick={() => setCameraMenuOpen(!cameraMenuOpen)}
             className="flex items-center cursor-pointer transition-all"
             style={{
-              height: '44px',
-              padding: '0 14px',
-              background: '#f8fafc',
+              height: '38px',
+              padding: '0 12px',
+              borderRadius: '10px',
+              background: '#ffffff',
               border: '1px solid #e2e8f0',
-              borderRadius: '12px',
               gap: '8px',
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
           >
-            <Camera style={{ width: '15px', height: '15px', color: '#0d7a5f' }} />
-            <div className="text-left hidden sm:block">
-              <span style={{ fontSize: '8px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', display: 'block', lineHeight: 1 }}>
-                Camera View
-              </span>
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>
-                {currentCameraLabel}
-              </span>
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                background: '#f0fdf4',
+                color: '#16a34a',
+              }}
+            >
+              <Camera style={{ width: '13px', height: '13px' }} />
             </div>
-            <ChevronDown style={{ width: '13px', height: '13px', color: '#94a3b8', marginLeft: '2px' }} />
+            <div className="text-left">
+              <div style={{ fontSize: '8.5px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', lineHeight: 1 }}>
+                Camera View
+              </div>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1, marginTop: '2px' }}>
+                {currentCameraLabel}
+              </div>
+            </div>
+            <ChevronDown style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
           </button>
 
+          {/* Camera Dropdown Menu */}
           {cameraMenuOpen && (
             <div
-              className="absolute flex flex-col"
-              style={{
-                right: 0,
-                bottom: '100%',
-                marginBottom: '8px',
-                width: '180px',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '12px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)',
-                padding: '4px',
-                gap: '2px',
-                zIndex: 40,
-              }}
+              className="absolute right-0 bottom-full mb-2 w-44 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-50 flex flex-col"
+              style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
             >
               {cameraOptions.map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => handleSelectCamera(opt)}
-                  className="w-full flex items-center text-left cursor-pointer transition-all"
-                  style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    fontSize: '11.5px',
-                    fontWeight: currentCameraLabel === opt.label ? 700 : 500,
-                    background: currentCameraLabel === opt.label ? '#f0fdf4' : 'transparent',
-                    color: currentCameraLabel === opt.label ? '#0d7a5f' : '#334155',
-                    border: 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (currentCameraLabel !== opt.label) e.currentTarget.style.background = '#f8fafc';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (currentCameraLabel !== opt.label) e.currentTarget.style.background = 'transparent';
-                  }}
+                  className="px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
                 >
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {currentCameraLabel === opt.label && <div className="w-1.5 h-1.5 rounded-full bg-blue-600" />}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Fullscreen Button */}
+        {/* Maximize / Fullscreen Button */}
         <button
           onClick={onToggleFullscreen}
-          className="flex items-center justify-center cursor-pointer transition-all"
+          className="flex items-center justify-center cursor-pointer transition-colors"
           style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: '#f8fafc',
+            width: '38px',
+            height: '38px',
+            borderRadius: '10px',
+            background: '#ffffff',
             border: '1px solid #e2e8f0',
-            color: '#475569',
+            color: '#64748b',
           }}
           title="Toggle Fullscreen"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0d7a5f'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#475569'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0f172a'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#64748b'; }}
         >
-          <Maximize2 style={{ width: '16px', height: '16px' }} />
+          <Maximize2 style={{ width: '14px', height: '14px' }} />
         </button>
       </div>
     </div>

@@ -1,9 +1,10 @@
 import React from 'react';
 import {
   ZoomIn,
-  ZoomOut,
+  RotateCcw,
   Layers,
-  Crosshair
+  Crosshair,
+  Maximize2
 } from 'lucide-react';
 
 export const ViewportOverlay = ({
@@ -30,7 +31,7 @@ export const ViewportOverlay = ({
       className="absolute inset-0 pointer-events-none z-10 p-5 select-none"
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
-      {/* Top-Left: View Mode Selector Pills & Compass Rose */}
+      {/* ── Top-Left: View Mode Selector Pills & Compass Rose ── */}
       <div className="absolute top-5 left-5 flex flex-col pointer-events-auto" style={{ gap: '12px' }}>
         {/* Pills: [Exterior] [Interior] [Top View] */}
         <div
@@ -52,10 +53,10 @@ export const ViewportOverlay = ({
               borderRadius: '9px',
               fontSize: '11.5px',
               fontWeight: 700,
-              background: facadeMode === 'FULL' ? 'linear-gradient(135deg, #0d7a5f 0%, #0a664e 100%)' : 'transparent',
+              background: facadeMode === 'FULL' ? '#2563eb' : 'transparent',
               color: facadeMode === 'FULL' ? '#ffffff' : '#64748b',
               border: 'none',
-              boxShadow: facadeMode === 'FULL' ? '0 2px 6px -1px rgba(13, 122, 95, 0.3)' : 'none',
+              boxShadow: facadeMode === 'FULL' ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
             }}
           >
             Exterior
@@ -69,10 +70,10 @@ export const ViewportOverlay = ({
               borderRadius: '9px',
               fontSize: '11.5px',
               fontWeight: 700,
-              background: facadeMode === 'CUTAWAY' ? 'linear-gradient(135deg, #0d7a5f 0%, #0a664e 100%)' : 'transparent',
+              background: facadeMode === 'CUTAWAY' ? '#2563eb' : 'transparent',
               color: facadeMode === 'CUTAWAY' ? '#ffffff' : '#64748b',
               border: 'none',
-              boxShadow: facadeMode === 'CUTAWAY' ? '0 2px 6px -1px rgba(13, 122, 95, 0.3)' : 'none',
+              boxShadow: facadeMode === 'CUTAWAY' ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
             }}
           >
             Interior
@@ -90,7 +91,7 @@ export const ViewportOverlay = ({
               color: '#64748b',
               border: 'none',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#0d7a5f'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#2563eb'; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; }}
           >
             Top View
@@ -101,8 +102,8 @@ export const ViewportOverlay = ({
         <div
           className="flex items-center justify-center relative cursor-pointer transition-transform"
           style={{
-            width: '48px',
-            height: '48px',
+            width: '46px',
+            height: '46px',
             borderRadius: '50%',
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -112,7 +113,7 @@ export const ViewportOverlay = ({
           title="Reset Camera Orientation to North"
         >
           {/* Compass Dial Cardinal Points */}
-          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: '#0d7a5f' }}>N</span>
+          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: '#2563eb' }}>N</span>
           <span style={{ position: 'absolute', bottom: '3px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>S</span>
           <span style={{ position: 'absolute', left: '4px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>W</span>
           <span style={{ position: 'absolute', right: '4px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>E</span>
@@ -122,7 +123,7 @@ export const ViewportOverlay = ({
             className="w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
             style={{ transform: `rotate(${-cameraYaw}deg)` }}
           >
-            <div style={{ width: '2px', height: '24px', background: 'linear-gradient(to top, #cbd5e1, #0d7a5f)', borderRadius: '999px', position: 'relative' }}>
+            <div style={{ width: '2px', height: '22px', background: 'linear-gradient(to top, #cbd5e1, #2563eb)', borderRadius: '999px', position: 'relative' }}>
               <div
                 style={{
                   position: 'absolute',
@@ -132,7 +133,7 @@ export const ViewportOverlay = ({
                   height: 0,
                   borderLeft: '4px solid transparent',
                   borderRight: '4px solid transparent',
-                  borderBottom: '7px solid #0d7a5f',
+                  borderBottom: '7px solid #2563eb',
                 }}
               />
             </div>
@@ -140,8 +141,27 @@ export const ViewportOverlay = ({
         </div>
       </div>
 
-      {/* Right Side: Floating Vertical Floor Badges [L10]..[L1] alongside the building */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-5 flex flex-col pointer-events-auto" style={{ gap: '5px' }}>
+      {/* ── Right Side: Floating Vertical Level Stack [Layers] [L10]..[L1] ── */}
+      <div className="absolute top-1/2 -translate-y-1/2 right-5 flex flex-col pointer-events-auto" style={{ gap: '4px' }}>
+        {/* Top Layers Icon Pill */}
+        <button
+          onClick={onToggleExploded}
+          className="flex items-center justify-center cursor-pointer transition-all shadow-sm"
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '10px',
+            background: activeFloorView === 'EXPLODED' ? '#2563eb' : '#ffffff',
+            color: activeFloorView === 'EXPLODED' ? '#ffffff' : '#64748b',
+            border: '1px solid #e2e8f0',
+            marginBottom: '2px',
+          }}
+          title="Toggle Exploded BIM Stack"
+        >
+          <Layers style={{ width: '14px', height: '14px' }} />
+        </button>
+
+        {/* Level Badges L10 to L1 */}
         {floorsList.map((fl) => {
           const isSelected = activeFloorView === String(fl);
           const hasFire = floorHasFire(fl);
@@ -150,33 +170,33 @@ export const ViewportOverlay = ({
             <button
               key={fl}
               onClick={() => onSelectFloor(isSelected ? 'ALL' : String(fl))}
-              className="cursor-pointer transition-all flex items-center justify-center relative"
+              className="flex items-center justify-center relative cursor-pointer transition-all shadow-sm"
               style={{
-                width: '36px',
-                height: '32px',
+                width: '32px',
+                height: '28px',
                 borderRadius: '8px',
-                fontFamily: 'monospace',
+                background: isSelected ? '#2563eb' : '#ffffff',
+                color: isSelected ? '#ffffff' : '#475569',
+                border: isSelected ? 'none' : '1px solid #e2e8f0',
                 fontSize: '11px',
-                fontWeight: 800,
-                background: isSelected ? 'linear-gradient(135deg, #0d7a5f 0%, #0a664e 100%)' : '#ffffff',
-                color: isSelected ? '#ffffff' : (hasFire ? '#dc2626' : '#334155'),
-                border: isSelected ? 'none' : (hasFire ? '2px solid #fecaca' : '1px solid #e2e8f0'),
-                boxShadow: isSelected ? '0 4px 10px -2px rgba(13, 122, 95, 0.35)' : '0 2px 4px rgba(0,0,0,0.04)',
+                fontWeight: isSelected ? 800 : 700,
+                fontFamily: 'monospace',
+                boxShadow: isSelected ? '0 2px 8px -1px rgba(37, 99, 235, 0.4)' : '0 1px 2px rgba(0,0,0,0.03)',
               }}
-              title={`Level ${fl} ${hasFire ? '(FIRE ALARM)' : ''}`}
+              title={`Level ${fl}${hasFire ? ' (Fire Incident)' : ''}`}
             >
-              <span>L{fl}</span>
+              L{fl}
               {hasFire && (
                 <span
                   style={{
                     position: 'absolute',
-                    top: '-3px',
-                    right: '-3px',
-                    width: '8px',
-                    height: '8px',
+                    top: '-2px',
+                    right: '-2px',
+                    width: '7px',
+                    height: '7px',
                     borderRadius: '50%',
                     background: '#ef4444',
-                    border: '2px solid #ffffff',
+                    border: '1.5px solid #ffffff',
                   }}
                 />
               )}
@@ -185,7 +205,7 @@ export const ViewportOverlay = ({
         })}
       </div>
 
-      {/* Bottom-Right: Viewport Tools [ + ] [ - ] [ Crosshair ] [ Layers ] */}
+      {/* ── Bottom-Right: Viewport Mini Tool Dock ── */}
       <div
         className="absolute bottom-5 right-5 flex items-center pointer-events-auto"
         style={{
@@ -193,69 +213,74 @@ export const ViewportOverlay = ({
           border: '1px solid #e2e8f0',
           borderRadius: '12px',
           padding: '4px',
-          gap: '2px',
+          gap: '3px',
           boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
         }}
       >
         <button
           onClick={onZoomIn}
           className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '34px', height: '34px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
+          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
           title="Zoom In"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0d7a5f'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
         >
-          <ZoomIn style={{ width: '16px', height: '16px' }} />
-        </button>
-
-        <button
-          onClick={onZoomOut}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '34px', height: '34px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
-          title="Zoom Out"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0d7a5f'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
-        >
-          <ZoomOut style={{ width: '16px', height: '16px' }} />
+          <ZoomIn style={{ width: '15px', height: '15px' }} />
         </button>
 
         <button
           onClick={() => onResetView('HERO_VIEW')}
           className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '34px', height: '34px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
-          title="Hero Elevation View (H)"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0d7a5f'; }}
+          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
+          title="Target / Center View"
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
         >
-          <Crosshair style={{ width: '16px', height: '16px' }} />
+          <Crosshair style={{ width: '15px', height: '15px' }} />
+        </button>
+
+        <button
+          onClick={() => onResetView('DEFAULT')}
+          className="cursor-pointer transition-colors flex items-center justify-center"
+          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
+          title="Reset View"
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+        >
+          <RotateCcw style={{ width: '14px', height: '14px' }} />
         </button>
 
         <button
           onClick={onToggleExploded}
           className="cursor-pointer transition-colors flex items-center justify-center"
           style={{
-            width: '34px',
-            height: '34px',
+            width: '32px',
+            height: '32px',
             borderRadius: '8px',
-            background: activeFloorView === 'EXPLODED' ? '#f0fdf4' : 'transparent',
-            color: activeFloorView === 'EXPLODED' ? '#0d7a5f' : '#475569',
+            background: activeFloorView === 'EXPLODED' ? '#eff6ff' : 'transparent',
+            color: activeFloorView === 'EXPLODED' ? '#2563eb' : '#475569',
             border: 'none',
           }}
           title="Toggle Exploded BIM View"
-          onMouseEnter={(e) => {
-            if (activeFloorView !== 'EXPLODED') {
-              e.currentTarget.style.background = '#f8fafc';
-              e.currentTarget.style.color = '#0d7a5f';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (activeFloorView !== 'EXPLODED') {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = '#475569';
-            }
-          }}
         >
-          <Layers style={{ width: '16px', height: '16px' }} />
+          <Layers style={{ width: '15px', height: '15px' }} />
+        </button>
+
+        <button
+          onClick={() => {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+              document.exitFullscreen().catch(() => {});
+            }
+          }}
+          className="cursor-pointer transition-colors flex items-center justify-center"
+          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
+          title="Fullscreen View"
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+        >
+          <Maximize2 style={{ width: '14px', height: '14px' }} />
         </button>
       </div>
     </div>

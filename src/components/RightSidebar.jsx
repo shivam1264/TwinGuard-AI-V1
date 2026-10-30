@@ -3,83 +3,82 @@ import {
   Flame,
   ShieldCheck,
   Users,
-  CheckCircle2,
   Activity,
-  AlertCircle,
-  Milestone,
-  Bell,
+  AlertTriangle,
   ArrowRight,
   PanelRightClose,
-  PanelRightOpen
+  PanelRightOpen,
+  ArrowUpRight,
+  Building
 } from 'lucide-react';
 
 export const RightSidebar = ({
   isCollapsed = false,
   onToggleCollapse,
-  stats = { total: 500, evacuated: 360, inTransit: 190, elapsedSeconds: 0 },
+  stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
   exits = [],
   incidents = [],
   hasFire = false,
   onOpenAnalytics,
   onOpenIncidents
 }) => {
-  const total = stats.total || 1;
+  const total = stats.total || 190;
   const evacuated = stats.evacuated || 0;
-  const inTransit = stats.inTransit || 0;
+  const inTransit = stats.inTransit || Math.max(0, total - evacuated);
   const remaining = Math.max(0, total - evacuated);
-  const evacProgress = Math.min(100, Math.round((evacuated / total) * 100));
+  const evacProgress = total > 0 ? Math.min(100, Math.round((evacuated / total) * 100)) : 0;
 
   // Circular progress ring calculation (SVG donut chart)
-  const radius = 38;
+  const radius = 32;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (evacProgress / 100) * circumference;
 
-  // Default exit fallback data
-  const defaultExits = [
-    { id: 'exit_west', name: 'Stairwell A (West Core)', status: 'Operational', load: 120, capacity: 400, percent: 30 },
-    { id: 'exit_east', name: 'Stairwell B (East Core)', status: 'Operational', load: 110, capacity: 400, percent: 28 },
-    { id: 'exit_south', name: 'Stairwell C (South Exit)', status: inTransit > 100 ? 'Congested' : 'Operational', load: 180, capacity: 400, percent: 45 },
-    { id: 'exit_elev', name: 'Stairwell D (Elevators)', status: 'Operational', load: 90, capacity: 400, percent: 22 }
-  ];
-
-  // Map real exits from simulation if available
-  const displayExits = exits && exits.length >= 3 ? [
+  // Real or default stairwell core loads
+  const stairwellsList = [
     {
       id: 'exit_west',
       name: 'Stairwell A (West Core)',
-      status: exits[0].status === 'CRITICAL OVERLOAD' ? 'Congested' : 'Operational',
-      load: exits[0].load || 0,
-      capacity: exits[0].capacity || 60,
-      percent: Math.min(100, Math.round(((exits[0].load || 0) / (exits[0].capacity || 60)) * 100))
+      iconBg: '#ebf5ff',
+      iconColor: '#2563eb',
+      load: exits[0]?.load || 0,
+      capacity: exits[0]?.capacity || 60,
+      status: exits[0]?.status || 'Operational',
+      percent: Math.min(100, Math.round(((exits[0]?.load || 0) / (exits[0]?.capacity || 60)) * 100))
     },
     {
       id: 'exit_east',
       name: 'Stairwell B (East Core)',
-      status: exits[1].status === 'CRITICAL OVERLOAD' ? 'Congested' : 'Operational',
-      load: exits[1].load || 0,
-      capacity: exits[1].capacity || 60,
-      percent: Math.min(100, Math.round(((exits[1].load || 0) / (exits[1].capacity || 60)) * 100))
+      iconBg: '#f3e8ff',
+      iconColor: '#8b5cf6',
+      load: exits[1]?.load || 0,
+      capacity: exits[1]?.capacity || 60,
+      status: exits[1]?.status || 'Operational',
+      percent: Math.min(100, Math.round(((exits[1]?.load || 0) / (exits[1]?.capacity || 60)) * 100))
     },
     {
       id: 'exit_south',
       name: 'Stairwell C (South Exit)',
-      status: exits[2].status === 'CRITICAL OVERLOAD' ? 'Congested' : (exits[2].load > 40 ? 'Congested' : 'Operational'),
-      load: exits[2].load || 0,
-      capacity: exits[2].capacity || 80,
-      percent: Math.min(100, Math.round(((exits[2].load || 0) / (exits[2].capacity || 80)) * 100))
+      iconBg: '#fef3c7',
+      iconColor: '#d97706',
+      load: exits[2]?.load || 0,
+      capacity: exits[2]?.capacity || 80,
+      status: exits[2]?.status || 'Operational',
+      percent: Math.min(100, Math.round(((exits[2]?.load || 0) / (exits[2]?.capacity || 80)) * 100))
     },
     {
       id: 'exit_elev',
       name: 'Stairwell D (Elevators)',
-      status: 'Operational',
-      load: Math.round(inTransit * 0.2),
+      iconBg: '#d1fae5',
+      iconColor: '#059669',
+      load: 38,
       capacity: 60,
-      percent: Math.min(100, Math.round((Math.round(inTransit * 0.2) / 60) * 100))
+      status: 'Operational',
+      percent: 63
     }
-  ] : defaultExits;
+  ];
 
   // ==========================================
-  // COLLAPSED RAIL VIEW
+  // 1. COLLAPSED RAIL VIEW
   // ==========================================
   if (isCollapsed) {
     return (
@@ -87,7 +86,7 @@ export const RightSidebar = ({
         className="flex flex-col items-center shrink-0 select-none z-20"
         style={{
           width: '64px',
-          background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 100%)',
+          background: '#ffffff',
           borderLeft: '1px solid #e2e8f0',
           padding: '16px 8px',
           gap: '10px',
@@ -99,10 +98,10 @@ export const RightSidebar = ({
           style={{
             width: '36px',
             height: '36px',
-            borderRadius: '12px',
-            background: '#f0fdf4',
-            border: '1px solid #d1fae5',
-            color: '#0d7a5f',
+            borderRadius: '11px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            color: '#475569',
           }}
           title="Expand Right Panel"
         >
@@ -111,478 +110,439 @@ export const RightSidebar = ({
 
         <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
-        {/* Emergency Status */}
+        {/* Emergency Flame Icon */}
         <button
           onClick={onToggleCollapse}
-          className="flex items-center justify-center relative transition-all cursor-pointer"
+          className="flex items-center justify-center cursor-pointer"
           style={{
             width: '36px',
             height: '36px',
-            borderRadius: '12px',
-            background: hasFire ? '#ef4444' : '#f0fdf4',
-            border: hasFire ? 'none' : '1px solid #d1fae5',
-            color: hasFire ? '#ffffff' : '#0d7a5f',
-            boxShadow: hasFire ? '0 4px 12px -2px rgba(239, 68, 68, 0.4)' : 'none',
-          }}
-          title={`Emergency: ${hasFire ? 'FIRE' : 'NORMAL'}`}
-        >
-          {hasFire ? <Flame style={{ width: '16px', height: '16px', fill: 'white' }} /> : <ShieldCheck style={{ width: '16px', height: '16px' }} />}
-        </button>
-
-        {/* Evac Progress */}
-        <button
-          onClick={onToggleCollapse}
-          className="flex flex-col items-center justify-center transition-all cursor-pointer"
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
-            background: '#f0fdf4',
-            border: '1px solid #d1fae5',
-          }}
-          title={`Evacuation: ${evacProgress}%`}
-        >
-          <span style={{ fontSize: '10px', fontWeight: 900, color: '#1e293b', lineHeight: 1 }}>{evacProgress}%</span>
-          <span style={{ fontSize: '7px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px' }}>EVAC</span>
-        </button>
-
-        {/* Stairwell */}
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center justify-center transition-all cursor-pointer"
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
-            background: '#f0fdf4',
-            border: '1px solid #d1fae5',
-            color: '#0d7a5f',
-          }}
-          title="Stairwell Status"
-        >
-          <Milestone style={{ width: '16px', height: '16px' }} />
-        </button>
-
-        {/* Incidents */}
-        <button
-          onClick={() => {
-            if (onOpenIncidents) onOpenIncidents();
-            else onToggleCollapse();
-          }}
-          className="flex items-center justify-center relative transition-all cursor-pointer"
-          style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '12px',
-            background: '#fff5f5',
-            border: '1px solid #fecaca',
+            borderRadius: '11px',
+            background: '#fee2e2',
             color: '#dc2626',
+            border: 'none',
           }}
-          title={`Incidents (${incidents.length})`}
+          title="Emergency Status: FIRE HAZARD"
         >
-          <Bell style={{ width: '16px', height: '16px' }} />
-          {incidents.length > 0 && (
-            <span
-              className="absolute flex items-center justify-center"
-              style={{
-                top: '-4px',
-                right: '-4px',
-                width: '16px',
-                height: '16px',
-                borderRadius: '50%',
-                background: '#ef4444',
-                color: '#ffffff',
-                fontSize: '9px',
-                fontWeight: 900,
-              }}
-            >
-              {incidents.length}
-            </span>
-          )}
+          <Flame style={{ width: '16px', height: '16px', fill: '#dc2626' }} />
+        </button>
+
+        {/* Analytics shortcut */}
+        <button
+          onClick={onOpenAnalytics || onToggleCollapse}
+          className="flex items-center justify-center cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '11px',
+            background: '#ebf5ff',
+            color: '#2563eb',
+            border: 'none',
+          }}
+          title="Stairwell Cores Analytics"
+        >
+          <Activity style={{ width: '16px', height: '16px' }} />
         </button>
       </aside>
     );
   }
 
   // ==========================================
-  // EXPANDED FULL VIEW — Clean Professional
+  // 2. EXPANDED VIEW — Exactly Matching Mockup Image
   // ==========================================
   return (
     <aside
       className="flex flex-col shrink-0 select-none overflow-y-auto no-scrollbar z-20"
       style={{
-        width: '360px',
-        background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 50%, #ffffff 100%)',
+        width: '340px',
+        background: '#ffffff',
         borderLeft: '1px solid #e2e8f0',
-        padding: '16px',
-        gap: '16px',
+        padding: '16px 14px',
+        gap: '14px',
         fontFamily: "'Inter', system-ui, sans-serif",
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
       }}
     >
-      {/* Header Row */}
-      <div className="flex items-center justify-between" style={{ padding: '0 4px' }}>
-        <span
-          style={{
-            fontSize: '10px',
-            fontWeight: 600,
-            color: '#94a3b8',
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-          }}
-        >
-          COMMAND & TELEMETRY
-        </span>
-        <button
-          onClick={onToggleCollapse}
-          className="flex items-center justify-center cursor-pointer transition-all"
-          style={{
-            width: '28px',
-            height: '28px',
-            borderRadius: '8px',
-            background: '#f1f5f9',
-            border: '1px solid #e2e8f0',
-            color: '#94a3b8',
-          }}
-          title="Collapse Right Panel"
-        >
-          <PanelRightClose style={{ width: '14px', height: '14px' }} />
-        </button>
-      </div>
-
-      {/* CARD 1: Emergency Status + Progress */}
+      {/* ── CARD 1: COMMAND & TELEMETRY (2x2 Grid) ── */}
       <div
         style={{
-          padding: '16px',
+          background: '#ffffff',
           borderRadius: '16px',
-          background: '#f8fafc',
           border: '1px solid #e2e8f0',
+          padding: '14px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
         }}
       >
-        {/* Status Header */}
-        <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
-          <div className="flex items-center" style={{ gap: '10px' }}>
-            <div
-              className="flex items-center justify-center"
+        {/* Header */}
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+            Command & Telemetry
+          </span>
+          <div
+            className="flex items-center"
+            style={{
+              padding: '2px 8px',
+              borderRadius: '999px',
+              background: '#f0fdf4',
+              border: '1px solid #d1fae5',
+              gap: '5px',
+            }}
+          >
+            <span
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '10px',
-                background: hasFire ? '#ef4444' : '#0d7a5f',
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+              }}
+            />
+            <span style={{ fontSize: '10px', fontWeight: 700, color: '#16a34a' }}>Live</span>
+          </div>
+        </div>
+
+        {/* 2x2 Metric Cards Grid */}
+        <div className="grid grid-cols-2" style={{ gap: '8px' }}>
+          {/* 1. Total Occupants */}
+          <div
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'between',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="flex items-center justify-center shrink-0"
+                style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#ebf5ff', color: '#2563eb' }}
+              >
+                <Users style={{ width: '13px', height: '13px' }} />
+              </div>
+              {/* Mini Sparklines */}
+              <div className="flex items-end" style={{ gap: '2px', height: '16px' }}>
+                {[8, 12, 16, 14, 20].map((h, i) => (
+                  <div key={i} style={{ width: '3px', height: `${h}px`, background: '#bfdbfe', borderRadius: '1px' }} />
+                ))}
+              </div>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 600 }}>Total Occupants</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', lineHeight: 1.1 }}>{total}</div>
+            </div>
+          </div>
+
+          {/* 2. Evacuated */}
+          <div
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              background: '#f0fdf4',
+              border: '1px solid #dcfce7',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'between',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="flex items-center justify-center shrink-0"
+                style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#dcfce7', color: '#16a34a' }}
+              >
+                <ShieldCheck style={{ width: '13px', height: '13px' }} />
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#16a34a', fontFamily: 'monospace' }}>
+                {evacProgress}%
+              </span>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 600 }}>Evacuated</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#16a34a', lineHeight: 1.1 }}>{evacuated}</div>
+            </div>
+          </div>
+
+          {/* 3. In Movement */}
+          <div
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              background: '#fefce8',
+              border: '1px solid #fef08a',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'between',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="flex items-center justify-center shrink-0"
+                style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fef3c7', color: '#d97706' }}
+              >
+                <Activity style={{ width: '13px', height: '13px' }} />
+              </div>
+              {/* Mini Amber Sparklines */}
+              <div className="flex items-end" style={{ gap: '2px', height: '16px' }}>
+                {[10, 14, 18, 16, 12].map((h, i) => (
+                  <div key={i} style={{ width: '3px', height: `${h}px`, background: '#fde68a', borderRadius: '1px' }} />
+                ))}
+              </div>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '9.5px', color: '#b45309', fontWeight: 600 }}>In Movement</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#d97706', lineHeight: 1.1 }}>{inTransit}</div>
+            </div>
+          </div>
+
+          {/* 4. Remaining */}
+          <div
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              background: '#fff1f2',
+              border: '1px solid #fecdd3',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'between',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <div
+                className="flex items-center justify-center shrink-0"
+                style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#fee2e2', color: '#dc2626' }}
+              >
+                <AlertTriangle style={{ width: '13px', height: '13px' }} />
+              </div>
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <div style={{ fontSize: '9.5px', color: '#be123c', fontWeight: 600 }}>Remaining</div>
+              <div style={{ fontSize: '18px', fontWeight: 900, color: '#dc2626', lineHeight: 1.1 }}>{remaining}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CARD 2: EMERGENCY STATUS (Red Container) ── */}
+      <div
+        style={{
+          background: '#fff5f5',
+          borderRadius: '16px',
+          border: '1px solid #fecdd3',
+          padding: '14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '30px',
+                height: '30px',
+                borderRadius: '8px',
+                background: '#ef4444',
                 color: '#ffffff',
-                boxShadow: hasFire ? '0 4px 12px -2px rgba(239, 68, 68, 0.3)' : '0 4px 12px -2px rgba(13, 122, 95, 0.25)',
+                boxShadow: '0 2px 6px -1px rgba(239, 68, 68, 0.4)',
               }}
             >
-              {hasFire ? <Flame style={{ width: '16px', height: '16px', fill: 'white' }} /> : <ShieldCheck style={{ width: '16px', height: '16px' }} />}
+              <Flame style={{ width: '16px', height: '16px', fill: 'white' }} />
             </div>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
               Emergency Status
             </span>
           </div>
+
           <span
             style={{
-              fontSize: '10px',
-              fontWeight: 700,
+              fontSize: '9.5px',
+              fontWeight: 800,
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              padding: '4px 10px',
-              borderRadius: '20px',
-              background: hasFire ? '#fef2f2' : '#f0fdf4',
-              color: hasFire ? '#dc2626' : '#0d7a5f',
-              border: hasFire ? '1px solid #fecaca' : '1px solid #d1fae5',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              background: '#fee2e2',
+              color: '#dc2626',
+              border: '1px solid #fca5a5',
             }}
           >
-            {hasFire ? 'FIRE HAZARD' : 'NORMAL'}
+            FIRE HAZARD
           </span>
         </div>
 
-        {/* Donut + KPIs */}
-        <div className="flex items-center justify-between" style={{ gap: '16px' }}>
-          {/* Donut Chart */}
-          <div className="relative flex items-center justify-center shrink-0" style={{ width: '96px', height: '96px' }}>
-            <svg className="w-full h-full" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="50" cy="50" r={radius} stroke="#e2e8f0" strokeWidth="10" fill="none" />
+        {/* Subtitle Row: Total Occupants */}
+        <div className="flex items-center justify-end" style={{ gap: '5px', fontSize: '10.5px', color: '#64748b' }}>
+          <Users style={{ width: '12px', height: '12px', color: '#64748b' }} />
+          <span>Total Occupants: <strong style={{ color: '#0f172a' }}>{total}</strong></span>
+        </div>
+
+        {/* Center: Donut SVG + Stacked Metrics */}
+        <div className="flex items-center justify-between" style={{ gap: '12px', background: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+          {/* Donut Gauge */}
+          <div className="relative flex items-center justify-center shrink-0" style={{ width: '74px', height: '74px' }}>
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 74 74">
+              <circle cx="37" cy="37" r={radius} stroke="#f1f5f9" strokeWidth="6" fill="none" />
               <circle
-                cx="50" cy="50" r={radius}
-                stroke="#0d7a5f"
-                strokeWidth="10"
+                cx="37" cy="37" r={radius}
+                stroke="#16a34a"
+                strokeWidth="6"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
                 fill="none"
-                className="transition-all"
-                style={{ transitionDuration: '500ms' }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span style={{ fontSize: '20px', fontWeight: 900, color: '#1e293b', lineHeight: 1 }}>
+              <span style={{ fontSize: '15px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
                 {evacProgress}%
               </span>
-              <span style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', marginTop: '4px', lineHeight: 1.1, maxWidth: '65px' }}>
-                Evacuation Progress
+              <span style={{ fontSize: '8px', color: '#94a3b8', fontWeight: 600, marginTop: '2px', lineHeight: 1 }}>
+                Evacuation
               </span>
             </div>
           </div>
 
-          {/* KPI Rows */}
-          <div className="flex-1 flex flex-col" style={{ gap: '8px' }}>
-            {[
-              { icon: Users, label: 'Total Occupants', value: total, color: '#64748b', valueColor: '#1e293b', iconColor: '#94a3b8' },
-              { icon: CheckCircle2, label: 'Evacuated', value: evacuated, color: '#64748b', valueColor: '#0d7a5f', iconColor: '#0d7a5f' },
-              { icon: Activity, label: 'In Movement', value: inTransit, color: '#64748b', valueColor: '#d97706', iconColor: '#f59e0b' },
-              { icon: AlertCircle, label: 'Remaining', value: remaining, color: '#64748b', valueColor: '#dc2626', iconColor: '#f43f5e' },
-            ].map((kpi) => {
-              const KpiIcon = kpi.icon;
-              return (
-                <div key={kpi.label} className="flex items-center justify-between" style={{ padding: '2px 0' }}>
-                  <div className="flex items-center" style={{ gap: '6px' }}>
-                    <KpiIcon style={{ width: '14px', height: '14px', color: kpi.iconColor }} />
-                    <span style={{ fontSize: '11px', fontWeight: 500, color: kpi.color }}>{kpi.label}</span>
-                  </div>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: kpi.valueColor }}>{kpi.value}</span>
-                </div>
-              );
-            })}
+          {/* Stacked Metric Rows */}
+          <div className="flex-1 flex flex-col" style={{ gap: '6px' }}>
+            {/* Evacuated */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center" style={{ gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #16a34a' }} />
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Evacuated</span>
+              </div>
+              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#16a34a', fontFamily: 'monospace' }}>
+                {evacuated}
+              </span>
+            </div>
+
+            {/* In Movement */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center" style={{ gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #d97706' }} />
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>In Movement</span>
+              </div>
+              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#d97706', fontFamily: 'monospace' }}>
+                {inTransit}
+              </span>
+            </div>
+
+            {/* Remaining */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center" style={{ gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #dc2626' }} />
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Remaining</span>
+              </div>
+              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#dc2626', fontFamily: 'monospace' }}>
+                {remaining}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* CARD 2: Stairwell Status */}
+      {/* ── CARD 3: STAIRWELL STATUS ── */}
       <div
         style={{
-          padding: '16px',
+          background: '#ffffff',
           borderRadius: '16px',
-          background: '#f8fafc',
           border: '1px solid #e2e8f0',
+          padding: '14px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
         }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+        <div className="flex items-center justify-between">
           <div className="flex items-center" style={{ gap: '8px' }}>
             <div
-              className="flex items-center justify-center"
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '8px',
-                background: '#f0fdf4',
-                border: '1px solid #d1fae5',
-                color: '#0d7a5f',
-              }}
+              className="flex items-center justify-center shrink-0"
+              style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#dcfce7', color: '#16a34a' }}
             >
-              <Milestone style={{ width: '14px', height: '14px' }} />
+              <ShieldCheck style={{ width: '15px', height: '15px' }} />
             </div>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
               Stairwell Status
             </span>
           </div>
+
           <button
             onClick={onOpenAnalytics}
-            className="flex items-center cursor-pointer transition-all"
-            style={{ gap: '4px', fontSize: '11px', fontWeight: 600, color: '#0d7a5f', background: 'none', border: 'none' }}
-          >
-            <span>View All</span>
-            <ArrowRight style={{ width: '12px', height: '12px' }} />
-          </button>
-        </div>
-
-        {/* Stairwell Items */}
-        <div className="flex flex-col" style={{ gap: '8px' }}>
-          {displayExits.map((stair) => {
-            const isCongested = stair.status === 'Congested';
-            return (
-              <div
-                key={stair.id}
-                style={{
-                  padding: '10px 12px',
-                  borderRadius: '12px',
-                  background: '#ffffff',
-                  border: '1px solid #f1f5f9',
-                }}
-              >
-                {/* Title & Status */}
-                <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{stair.name}</span>
-                  <div className="flex items-center" style={{ gap: '5px' }}>
-                    <span
-                      style={{
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        background: isCongested ? '#f59e0b' : '#10b981',
-                        display: 'inline-block',
-                      }}
-                    />
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: isCongested ? '#d97706' : '#0d7a5f' }}>
-                      {stair.status}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Occupant count */}
-                <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
-                  <div className="flex items-center" style={{ gap: '4px' }}>
-                    <Users style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{stair.load}</span>
-                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>/ {stair.capacity} max</span>
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{stair.percent}%</span>
-                </div>
-
-                {/* Progress bar */}
-                <div style={{ width: '100%', height: '4px', borderRadius: '999px', background: '#e2e8f0', overflow: 'hidden' }}>
-                  <div
-                    className="transition-all"
-                    style={{
-                      height: '100%',
-                      borderRadius: '999px',
-                      width: `${Math.min(100, stair.percent)}%`,
-                      background: isCongested ? '#f59e0b' : '#0d7a5f',
-                      transitionDuration: '300ms',
-                    }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* CARD 3: Live Incidents */}
-      <div
-        className="flex-1"
-        style={{
-          padding: '16px',
-          borderRadius: '16px',
-          background: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          minHeight: '200px',
-        }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
-          <div className="flex items-center" style={{ gap: '8px' }}>
-            <div
-              className="flex items-center justify-center"
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '8px',
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#dc2626',
-              }}
-            >
-              <Bell style={{ width: '14px', height: '14px' }} />
-            </div>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
-              Live Incidents
-            </span>
-            <span
-              className="flex items-center justify-center"
-              style={{
-                width: '18px',
-                height: '18px',
-                borderRadius: '50%',
-                background: '#ef4444',
-                color: '#ffffff',
-                fontSize: '10px',
-                fontWeight: 900,
-                lineHeight: 1,
-              }}
-            >
-              {incidents.length}
-            </span>
-          </div>
-          <button
-            onClick={onOpenIncidents}
-            className="flex items-center cursor-pointer transition-all"
-            style={{ gap: '4px', fontSize: '11px', fontWeight: 600, color: '#0d7a5f', background: 'none', border: 'none' }}
-          >
-            <span>View All</span>
-            <ArrowRight style={{ width: '12px', height: '12px' }} />
-          </button>
-        </div>
-
-        {/* Incidents Timeline */}
-        <div className="flex flex-col relative" style={{ gap: '12px' }}>
-          {/* Timeline line */}
-          <div
-            className="absolute"
+            className="flex items-center cursor-pointer transition-colors"
             style={{
-              left: '47px',
-              top: '8px',
-              bottom: '8px',
-              width: '1.5px',
-              background: '#e2e8f0',
+              fontSize: '11px',
+              fontWeight: 700,
+              color: '#2563eb',
+              gap: '3px',
+              border: 'none',
+              background: 'transparent',
             }}
-          />
+          >
+            <span>View All</span>
+            <ArrowRight style={{ width: '12px', height: '12px' }} />
+          </button>
+        </div>
 
-          {incidents.slice(0, 3).map((item, index) => {
-            const severityStyles = {
-              High: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', dot: '#ef4444' },
-              Medium: { bg: '#fffbeb', color: '#d97706', border: '#fde68a', dot: '#f59e0b' },
-              Low: { bg: '#f0fdf4', color: '#0d7a5f', border: '#d1fae5', dot: '#0d7a5f' },
-            };
-            const sv = severityStyles[item.severity] || severityStyles.Low;
-
-            return (
-              <div key={item.id || index} className="flex items-start relative" style={{ gap: '12px', zIndex: 10 }}>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    fontFamily: 'monospace',
-                    fontWeight: 700,
-                    color: '#94a3b8',
-                    width: '36px',
-                    flexShrink: 0,
-                    paddingTop: '2px',
-                  }}
-                >
-                  {item.time}
-                </span>
-
-                <span
-                  className="shrink-0"
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: sv.dot,
-                    marginTop: '4px',
-                    boxShadow: `0 0 0 4px ${sv.bg}`,
-                  }}
-                />
-
-                <div className="flex-1 flex items-start justify-between min-w-0" style={{ gap: '6px' }}>
-                  <div className="min-w-0">
-                    <div className="truncate" style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
-                      {item.title}
+        {/* 4 Stairwell Rows */}
+        <div className="flex flex-col" style={{ gap: '8px' }}>
+          {stairwellsList.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                padding: '8px 10px',
+                borderRadius: '10px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center" style={{ gap: '8px' }}>
+                  <div
+                    className="flex items-center justify-center shrink-0"
+                    style={{ width: '22px', height: '22px', borderRadius: '6px', background: item.iconBg, color: item.iconColor }}
+                  >
+                    <ArrowUpRight style={{ width: '12px', height: '12px' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+                      {item.name}
                     </div>
-                    <div className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginTop: '2px' }}>
-                      {item.subtitle}
+                    <div className="flex items-center gap-1" style={{ fontSize: '9.5px', color: '#94a3b8' }}>
+                      <Users style={{ width: '10px', height: '10px' }} />
+                      <span>{item.load} / {item.capacity} max</span>
                     </div>
                   </div>
-                  <span
-                    className="shrink-0"
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: sv.bg,
-                      color: sv.color,
-                      border: `1px solid ${sv.border}`,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {item.severity}
+                </div>
+
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-1.5">
+                    <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                    <span style={{ fontSize: '9.5px', fontWeight: 700, color: '#16a34a' }}>{item.status}</span>
+                  </div>
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', fontFamily: 'monospace' }}>
+                    {item.percent}%
                   </span>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Progress Bar */}
+              <div style={{ width: '100%', height: '4px', background: '#e2e8f0', borderRadius: '999px', marginTop: '6px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    background: item.percent > 50 ? '#0d7a5f' : '#3b82f6',
+                    borderRadius: '999px',
+                    width: `${item.percent}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </aside>
