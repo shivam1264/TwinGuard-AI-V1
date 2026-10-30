@@ -143,32 +143,32 @@ export class CrowdOptimizer {
         // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
         if (agent.floor > 1) {
           const isWest = stairCoreId === 'exit_west';
-          const flight1X = isWest ? -27.2 : 27.2;
-          const flight2X = isWest ? -28.8 : 28.8;
+          const flight1X = isWest ? -27.05 : 27.05;
+          const flight2X = isWest ? -28.95 : 28.95;
           const landingX = isWest ? -26.4 : 26.4;
 
           for (let fl = agent.floor; fl >= 2; fl--) {
             const flBaseY = (fl - 1) * this.floorHeight;
 
             // 1. Step onto current Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY + 0.15, z: 0.0 });
+            full3DPath.push({ x: landingX, y: flBaseY + 0.175, z: 0.0 });
 
             // 2. Walk to Flight 1 Top (descending along -Z)
-            full3DPath.push({ x: flight1X, y: flBaseY + 0.15, z: -0.75 });
+            full3DPath.push({ x: flight1X, y: flBaseY + 0.175, z: -0.75 });
 
             // 3. Step-by-step down Flight 1 to Mid-Landing
-            full3DPath.push({ x: flight1X, y: flBaseY - 0.95, z: -1.75 });
-            full3DPath.push({ x: flight1X, y: flBaseY - 1.90, z: -2.75 });
+            full3DPath.push({ x: flight1X, y: flBaseY - 0.95 + 0.175, z: -1.75 });
+            full3DPath.push({ x: flight1X, y: flBaseY - 1.90 + 0.175, z: -2.75 });
 
             // 4. Turn across Mid-Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 1.90, z: -2.75 });
+            full3DPath.push({ x: flight2X, y: flBaseY - 1.90 + 0.175, z: -2.75 });
 
             // 5. Step-by-step down Flight 2 to Lower Floor Landing
-            full3DPath.push({ x: flight2X, y: flBaseY - 2.85, z: -1.75 });
-            full3DPath.push({ x: flight2X, y: flBaseY - 3.80 + 0.15, z: -0.75 });
+            full3DPath.push({ x: flight2X, y: flBaseY - 2.85 + 0.175, z: -1.75 });
+            full3DPath.push({ x: flight2X, y: flBaseY - 3.80 + 0.175, z: -0.75 });
 
             // 6. Arrive at lower Floor Landing
-            full3DPath.push({ x: landingX, y: flBaseY - 3.80 + 0.15, z: 0.0 });
+            full3DPath.push({ x: landingX, y: flBaseY - 3.80 + 0.175, z: 0.0 });
           }
         }
 

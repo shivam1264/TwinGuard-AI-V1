@@ -91,13 +91,13 @@ export function getRoomSeatingSpots(floor, roomIdx, cx, cz) {
       // Each desk has 1 chair with 0.62m clearance. Humans sit naturally facing desk & monitor.
       return [
         // Spot 1: Pod Left, Front Desk (Occupied first)
-        { x: cx - 2.2, z: cz + 0.65 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
+        { x: cx - 2.2, z: cz + 0.46 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
         // Spot 2: Pod Right, Front Desk (Occupied second)
-        { x: cx + 2.2, z: cz + 0.65 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
+        { x: cx + 2.2, z: cz + 0.46 * backSign, rotY: backSign > 0 ? 0 : Math.PI, isSeated: true },
         // Spot 3: Pod Left, Rear Desk (Occupied third)
-        { x: cx - 2.2, z: cz + 2.35 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true },
+        { x: cx - 2.2, z: cz + 2.54 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true },
         // Spot 4: Pod Right, Rear Desk (Unoccupied standby)
-        { x: cx + 2.2, z: cz + 2.35 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true }
+        { x: cx + 2.2, z: cz + 2.54 * backSign, rotY: backSign > 0 ? Math.PI : 0, isSeated: true }
       ];
     }
 
