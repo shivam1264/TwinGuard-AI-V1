@@ -8,7 +8,9 @@ import {
   AlertTriangle,
   FileText,
   Settings,
-  Home
+  Home,
+  Sparkles,
+  Trophy
 } from 'lucide-react';
 
 export const TopHeader = ({
