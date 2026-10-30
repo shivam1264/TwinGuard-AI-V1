@@ -63,11 +63,11 @@ export const LeftSidebar = ({
   // Primary workspace view modes (Exact replica of Reference Image with clean SaaS items)
   const menuItems = [
     { id: '3D_VIEW', label: 'Home View (3D)', icon: Home, badge: null },
-    { id: 'FLOOR_VIEW', label: 'BIM Floor Stack', icon: Layers, badge: '10 Lvl' },
-    { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3 Cores' },
-    { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3 Shafts' },
-    { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100 Cams' },
-    { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'IoT Live' }
+    { id: 'FLOOR_VIEW', label: 'Floor Stack (BIM)', icon: Layers, badge: '10' },
+    { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3' },
+    { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3' },
+    { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100' },
+    { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'Live' }
   ];
 
   // Emergency Escape Cores & Muster Zones
@@ -150,13 +150,13 @@ export const LeftSidebar = ({
   }
 
   // ==========================================
-  // 2. EXPANDED FULL VIEW (Modern SaaS + Glassmorphism + Zero Overflow)
+  // 2. EXPANDED FULL VIEW (Every item is a clean card completely inside the sidebar!)
   // ==========================================
   return (
-    <aside className="w-[320px] glass-sidebar flex flex-col shrink-0 select-none overflow-hidden transition-all duration-200 z-20 font-sans">
+    <aside className="w-[320px] max-w-[320px] glass-sidebar flex flex-col shrink-0 select-none overflow-hidden transition-all duration-200 z-20 font-sans">
       
       {/* Top Header Row with Generous Side Margins */}
-      <div className="pt-4.5 px-5 pb-3 flex items-center justify-between shrink-0 bg-transparent border-b border-[#e2ede7]/60">
+      <div className="pt-4 px-4 pb-3 flex items-center justify-between shrink-0 bg-transparent border-b border-[#e2ede7]/60">
         <div className="flex items-center gap-2.5 min-w-0 pr-2">
           <div className="w-2.5 h-2.5 rounded-full bg-[#0d7a5f] shadow-xs shadow-[#0d7a5f]/40 shrink-0" />
           <span className="text-[13px] font-extrabold text-[#133d36] tracking-tight truncate">
@@ -173,14 +173,17 @@ export const LeftSidebar = ({
         </button>
       </div>
 
-      {/* Scrollable Body: no-scrollbar (Scrolls freely with ZERO scrollbars cutting the side!) */}
-      <div className="flex-1 overflow-y-auto no-scrollbar px-4.5 py-3 flex flex-col gap-3.5">
+      {/* Scrollable Body: no-scrollbar with safe px-4 margins */}
+      <div
+        className="flex-1 overflow-y-auto no-scrollbar px-4 py-2.5 flex flex-col gap-2.5"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
 
         {/* ============================================================ */}
-        {/* SECTION 1: MAIN MENU (Primary Workspace Views)               */}
+        {/* SECTION 1: MAIN MENU (Every item is an enclosed Card)        */}
         {/* ============================================================ */}
         <div className="flex flex-col gap-1.5">
-          <div className="px-2 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
             MAIN MENU
           </div>
 
@@ -189,7 +192,7 @@ export const LeftSidebar = ({
             const isActive = activeMode === item.id;
 
             if (isActive) {
-              // ACTIVE ITEM: SaaS Glassmorphic Emerald Pill Capsule
+              // ACTIVE ITEM: Rich Emerald Glass Capsule (Everything 100% inside card)
               return (
                 <button
                   key={item.id}
@@ -197,19 +200,19 @@ export const LeftSidebar = ({
                     if (item.action) item.action();
                     onSelectMode(item.id);
                   }}
-                  className="w-full glass-item-active text-white rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer text-left focus:outline-none"
+                  className="w-full glass-item-active text-white rounded-2xl h-[50px] px-3.5 flex items-center justify-between shadow-md shadow-[#0d7a5f]/25 transition-all cursor-pointer text-left focus:outline-none"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                    <div className="w-10 h-10 rounded-2xl border border-white/25 bg-white/15 backdrop-blur-xs flex items-center justify-center text-white shrink-0">
-                      <Icon className="w-5 h-5 text-white" />
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0">
+                      <Icon className="w-4.5 h-4.5 text-white" />
                     </div>
-                    <span className="font-bold text-[14px] text-white truncate tracking-tight">
+                    <span className="font-bold text-[13.5px] text-white truncate tracking-tight">
                       {item.label}
                     </span>
                   </div>
 
                   {item.badge && (
-                    <span className="bg-white/20 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap border border-white/25">
+                    <span className="bg-white/25 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap border border-white/30">
                       {item.badge}
                     </span>
                   )}
@@ -217,7 +220,7 @@ export const LeftSidebar = ({
               );
             }
 
-            // INACTIVE ITEM: Glass Frosted Card + Squircle Mint Icon + Soft Mint Count Pill
+            // INACTIVE ITEM: Frosted Glass Card + Squircle Mint Icon + Pill Badge (Everything 100% inside card)
             return (
               <button
                 key={item.id}
@@ -225,19 +228,19 @@ export const LeftSidebar = ({
                   if (item.action) item.action();
                   onSelectMode(item.id);
                 }}
-                className="w-full glass-item rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+                className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                  <div className="w-10 h-10 rounded-2xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                    <Icon className="w-5 h-5 stroke-[2]" />
+                <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                  <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
+                    <Icon className="w-4.5 h-4.5 stroke-[2]" />
                   </div>
-                  <span className="font-semibold text-[13.5px] text-[#133d36] group-hover:text-[#0a4d3c] truncate tracking-tight">
+                  <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate tracking-tight">
                     {item.label}
                   </span>
                 </div>
 
                 {item.badge && (
-                  <span className="glass-pill text-[#065f46] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+                  <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
                     {item.badge}
                   </span>
                 )}
@@ -250,10 +253,10 @@ export const LeftSidebar = ({
         <div className="h-px bg-gradient-to-r from-transparent via-[#d1ede4]/90 to-transparent my-0.5 mx-2" />
 
         {/* ============================================================ */}
-        {/* SECTION 2: BUILDING FLOORS (L10 down to L1)                 */}
+        {/* SECTION 2: BUILDING FLOORS (Every floor is an enclosed Card) */}
         {/* ============================================================ */}
         <div className="flex flex-col gap-1.5">
-          <div className="px-2 flex items-center justify-between mb-0.5">
+          <div className="px-1 flex items-center justify-between mb-0.5">
             <span className="text-[10.5px] font-bold text-[#648782] uppercase tracking-wider">
               BUILDING FLOORS
             </span>
@@ -279,59 +282,59 @@ export const LeftSidebar = ({
                 <button
                   key={fl}
                   onClick={() => onSelectFloor('ALL')}
-                  className="w-full glass-item-active text-white rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer text-left focus:outline-none"
+                  className="w-full glass-item-active text-white rounded-2xl h-[50px] px-3.5 flex items-center justify-between shadow-md shadow-[#0d7a5f]/25 transition-all cursor-pointer text-left focus:outline-none"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                    <div className="w-10 h-10 rounded-2xl border border-white/25 bg-white/15 backdrop-blur-xs flex items-center justify-center text-white font-mono font-bold text-xs shrink-0">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                    <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/20 backdrop-blur-xs flex items-center justify-center text-white font-mono font-bold text-xs shrink-0">
                       L{fl}
                     </div>
                     <div className="flex flex-col min-w-0 truncate">
-                      <span className="font-bold text-[14px] text-white leading-tight truncate">
+                      <span className="font-bold text-[13.5px] text-white leading-tight truncate">
                         {getOrdinalName(fl)}
                       </span>
-                      <span className="text-[11px] text-white/80 font-medium truncate leading-none mt-0.5">
+                      <span className="text-[10.5px] text-white/80 font-medium truncate leading-none mt-0.5">
                         {info.themeName}
                       </span>
                     </div>
                   </div>
 
-                  <span className="bg-white/20 backdrop-blur-xs text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono whitespace-nowrap border border-white/25">
+                  <span className="bg-white/25 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono whitespace-nowrap border border-white/30">
                     {info.occupants}
                   </span>
                 </button>
               );
             }
 
-            // Inactive Floor: Frosted Glass Item + Mint Squircle + Room to Breathe
+            // Inactive Floor: Frosted Glass Card with Pill Badge (100% inside card)
             return (
               <button
                 key={fl}
                 onClick={() => onSelectFloor(String(fl))}
-                className="w-full glass-item rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+                className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
               >
-                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                  <div className="w-10 h-10 rounded-2xl glass-squircle flex items-center justify-center text-[#0d7a5f] font-mono font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                  <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] font-mono font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
                     L{fl}
                   </div>
                   <div className="flex flex-col min-w-0 truncate">
-                    <span className="font-semibold text-[13.5px] text-[#133d36] group-hover:text-[#0a4d3c] leading-tight truncate">
+                    <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] leading-tight truncate">
                       {getOrdinalName(fl)}
                     </span>
-                    <span className="text-[11px] text-[#648782] font-normal truncate leading-none mt-0.5">
+                    <span className="text-[10.5px] text-[#648782] font-normal truncate leading-none mt-0.5">
                       {info.themeName.split(' ')[0]}
                     </span>
                   </div>
                 </div>
 
                 {/* Right Status / Count Badge */}
-                <div className="flex items-center gap-2 shrink-0 whitespace-nowrap">
+                <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                   {info.status === 'hazard' ? (
-                    <span className="glass-pill-danger text-[#be123c] text-[11px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs animate-pulse shrink-0 whitespace-nowrap">
+                    <span className="glass-pill-danger text-[#be123c] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs animate-pulse shrink-0 whitespace-nowrap">
                       <Flame className="w-3.5 h-3.5 fill-[#be123c]" />
                       <span>Fire</span>
                     </span>
                   ) : (
-                    <span className="glass-pill text-[#065f46] text-[11px] font-bold px-2.5 py-0.5 rounded-full font-mono shrink-0 whitespace-nowrap shadow-2xs">
+                    <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full font-mono shrink-0 whitespace-nowrap shadow-2xs">
                       {info.occupants}
                     </span>
                   )}
@@ -345,10 +348,10 @@ export const LeftSidebar = ({
         <div className="h-px bg-gradient-to-r from-transparent via-[#d1ede4]/90 to-transparent my-0.5 mx-2" />
 
         {/* ============================================================ */}
-        {/* SECTION 3: SAFETY & EMERGENCY EXITS                         */}
+        {/* SECTION 3: EMERGENCY EXITS (Every exit is an enclosed Card)  */}
         {/* ============================================================ */}
         <div className="flex flex-col gap-1.5">
-          <div className="px-2 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
             EMERGENCY EXITS
           </div>
 
@@ -356,11 +359,11 @@ export const LeftSidebar = ({
             <button
               key={exit.id}
               onClick={() => onSetCameraPreset && onSetCameraPreset(exit.preset)}
-              className="w-full glass-item rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+              className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                <div className="w-10 h-10 rounded-2xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                  <Milestone className="w-5 h-5 stroke-[2]" />
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
+                  <Milestone className="w-4.5 h-4.5 stroke-[2]" />
                 </div>
                 <div className="flex flex-col min-w-0 truncate">
                   <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate leading-tight">
@@ -372,7 +375,7 @@ export const LeftSidebar = ({
                 </div>
               </div>
 
-              <span className="glass-pill text-[#065f46] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+              <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
                 {exit.status}
               </span>
             </button>
@@ -380,10 +383,10 @@ export const LeftSidebar = ({
         </div>
 
         {/* ============================================================ */}
-        {/* SECTION 4: ASSEMBLY MUSTER ZONES                            */}
+        {/* SECTION 4: ASSEMBLY MUSTER ZONES (Every zone is a Card)      */}
         {/* ============================================================ */}
         <div className="flex flex-col gap-1.5">
-          <div className="px-2 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
             ASSEMBLY MUSTER ZONES
           </div>
 
@@ -391,11 +394,11 @@ export const LeftSidebar = ({
             <button
               key={zone.id}
               onClick={() => onSetCameraPreset && onSetCameraPreset(zone.preset)}
-              className="w-full glass-item rounded-2xl h-[52px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+              className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
-                <div className="w-10 h-10 rounded-2xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                  <MapPin className="w-5 h-5 stroke-[2]" />
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
+                  <MapPin className="w-4.5 h-4.5 stroke-[2]" />
                 </div>
                 <div className="flex flex-col min-w-0 truncate">
                   <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate leading-tight">
@@ -407,7 +410,7 @@ export const LeftSidebar = ({
                 </div>
               </div>
 
-              <span className="glass-squircle text-[#0d7a5f] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+              <span className="glass-squircle text-[#0d7a5f] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
                 Focus
               </span>
             </button>
@@ -416,14 +419,14 @@ export const LeftSidebar = ({
 
       </div>
 
-      {/* BOTTOM FACILITY TELEMETRY CARD - Glassmorphic Elevated */}
-      <div className="p-3 mx-4.5 mb-3.5 rounded-2xl glass-card flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-xl glass-squircle text-[#0d7a5f] flex items-center justify-center shrink-0">
-            <Building2 className="w-4.5 h-4.5" />
+      {/* BOTTOM FACILITY TELEMETRY CARD - Sits safely inside with mx-4 margin */}
+      <div className="p-3 mx-4 mb-3.5 rounded-2xl glass-card flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl glass-squircle text-[#0d7a5f] flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="text-[12px] font-bold text-[#133d36] leading-tight truncate">
+            <div className="text-[11.5px] font-bold text-[#133d36] leading-tight truncate">
               10 Floors • 100 Rooms
             </div>
             <div className="text-[10px] text-[#648782] font-medium truncate mt-0.5">
@@ -432,7 +435,7 @@ export const LeftSidebar = ({
           </div>
         </div>
 
-        <div className="relative flex h-2.5 w-2.5 shrink-0" title="System Operational">
+        <div className="relative flex h-2.5 w-2.5 shrink-0 mr-1" title="System Operational">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-2 ring-emerald-200"></span>
         </div>
