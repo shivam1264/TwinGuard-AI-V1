@@ -617,7 +617,7 @@ export function App() {
                 </button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-5 bg-white no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <BottleneckAnalytics
                 stats={stats}
                 exits={exits}
