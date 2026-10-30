@@ -70,8 +70,8 @@ export class SceneManager {
     this.controls.minPolarAngle = 0.02;
     this.controls.maxPolarAngle = Math.PI * 0.48; // Clamped above ground plane to prevent seeing underneath
     this.controls.screenSpacePanning = true;
-    this.controls.minDistance = 1.0;
-    this.controls.maxDistance = 2400; // Allows smooth regional zoom out without hitting ceiling
+    this.controls.minDistance = 2.5;
+    this.controls.maxDistance = 640; // Allows smooth regional zoom out without hitting ceiling
 
     // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -457,20 +457,24 @@ export class SceneManager {
     let targetLook = new THREE.Vector3(0, 19, 0);
 
     if (presetName === 'CAMPUS_HERO' || presetName === 'HERO_VIEW') {
-      // Elevated architectural hero perspective focusing on the 10-storey Hero Tower
-      targetPos.set(22, 28, 62);
-      targetLook.set(0, 18, 0);
+      // Elevated architectural hero perspective showing the 10-storey tower, forecourt & entrance circus
+      targetPos.set(28, 30, 72);
+      targetLook.set(0, 16, 0);
     } else if (presetName === 'CAMPUS_OVERVIEW') {
-      // Natural bird's eye perspective viewing the entire master-planned campus and lake
-      targetPos.set(0, 240, 290);
-      targetLook.set(0, 12, 15);
+      // High aerial isometric view showing complete master plan, road ring & surrounding clusters
+      targetPos.set(0, 240, 275);
+      targetLook.set(0, 8, 12);
     } else if (presetName === 'REGIONAL_OVERVIEW') {
-      // Geographic context view showing campus embedded in surrounding city and regional highways
-      targetPos.set(0, 620, 720);
-      targetLook.set(0, 10, 0);
+      // Maximum zoom overview showing campus embedded in regional highway context
+      targetPos.set(0, 360, 390);
+      targetLook.set(0, 5, 0);
     } else if (presetName === 'CAMPUS_AERIAL') {
-      // High-angle architectural master-plan view
-      targetPos.set(0, 480, 40);
+      // High-angle architectural perspective
+      targetPos.set(0, 300, 25);
+      targetLook.set(0, 0, 0);
+    } else if (presetName === 'TOP_DOWN') {
+      // True 90-degree orthogonal master plan inspection view showing all 12 zones & road ring
+      targetPos.set(0, 310, 1);
       targetLook.set(0, 0, 0);
     } else if (presetName === 'CUTAWAY_VIEW') {
       targetPos.set(16, 22, 64);
@@ -490,9 +494,7 @@ export class SceneManager {
     } else if (presetName === 'WEST_FACADE') {
       targetPos.set(-75, 22, 0);
       targetLook.set(0, 19, 0);
-    } else if (presetName === 'TOP_DOWN') {
-      targetPos.set(0, 120, 1);
-      targetLook.set(0, 19, 0);
+    
     } else if (presetName === 'FLOOR_PLAN') {
       const fl = (this.building && parseInt(this.building.floorMode, 10)) || 1;
       const baseY = (fl - 1) * (this.building ? this.building.floorHeight : 3.8);

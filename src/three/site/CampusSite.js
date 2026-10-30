@@ -375,27 +375,95 @@ export class CampusSite {
       metalness: 0.02
     });
 
+    const palmTrunkMat = new THREE.MeshStandardMaterial({
+      color: 0x5a4638,
+      roughness: 0.88,
+      metalness: 0.02
+    });
+
+    // 12 Species Crown Materials - All Natural Green Palette
+    // 1. Avenue Tree: Rich lush green
     const deciduousCrownMat = new THREE.MeshStandardMaterial({
       color: 0x27632a,
       roughness: 0.82,
       metalness: 0.02
     });
 
-    const coniferCrownMat = new THREE.MeshStandardMaterial({
-      color: 0x163d23,
+    // 2. Flowering Tree (Converted to soft fresh spring green)
+    const blossomCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x3d7e35,
+      roughness: 0.80,
+      metalness: 0.02
+    });
+
+    // 3. Ornamental Tree (Converted to bright warm botanical green)
+    const yellowCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x4d8830,
+      roughness: 0.80,
+      metalness: 0.02
+    });
+
+    // 4. Shade Tree (Medium-Large dense emerald green)
+    const shadeCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x2e7d32,
+      roughness: 0.82,
+      metalness: 0.02
+    });
+
+    // 5. Palm Tree (Tropical arching fronds)
+    const palmFrondMat = new THREE.MeshStandardMaterial({
+      color: 0x347c2c,
+      roughness: 0.75,
+      metalness: 0.02,
+      side: THREE.DoubleSide
+    });
+
+    // 6. Columnar Tree (Italian Cypress / Columnar Poplar dark evergreen)
+    const columnarCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x1b4324,
       roughness: 0.85,
       metalness: 0.02
     });
 
+    // 7. Small Landscape Tree (Courtyard olive green)
     const ornamentalCrownMat = new THREE.MeshStandardMaterial({
       color: 0x3c853f,
       roughness: 0.8,
       metalness: 0.02
     });
 
-    const blossomCrownMat = new THREE.MeshStandardMaterial({
-      color: 0xec4899,
-      roughness: 0.78,
+    // 8. Flowering Red/Orange (Converted to vibrant foliage green)
+    const redCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x2d6e32,
+      roughness: 0.80,
+      metalness: 0.02
+    });
+
+    // 9. Jacaranda-like Tree (Converted to rich medium forest green)
+    const jacarandaCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x246331,
+      roughness: 0.80,
+      metalness: 0.02
+    });
+
+    // 10. Light Canopy Tree (Airy birch / acacia light lime-green)
+    const lightCanopyMat = new THREE.MeshStandardMaterial({
+      color: 0x65a30d,
+      roughness: 0.8,
+      metalness: 0.02
+    });
+
+    // 11. Shrub Tree Multi-stem (Fresh hedge green)
+    const shrubBushMat = new THREE.MeshStandardMaterial({
+      color: 0x1d5f24,
+      roughness: 0.86,
+      metalness: 0.02
+    });
+
+    // 12. Conifer Tree Evergreen (Deep spruce blue-pine green)
+    const coniferCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x133820,
+      roughness: 0.88,
       metalness: 0.02
     });
 
@@ -428,10 +496,19 @@ export class CampusSite {
       courtGreenMat,
       waterMat,
       trunkMat,
+      palmTrunkMat,
       deciduousCrownMat,
       coniferCrownMat,
       ornamentalCrownMat,
       blossomCrownMat,
+      yellowCrownMat,
+      shadeCrownMat,
+      palmFrondMat,
+      columnarCrownMat,
+      redCrownMat,
+      jacarandaCrownMat,
+      lightCanopyMat,
+      shrubBushMat,
       shrubMat,
       mulchMat
     };
