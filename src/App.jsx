@@ -554,23 +554,30 @@ export function App() {
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[86vh] border border-slate-200">
-            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                <div className="p-1.5 rounded-lg bg-emerald-50 text-[#0d7a5f] border border-emerald-100">
-                  <Video className="w-4 h-4" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6 animate-in fade-in duration-150 select-none">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#0d7a5f] border border-emerald-100 flex items-center justify-center">
+                  <Video className="w-4.5 h-4.5" />
                 </div>
-                <span>Facility CCTV Security Multiviewer (100 Cams)</span>
+                <div>
+                  <h2 className="text-sm font-extrabold text-slate-800 leading-tight">
+                    Facility CCTV Surveillance & AI Detection Grid
+                  </h2>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    100 Vision Cameras • Real-time occupancy & thermal fire tracking
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setIsCctvOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-950">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               <CCTVMultiviewer
                 rooms={rooms}
                 onTriggerFire={handleTriggerFire}
