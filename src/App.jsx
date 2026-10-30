@@ -15,6 +15,8 @@ import { FireTriggerBubble } from './components/FireTriggerBubble';
 import { SettingsModal } from './components/SettingsModal';
 import { ScenarioConfigModal } from './components/ScenarioConfigModal';
 import { StrategyRankModal } from './components/StrategyRankModal';
+import { BuildingInfoModal } from './components/BuildingInfoModal';
+import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
@@ -113,6 +115,7 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState(() => (AIEngine && AIEngine.getActiveScenario ? AIEngine.getActiveScenario() : null));
 
   const [bimLayers, setBimLayers] = useState({
@@ -459,6 +462,7 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
+        onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
         serverConnected={serverConnected}
       />
 
@@ -484,6 +488,8 @@ export function App() {
               setIsCctvOpen(true);
             } else if (mode === 'SYSTEMS') {
               setIsAnalyticsOpen(true);
+            } else if (mode === 'INFO') {
+              setActiveSidebarMode('INFO');
             }
           }}
           activeFloorView={activeFloorView}
@@ -491,6 +497,8 @@ export function App() {
           rooms={rooms}
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
+          onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
+          onSetCameraPreset={handleSetCameraPreset}
         />
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
@@ -499,23 +507,49 @@ export function App() {
           <div
             ref={threeCanvasRef}
             className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
+            style={{ display: activeSidebarMode === 'INFO' ? 'none' : 'block' }}
           />
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          <ViewportOverlay
-            facadeMode={facadeMode}
-            onSetFacadeMode={handleSetFacadeMode}
-            activeFloorView={activeFloorView}
-            onSelectFloor={handleSetFloorView}
-            cameraYaw={cameraYaw}
-            onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
-            onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
-            onResetView={(preset) => handleSetCameraPreset(preset)}
-            onToggleExploded={() =>
-              handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
-            }
-            rooms={rooms}
-          />
+          {activeSidebarMode !== 'INFO' && (
+            <ViewportOverlay
+              facadeMode={facadeMode}
+              onSetFacadeMode={handleSetFacadeMode}
+              activeFloorView={activeFloorView}
+              onSelectFloor={handleSetFloorView}
+              cameraYaw={cameraYaw}
+              onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
+              onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
+              onResetView={(preset) => handleSetCameraPreset(preset)}
+              onToggleExploded={() =>
+                handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
+              }
+              rooms={rooms}
+            />
+          )}
+
+          {/* EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
+          {activeSidebarMode === 'INFO' && (
+            <div className="absolute inset-0 z-10 overflow-hidden bg-[#f8fafc]">
+              <BuildingInfoPage
+                rooms={rooms}
+                exits={exits}
+                onClose={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
+                }}
+                onSwitchTo3D={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
+                }}
+                onSelectFloor={(floorNum) => {
+                  handleSetFloorView(floorNum);
+                  setActiveSidebarMode('FLOOR_VIEW');
+                  handleSetCameraPreset(`FLOOR_${floorNum}`);
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right Sidebar (Collapsible with icon-only rail) */}
@@ -547,31 +581,18 @@ export function App() {
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
-                  <Video className="w-4 h-4" />
-                </div>
-                <span>Facility CCTV Security Multiviewer (100 Cams)</span>
-              </div>
-              <button
-                onClick={() => setIsCctvOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 bg-slate-950">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+            <div className="flex-1 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
               <CCTVMultiviewer
                 rooms={rooms}
                 onTriggerFire={handleTriggerFire}
                 onUpdateCrowd={handleUpdateCrowd}
                 onFocusRoom={(roomId) => {
-                  handleSetCameraPreset('ROOM_FOCUS', roomId);
+                  handleSetCameraPreset("ROOM_FOCUS", roomId);
                   setIsCctvOpen(false);
                 }}
+                onClose={() => setIsCctvOpen(false)}
               />
             </div>
           </div>
@@ -580,28 +601,16 @@ export function App() {
 
       {/* MODAL 2: Evacuation Analytics & Stairwell Core Intel */}
       {isAnalyticsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
-                  <BarChart3 className="w-4 h-4" />
-                </div>
-                <span>Stairwell Cores & 10-Floor Population Analytics</span>
-              </div>
-              <button
-                onClick={() => setIsAnalyticsOpen(false)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex-1 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
               <BottleneckAnalytics
                 stats={stats}
                 exits={exits}
                 rooms={rooms}
                 bottlenecks={bottlenecks}
+                onClose={() => setIsAnalyticsOpen(false)}
+                onReset={handleReset}
               />
             </div>
           </div>
@@ -667,6 +676,18 @@ export function App() {
           onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         />
       )}
+
+      {/* MODAL 9: Building Information Modeling & Architectural Specs */}
+      <BuildingInfoModal
+        isOpen={isBuildingInfoOpen}
+        onClose={() => setIsBuildingInfoOpen(false)}
+        rooms={rooms}
+        exits={exits}
+        onSelectFloor={(floor) => {
+          handleSetFloorView(floor);
+          handleSetCameraPreset(`FLOOR_${floor}`);
+        }}
+      />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}
       {fireBubbleData && (
