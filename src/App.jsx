@@ -15,6 +15,7 @@ import { FireTriggerBubble } from './components/FireTriggerBubble';
 import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
+import sampleFireScenario from './simulation/scenarios/sample-fire.json';
 
 const generateInitialRooms = () => {
   const rooms = [];
@@ -106,7 +107,6 @@ export function App() {
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
   const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const [bimLayers, setBimLayers] = useState({
     structure: true,
@@ -117,6 +117,9 @@ export function App() {
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
   const [systemStatus, setSystemStatus] = useState('STANDBY');
   const [serverConnected, setServerConnected] = useState(false);
+
+  // Phase 5C: Active scenario for hazard state
+  const [activeScenario] = useState(sampleFireScenario);
 
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
@@ -158,6 +161,13 @@ export function App() {
       manager.dispose();
     };
   }, []);
+
+  // Phase 5C: Pass active scenario to SceneManager when loaded
+  useEffect(() => {
+    if (sceneManagerRef.current && activeScenario) {
+      sceneManagerRef.current.setActiveScenario(activeScenario);
+    }
+  }, [activeScenario]);
 
   // Smoothly trigger Three.js resize when panels collapse or expand
   useEffect(() => {

@@ -305,6 +305,9 @@ export class AgentCrowd {
         agent.currentWaypointIdx = 0;
         agent.state = 'EVACUATING';
         agent.assignedExitColor = assignment.exitColor;
+        // Store current exit and route condition for urgent reevaluation checks
+        agent.currentExitId = assignment.exitId;
+        agent.currentRouteCondition = assignment.routeCondition;
 
         agent.beacon.material.color = new THREE.Color(0xff5500);
         agent.suitMat.emissive = new THREE.Color(0xff3300);

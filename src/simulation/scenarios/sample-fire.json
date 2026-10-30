@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-fire-l5",
+  "name": "Level 5 office fire",
+  "description": "Configured scenario source on the Level 5 floor plate. Not a simulated fire-spread result.",
+  "durationSec": 600,
+  "fires": [
+    {
+      "id": "fire_l5_office",
+      "zoneId": "L5",
+      "startSec": 0,
+      "intensity": 0.6
+    }
+  ]
+}

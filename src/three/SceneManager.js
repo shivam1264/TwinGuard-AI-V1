@@ -6,6 +6,67 @@ import { AgentCrowd } from './AgentCrowd.js';
 import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
+import { createTowerGraph, loadBuilding, applyScenario } from '../simulation/BuildingGraph.js';
+import { advanceHazardState, injectFireSource, createHazardState } from '../simulation/HazardPropagation.js';
+import { assessRisk } from '../simulation/RiskAssessment.js';
+import { buildRoutingHazardContext, getExitRouteCondition, ROUTE_CONDITIONS } from '../simulation/RoutingHazardAdapter.js';
+import { ZoneToGridMapper, applyHazardStateToGrid } from '../simulation/ZoneToGridMapper.js';
+
+export class SimulationClock {
+  constructor() {
+    this._startTime = 0;
+    this._pauseStartTime = 0;
+    this._pausedDuration = 0;
+    this._running = false;
+  }
+
+  start() {
+    if (!this._running) {
+      const now = performance.now();
+      this._startTime = now - this._pausedDuration;
+      this._running = true;
+    }
+  }
+
+  stop() {
+    if (this._running) {
+      this._pausedDuration = performance.now() - this._startTime;
+      this._running = false;
+    }
+  }
+
+  getDelta() {
+    if (!this._running) return 0;
+    const now = performance.now();
+    const delta = (now - this._startTime) / 1000;
+    this._startTime = now;
+    return delta;
+  }
+
+  getElapsed() {
+    if (this._running) {
+      return (performance.now() - this._startTime) / 1000;
+    }
+    return this._pausedDuration / 1000;
+  }
+
+  setElapsed(seconds) {
+    const now = performance.now();
+    this._pausedDuration = seconds * 1000;
+    this._startTime = now - this._pausedDuration;
+  }
+
+  reset() {
+    this._startTime = 0;
+    this._pauseStartTime = 0;
+    this._pausedDuration = 0;
+    this._running = false;
+  }
+
+  get running() {
+    return this._running;
+  }
+}
 
 export class SceneManager {
   constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange) {
@@ -18,7 +79,22 @@ export class SceneManager {
     this.simSpeed = 1.0;
     this.isSimulating = false;
     this.elapsedSeconds = 0;
-    this.clock = new THREE.Clock();
+    this.routingHazardContext = null;
+
+    // Phase 5C: Live hazard state management
+    this.hazardState = null;
+    this.riskAssessment = null;
+    this.activeScenario = null;
+    this.buildingGraph = null;
+    this.lastRoutingContextHash = null;
+    this.reevaluationCooldown = 0;
+    this.minReevaluationInterval = 2.0; // Minimum seconds between reevaluations
+
+    // Deterministic simulation clock with proper pause/resume
+    this._clock = new SimulationClock();
+
+    // Phase 5D: Zone-to-grid hazard mapper
+    this._zoneToGridMapper = null;
 
     this._lastStatsUpdate = 0;
     this._lastEvacuated = -1;
@@ -102,6 +178,13 @@ export class SceneManager {
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
+
+    // Phase 5C: Initialize building graph for hazard routing
+    const rawGraph = createTowerGraph();
+    this.buildingGraph = loadBuilding(rawGraph);
+
+    // Phase 5D: Initialize zone-to-grid mapper for grid-level hazard integration
+    this._zoneToGridMapper = new ZoneToGridMapper(this.navGrid);
   }
 
   initKeyboardControls() {
@@ -452,34 +535,240 @@ export class SceneManager {
     this.agentCrowd.spawnAgentsForRooms(rooms);
   }
 
+  setRoutingHazardContext(context) {
+    this.routingHazardContext = context || null;
+  }
+
+  clearRoutingHazardContext() {
+    this.routingHazardContext = null;
+  }
+
+  // Phase 5C: Hazard state management
+  initializeHazardState(scenario) {
+    if (!this.buildingGraph) return;
+    this.activeScenario = scenario;
+    this.hazardState = applyScenario(this.buildingGraph, scenario);
+    this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
+    this.updateRoutingContext();
+    this.applyHazardStateToGrid();
+  }
+
+  advanceHazardState(dt) {
+    if (!this.hazardState || !this.buildingGraph) return;
+    this.hazardState = advanceHazardState(this.hazardState, this.buildingGraph, dt);
+    this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
+    this.updateRoutingContext();
+    this.applyHazardStateToGrid();
+  }
+
+  applyHazardStateToGrid() {
+    if (!this.hazardState || !this.buildingGraph || !this._zoneToGridMapper) return;
+
+    // Clear previous dynamic hazards but preserve static walls
+    this._zoneToGridMapper.clearAllDynamicHazards();
+
+    // Apply current hazard state to grid
+    applyHazardStateToGrid(this._zoneToGridMapper, this.hazardState, this.buildingGraph);
+  }
+
+  updateRoutingContext() {
+    if (!this.hazardState || !this.buildingGraph) return;
+    const context = buildRoutingHazardContext({
+      graph: this.buildingGraph,
+      hazardState: this.hazardState,
+      riskAssessment: this.riskAssessment,
+      expectedTimeSec: this.elapsedSeconds
+    });
+    this.routingHazardContext = context;
+  }
+
+  // Phase 5C: Check for urgent reevaluation - returns true if routes were updated
+  checkUrgentReevaluation() {
+    if (!this.isSimulating || !this.hazardState || !this.routingHazardContext?.availability?.available) {
+      return false;
+    }
+
+    // Get current fire locations
+    const fireLocations = [];
+    this.fireSystem.activeFires.forEach(f => {
+      fireLocations.push(f.basePos);
+    });
+
+    // Get current assignments from agent crowd
+    const currentAssignments = this.agentCrowd.agents
+      .filter(a => a.state !== 'SAFE') // Skip completed agents
+      .map(a => {
+        const assignment = this.agentCrowd.assignments?.get?.(a.id) || a.currentAssignment;
+        // Find the assignment by looking at agent's current route
+        return {
+          agentId: a.id,
+          exitId: a.currentExitId,
+          routeCondition: a.currentRouteCondition,
+          currentWaypointIdx: a.currentWaypointIdx || 0,
+          pathLength: a.path?.length || 0
+        };
+      });
+
+    // Check if any active agent's current route has become prohibited
+    let hasUrgentChange = false;
+    for (const agent of this.agentCrowd.agents) {
+      if (agent.state === 'SAFE') continue;
+      const currentExitId = agent.currentExitId;
+      if (!currentExitId) continue;
+
+      // Get the route condition for this agent's current exit
+      const route = getExitRouteCondition(this.routingHazardContext, agent.floor, currentExitId);
+      if (route && route.condition === ROUTE_CONDITIONS.PROHIBITED) {
+        hasUrgentChange = true;
+        break;
+      }
+    }
+
+    if (hasUrgentChange) {
+      // Get current fire locations
+      const fireLocations = [];
+      this.fireSystem.activeFires.forEach(f => {
+        fireLocations.push(f.basePos);
+      });
+
+      // Reevaluate with current assignments to preserve progress
+      const optimizationResult = this.crowdOptimizer.reevaluateRoutes(
+        this.agentCrowd.agents,
+        this.agentCrowd.agents.map(a => ({
+          agentId: a.id,
+          exitId: a.currentExitId,
+          routeCondition: a.currentRouteCondition,
+          path: a.path,
+          currentWaypointIdx: a.currentWaypointIdx
+        })),
+        fireLocations,
+        { routingContext: this.routingHazardContext }
+      );
+
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      // Update grid with latest hazard state after urgent reevaluation
+      this.applyHazardStateToGrid();
+      return true;
+    }
+
+    return false;
+  }
+
+  // Phase 5C: Route reevaluation - returns true if routes were updated
+  reevaluateRoutes() {
+    if (!this.isSimulating || !this.hazardState || !this.routingHazardContext?.availability?.available) {
+      return false;
+    }
+
+    // Check if routing context has materially changed
+    const contextHash = JSON.stringify({
+      status: this.routingHazardContext.status,
+      routes: Object.fromEntries(
+        Object.entries(this.routingHazardContext.routes).map(([k, v]) => [k, v.condition])
+      )
+    });
+
+    if (this.lastRoutingContextHash === contextHash) {
+      return false; // No material change
+    }
+
+    this.lastRoutingContextHash = contextHash;
+
+    // Get current fire locations from fire system
+    const fireLocations = [];
+    this.fireSystem.activeFires.forEach(f => {
+      fireLocations.push(f.basePos);
+    });
+
+    // Reevaluate routes with current agent positions and evacuation state
+    const optimizationResult = this.crowdOptimizer.optimizeRoutes(
+      this.agentCrowd.agents,
+      fireLocations,
+      { routingContext: this.routingHazardContext }
+    );
+
+    this.agentCrowd.assignRoutes(optimizationResult.assignments);
+    // Update grid with latest hazard state after reevaluation
+    this.applyHazardStateToGrid();
+    return true;
+  }
+
+  // Phase 5C: Set active scenario for hazard state initialization
+  setActiveScenario(scenario) {
+    this.activeScenario = scenario;
+  }
+
   triggerFire(roomId) {
     const room = this.building.roomsData.find(r => r.id === roomId);
     if (!room) return;
 
     const fireY = (room.center.y || 0) + 0.2;
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z });
-    this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
+
+    // Inject interactive fire source into hazard state with room center for grid radius
+    const injectOptions = {
+      originRoomCenterX: room.center.x,
+      originRoomCenterZ: room.center.z,
+      roomSpreadSec: 30 // 30 seconds to spread from room to full floor
+    };
+
+    if (this.hazardState && this.buildingGraph) {
+      this.hazardState = injectFireSource(this.hazardState, roomId, 0.6, injectOptions);
+      this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
+      this.updateRoutingContext();
+      this.applyHazardStateToGrid();
+    } else if (this.activeScenario && !this.hazardState) {
+      // Initialize hazard state from scenario first, then inject
+      this.initializeHazardState(this.activeScenario);
+      this.hazardState = injectFireSource(this.hazardState, roomId, 0.6, injectOptions);
+      this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
+      this.updateRoutingContext();
+      this.applyHazardStateToGrid();
+    }
   }
 
   startEvacuation() {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
+    this.pausedElapsedSeconds = 0;
+    this.lastRoutingContextHash = null;
+    this.reevaluationCooldown = 0;
+
+    // Start the clock
+    if (!this._clock.running) {
+      this._clock.start();
+    }
+
+    // Phase 5C: Initialize hazard state from active scenario if not already initialized
+    if (!this.hazardState && this.activeScenario) {
+      this.initializeHazardState(this.activeScenario);
+    }
 
     const fireLocations = [];
     this.fireSystem.activeFires.forEach(f => {
       fireLocations.push(f.basePos);
     });
 
-    const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+    const optimizationResult = this.crowdOptimizer.optimizeRoutes(
+      this.agentCrowd.agents,
+      fireLocations,
+      { routingContext: this.routingHazardContext }
+    );
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
     return optimizationResult;
   }
 
   pauseSimulation() {
     this.isSimulating = false;
+    if (this._clock.running) {
+      this._clock.stop();
+    }
   }
 
   resumeSimulation() {
+    if (!this._clock.running) {
+      this._clock.start();
+    }
     this.isSimulating = true;
   }
 
@@ -491,13 +780,25 @@ export class SceneManager {
     this._lastElapsedSec = -1;
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
+    this.routingHazardContext = null;
+    // Phase 5C: Clear hazard state but preserve activeScenario for restart
+    this.hazardState = null;
+    this.riskAssessment = null;
+    this.lastRoutingContextHash = null;
+    this.reevaluationCooldown = 0;
+    this._clock.reset();
+    // Phase 5D: Clear zone-to-grid mapper
+    if (this._zoneToGridMapper) {
+      this._zoneToGridMapper.clearAllDynamicHazards();
+    }
     this.agentCrowd.spawnAgentsForRooms(rooms);
   }
 
   animate = () => {
     requestAnimationFrame(this.animate);
 
-    const delta = Math.min(this.clock.getDelta(), 0.1);
+    // Get delta from simulation clock (returns 0 when stopped, handles pause/resume correctly)
+    const delta = Math.min(this._clock.getDelta(), 0.1);
 
     this.updateCameraNavigation(delta);
 
@@ -514,11 +815,32 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
+      // Calculate simulation delta
+      const simDelta = this.isSimulating ? delta * this.simSpeed : 0;
+
+      // Phase 5C: Advance hazard state and update routing context BEFORE agent movement
+      if (this.isSimulating && this.hazardState && this.buildingGraph) {
+        // 1. Advance simulation time
+        this.elapsedSeconds += simDelta;
+
+        // 2. Advance hazard propagation (includes updateRoutingContext + applyHazardStateToGrid)
+        this.advanceHazardState(simDelta);
+        this.reevaluationCooldown -= simDelta;
+
+        // 3. Check for urgent reevaluation (newly prohibited current routes)
+        const urgentReeval = this.checkUrgentReevaluation();
+        if (urgentReeval) {
+          this.reevaluationCooldown = this.minReevaluationInterval;
+        } else if (this.reevaluationCooldown <= 0 && this.routingHazardContext?.availability?.available) {
+          // 4. Regular cooldown-based reevaluation (includes applyHazardStateToGrid)
+          this.reevaluateRoutes();
+        }
+      }
+
+      // 6. Update agents with current valid routes (after hazard/routing updates)
       const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
 
       if (this.isSimulating) {
-        this.elapsedSeconds += delta * this.simSpeed;
-
         const currentFloorSec = Math.floor(this.elapsedSeconds);
         const now = performance.now();
         const shouldUpdate =
