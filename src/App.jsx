@@ -120,10 +120,6 @@ export function App() {
     }
     return sampleFireScenario;
   });
-    structure: true,
-    fireSafety: true,
-    occupants: true
-  });
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
   const [systemStatus, setSystemStatus] = useState("STANDBY");
   const [serverConnected, setServerConnected] = useState(false);
@@ -133,25 +129,37 @@ export function App() {
     inTransit: calculateTotal(INITIAL_ROOMS),
     elapsedSeconds: 0
   });
-          setIsSimulating(false);
-          setSystemStatus('COMPLETED');
-        }
-      },
-      () => {
-        // Single click popup removed
-      },
-      (matchedRoom, screenPos) => {
-        // Double tap / double click: show minimalist fire trigger pill
-        setFireBubbleData({ room: matchedRoom, position: screenPos });
-      },
-      (newFacadeMode) => {
-        setFacadeMode(newFacadeMode);
-      },
-      (spreadRoomId) => {
-        handleTriggerFire(spreadRoomId, false);
-      }
-    );
 
+  const manager = new SceneManager(
+    threeCanvasRef.current,
+    (stats) => {
+      setStats({
+        total: stats.total,
+        evacuated: stats.evacuated,
+        inTransit: stats.inTransit,
+        elapsedSeconds: stats.elapsedSeconds
+      });
+      if (stats.isCompleted) {
+        setIsSimulating(false);
+        setSystemStatus('COMPLETED');
+      }
+    },
+    () => {
+      // Single click popup removed
+    },
+    (matchedRoom, screenPos) => {
+      // Double tap / double click: show minimalist fire trigger pill
+      setFireBubbleData({ room: matchedRoom, position: screenPos });
+    },
+    (newFacadeMode) => {
+      setFacadeMode(newFacadeMode);
+    },
+    (spreadRoomId) => {
+      handleTriggerFire(spreadRoomId, false);
+    }
+  );
+
+  useEffect(() => {
     sceneManagerRef.current = manager;
     window.__sceneManager = manager;
     manager.syncOccupants(rooms);

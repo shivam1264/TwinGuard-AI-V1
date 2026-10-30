@@ -21,6 +21,17 @@ export class CrowdOptimizer {
   }
 
   optimizeRoutes(agents, fireLocations = [], blockedExitIds = [], strategyType = 'LOAD_BALANCED', floorBlockedMap = null) {
+    // Backward-compatible: support options-object calling convention
+    // optimizeRoutes(agents, fireLocations, { blockedExitIds, strategyType, routingContext, floorBlockedMap })
+    let routingContext = null;
+    if (blockedExitIds !== null && typeof blockedExitIds === 'object' && !Array.isArray(blockedExitIds)) {
+      const options = blockedExitIds;
+      blockedExitIds = options.blockedExitIds || [];
+      strategyType = options.strategyType ?? 'LOAD_BALANCED';
+      floorBlockedMap = options.floorBlockedMap ?? null;
+      routingContext = options.routingContext || null;
+    }
+
     // Global blocked exits (e.g. Ground Floor portals blocked by fire or global structural failure)
     const globalBlockedExits = new Set(blockedExitIds || []);
 
@@ -99,8 +110,6 @@ export class CrowdOptimizer {
           getFloorBlocked(fireFloor).add('exit_west');
         }
       }
-    }
-      }
     });
 
     // Detect all active middle floor hazards (Floors 2 to 9)
@@ -175,10 +184,12 @@ export class CrowdOptimizer {
 
     const bottlenecks = [];
     const assignments = [];
-    const routingContext = options.routingContext || null;
     const hazardAware = routingContext?.availability?.available === true;
     let requiresOperatorReview = false;
 
+    // Initialize tentative loads from live exit loads (updated each frame by SceneManager)
+    const tentativeLoads = new Map();
+    this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     agents.forEach((agent, index) => {
       let bestExit = null;
@@ -219,7 +230,7 @@ let fallbackAssignment = false;
         if (floorDiff === 0) {
           // Fire floor - immediate evacuation (1-2s delay)
           delayTimer = 1.0 + Math.random() * 1.0;
- else if (floorDiff === 1) {
+        } else if (floorDiff === 1) {
           // Adjacent floor - secondary priority (3-6s delay)
           delayTimer = 3.0 + Math.random() * 3.0;
         } else {
@@ -270,6 +281,8 @@ let fallbackAssignment = false;
 
         const jitter = (index % 11) * 0.3;
         const totalScore = distToStair + congestionPenalty + firePenalty + jitter;
+        const baselineScore = totalScore;
+        const route = hazardAware ? getExitRouteCondition(routingContext, agent.floor, exit.id) : null;
 
         candidates.push({
           exit,
@@ -313,7 +326,6 @@ let fallbackAssignment = false;
       bestRoute = bestCandidate.route;
       bestScore = bestCandidate.score;
 
-      if (bestExit) {
       if (bestExit) {
         if (hazardAware && permittedCandidates.length === 0) {
           fallbackAssignment = true;
@@ -499,7 +511,13 @@ let fallbackAssignment = false;
           exitName: actualExit.name,
           exitColor: actualExit.color,
           path: full3DPath,
-          targetExit: { x: actualExit.x, z: actualExit.z }
+          targetExit: { x: actualExit.x, z: actualExit.z },
+          hazardAware,
+          routeEvaluation: hazardAware ? 'hazard-aware' : 'unverified',
+          routeCondition: bestRoute?.condition || null,
+          routeReasons: bestRoute?.reasons || [],
+          noPermittedCandidate: fallbackAssignment,
+          requiresOperatorReview: fallbackAssignment
         });
       }
     });
@@ -575,7 +593,10 @@ let fallbackAssignment = false;
     });
     const bottlenecks = [];
     const assignments = [];
-    const routingContext = options.routingContext || null;
+    let routingContext = null;
+    if (options) {
+      routingContext = options.routingContext || null;
+    }
     const hazardAware = routingContext?.availability?.available === true;
     let requiresOperatorReview = false;
 
