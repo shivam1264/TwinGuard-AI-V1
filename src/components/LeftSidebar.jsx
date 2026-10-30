@@ -35,22 +35,15 @@ export const LeftSidebar = ({
   onOpenSystems,
   onSetCameraPreset
 }) => {
-  // Determine floor info and occupant telemetry
   const getFloorInfo = (floorNum) => {
     const floorRooms = rooms.filter((r) => r.floor === floorNum);
     const floorHasFire = floorRooms.some((r) => r.hasFire);
     const totalOccupants = floorRooms.reduce((sum, r) => sum + (r.peopleCount || 0), 0);
     const theme = FLOOR_THEMES[floorNum] || { name: `${floorNum}th Floor`, prefix: `L${floorNum}` };
-
     let status = 'safe';
     if (floorHasFire) status = 'hazard';
     else if (totalOccupants > 35) status = 'warning';
-
-    return {
-      status,
-      occupants: totalOccupants,
-      themeName: theme.name
-    };
+    return { status, occupants: totalOccupants, themeName: theme.name };
   };
 
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
@@ -60,22 +53,20 @@ export const LeftSidebar = ({
     return `${suffixes[num] || `${num}th`} Floor`;
   };
 
-  // Primary workspace view modes (Exact replica of Reference Image with clean SaaS items)
   const menuItems = [
     { id: '3D_VIEW', label: 'Home View (3D)', icon: Home, badge: null },
-    { id: 'FLOOR_VIEW', label: 'Floor Stack (BIM)', icon: Layers, badge: '10' },
-    { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3' },
+    { id: 'FLOOR_VIEW', label: 'Floor Stack (BIM)', icon: Layers, badge: '10 Lvl' },
+    { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3 Cores' },
     { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3' },
     { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100' },
     { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'Live' }
   ];
 
-  // Emergency Escape Cores & Muster Zones
   const emergencyExits = [
     { id: 'core_west', name: 'West Core (Stairwell A)', status: 'Clear', preset: 'STAIRS_FOCUS' },
     { id: 'core_east', name: 'East Core (Stairwell B)', status: 'Clear', preset: 'STAIRS_FOCUS' },
-    { id: 'core_south', name: 'South Ground Exit (Core C)', status: 'Clear', preset: 'ENTRANCE' },
-    { id: 'helipad', name: 'Rooftop Helipad (Air Evac)', status: 'Standby', preset: 'FOCUS_HELIPAD' }
+    { id: 'core_south', name: 'South Ground Exit', status: 'Clear', preset: 'ENTRANCE' },
+    { id: 'helipad', name: 'Rooftop Helipad', status: 'Standby', preset: 'FOCUS_HELIPAD' }
   ];
 
   const musterPoints = [
@@ -85,28 +76,42 @@ export const LeftSidebar = ({
   ];
 
   // ==========================================
-  // 1. COLLAPSED RAIL VIEW (Width 64px - Glassmorphism)
+  // 1. COLLAPSED RAIL
   // ==========================================
   if (isCollapsed) {
     return (
-      <aside className="w-16 glass-sidebar flex flex-col items-center py-4 px-2 gap-3 shrink-0 select-none transition-all duration-200 z-20">
-        {/* Expand Toggle Button */}
+      <aside
+        className="flex flex-col items-center shrink-0 select-none z-20"
+        style={{
+          width: '64px',
+          background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 100%)',
+          borderRight: '1px solid #e2e8f0',
+          padding: '16px 8px',
+          gap: '10px',
+        }}
+      >
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-2xl bg-white/80 hover:bg-[#e8f7f2] text-[#0d7a5f] border border-[#d1f2e8] flex items-center justify-center transition-all shadow-xs cursor-pointer"
+          className="flex items-center justify-center cursor-pointer transition-all"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+            color: '#0d7a5f',
+          }}
           title="Expand Left Panel"
         >
           <PanelLeftOpen className="w-4 h-4" />
         </button>
 
-        <div className="w-8 h-px bg-[#e2ede7]/80 my-0.5" />
+        <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
-        {/* Squircle Icons Rail */}
-        <div className="flex flex-col gap-2 w-full items-center">
+        <div className="flex flex-col items-center" style={{ gap: '6px', width: '100%' }}>
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeMode === item.id;
-
             return (
               <button
                 key={item.id}
@@ -114,17 +119,34 @@ export const LeftSidebar = ({
                   if (item.action) item.action();
                   onSelectMode(item.id);
                 }}
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center relative transition-all group cursor-pointer ${
-                  isActive
-                    ? 'glass-item-active text-white'
-                    : 'glass-squircle text-[#0d7a5f] hover:bg-[#d8f4eb]'
-                }`}
+                className="flex items-center justify-center relative transition-all cursor-pointer"
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '12px',
+                  background: isActive ? 'linear-gradient(135deg, #0d7a5f, #0a664e)' : '#f0fdf4',
+                  border: isActive ? 'none' : '1px solid #d1fae5',
+                  color: isActive ? '#ffffff' : '#0d7a5f',
+                  boxShadow: isActive ? '0 4px 12px -2px rgba(13, 122, 95, 0.3)' : 'none',
+                }}
                 title={item.label}
               >
-                <Icon className="w-4.5 h-4.5" />
-
-                {/* Floating Tooltip */}
-                <span className="absolute left-full ml-3 px-2.5 py-1 bg-[#133d36] text-white text-[11px] font-semibold rounded-lg shadow-md opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                <Icon className="w-4 h-4" />
+                <span
+                  className="absolute pointer-events-none transition-opacity opacity-0 group-hover:opacity-100"
+                  style={{
+                    left: '100%',
+                    marginLeft: '12px',
+                    padding: '4px 8px',
+                    background: '#1e293b',
+                    color: '#ffffff',
+                    fontSize: '10px',
+                    fontWeight: 500,
+                    borderRadius: '6px',
+                    whiteSpace: 'nowrap',
+                    zIndex: 50,
+                  }}
+                >
                   {item.label}
                 </span>
               </button>
@@ -132,16 +154,24 @@ export const LeftSidebar = ({
           })}
         </div>
 
-        <div className="w-8 h-px bg-[#e2ede7]/80 my-0.5" />
+        <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
-        {/* Mini Floor Indicator Button */}
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-2xl bg-white/80 hover:bg-[#e8f7f2] text-[#0d7a5f] border border-[#d1f2e8] flex flex-col items-center justify-center transition-all mt-auto cursor-pointer shadow-xs"
+          className="flex flex-col items-center justify-center transition-all cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+            color: '#0d7a5f',
+            marginTop: 'auto',
+          }}
           title={`Active Floor: ${activeFloorView === 'ALL' ? 'All Floors' : `Level ${activeFloorView}`}`}
         >
-          <span className="text-[7px] font-bold text-[#648782] uppercase leading-none">LVL</span>
-          <span className="text-xs font-black text-[#0d7a5f] leading-tight font-mono">
+          <span style={{ fontSize: '6px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', lineHeight: 1 }}>LVL</span>
+          <span style={{ fontSize: '10px', fontWeight: 900, color: '#0d7a5f', lineHeight: 1.1, fontFamily: 'monospace' }}>
             {activeFloorView === 'ALL' ? 'ALL' : `L${activeFloorView}`}
           </span>
         </button>
@@ -150,40 +180,88 @@ export const LeftSidebar = ({
   }
 
   // ==========================================
-  // 2. EXPANDED FULL VIEW (Every item is a clean card completely inside the sidebar!)
+  // 2. EXPANDED VIEW — Reference-matched clean design
   // ==========================================
   return (
-    <aside className="w-[320px] max-w-[320px] glass-sidebar flex flex-col shrink-0 select-none overflow-hidden transition-all duration-200 z-20 font-sans">
-      
-      {/* Top Header Row with Generous Side Margins */}
-      <div className="pt-4 px-4 pb-3 flex items-center justify-between shrink-0 bg-transparent border-b border-[#e2ede7]/60">
-        <div className="flex items-center gap-2.5 min-w-0 pr-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#0d7a5f] shadow-xs shadow-[#0d7a5f]/40 shrink-0" />
-          <span className="text-[13px] font-extrabold text-[#133d36] tracking-tight truncate">
+    <aside
+      className="flex flex-col shrink-0 select-none overflow-hidden z-20"
+      style={{
+        width: '320px',
+        background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 50%, #ffffff 100%)',
+        borderRight: '1px solid #e2e8f0',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+
+      {/* ── Header ── */}
+      <div
+        className="flex items-center justify-between shrink-0"
+        style={{ padding: '16px 20px 14px 20px' }}
+      >
+        <div className="flex items-center min-w-0" style={{ gap: '8px' }}>
+          <div
+            className="shrink-0"
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: '#0d7a5f',
+              boxShadow: '0 0 6px rgba(13, 122, 95, 0.4)',
+            }}
+          />
+          <span
+            className="truncate"
+            style={{
+              fontSize: '13px',
+              fontWeight: 700,
+              color: '#1e293b',
+              letterSpacing: '-0.01em',
+            }}
+          >
             TwinGuard AI • Digital Twin
           </span>
         </div>
-
         <button
           onClick={onToggleCollapse}
-          className="w-8 h-8 rounded-xl bg-white/75 hover:bg-[#e8f7f2] text-[#648782] hover:text-[#0d7a5f] border border-[#d1f2e8]/80 flex items-center justify-center transition-all cursor-pointer shadow-2xs shrink-0"
+          className="flex items-center justify-center cursor-pointer shrink-0 transition-all"
+          style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            background: '#f1f5f9',
+            border: '1px solid #e2e8f0',
+            color: '#94a3b8',
+          }}
           title="Collapse Panel"
         >
-          <PanelLeftClose className="w-4 h-4" />
+          <PanelLeftClose style={{ width: '14px', height: '14px' }} />
         </button>
       </div>
 
-      {/* Scrollable Body: no-scrollbar with safe px-4 margins */}
+      {/* ── Scrollable Body ── */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar px-4 py-2.5 flex flex-col gap-2.5"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        className="flex-1 overflow-y-auto no-scrollbar flex flex-col"
+        style={{
+          padding: '4px 16px 0 16px',
+          gap: '20px',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
       >
 
-        {/* ============================================================ */}
-        {/* SECTION 1: MAIN MENU (Every item is an enclosed Card)        */}
-        {/* ============================================================ */}
-        <div className="flex flex-col gap-1.5">
-          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+        {/* ─── SECTION: MAIN MENU ─── */}
+        <div className="flex flex-col" style={{ gap: '2px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#94a3b8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              padding: '0 4px',
+              marginBottom: '8px',
+            }}
+          >
             MAIN MENU
           </div>
 
@@ -192,7 +270,6 @@ export const LeftSidebar = ({
             const isActive = activeMode === item.id;
 
             if (isActive) {
-              // ACTIVE ITEM: Rich Emerald Glass Capsule (Everything 100% inside card)
               return (
                 <button
                   key={item.id}
@@ -200,19 +277,48 @@ export const LeftSidebar = ({
                     if (item.action) item.action();
                     onSelectMode(item.id);
                   }}
-                  className="w-full glass-item-active text-white rounded-2xl h-[50px] px-3.5 flex items-center justify-between shadow-md shadow-[#0d7a5f]/25 transition-all cursor-pointer text-left focus:outline-none"
+                  className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                  style={{
+                    height: '48px',
+                    padding: '0 14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #0d7a5f 0%, #0a664e 100%)',
+                    boxShadow: '0 4px 16px -3px rgba(13, 122, 95, 0.35)',
+                    color: '#ffffff',
+                  }}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                    <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/20 backdrop-blur-xs flex items-center justify-center text-white shrink-0">
-                      <Icon className="w-4.5 h-4.5 text-white" />
+                  <div className="flex items-center min-w-0 flex-1" style={{ gap: '12px' }}>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '10px',
+                        background: 'rgba(255,255,255,0.2)',
+                      }}
+                    >
+                      <Icon style={{ width: '16px', height: '16px', color: '#ffffff' }} />
                     </div>
-                    <span className="font-bold text-[13.5px] text-white truncate tracking-tight">
+                    <span
+                      className="truncate"
+                      style={{ fontSize: '13.5px', fontWeight: 600, color: '#ffffff' }}
+                    >
                       {item.label}
                     </span>
                   </div>
-
                   {item.badge && (
-                    <span className="bg-white/25 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap border border-white/30">
+                    <span
+                      className="shrink-0"
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: 'rgba(255,255,255,0.9)',
+                        background: 'rgba(255,255,255,0.2)',
+                        padding: '2px 10px',
+                        borderRadius: '8px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {item.badge}
                     </span>
                   )}
@@ -220,7 +326,6 @@ export const LeftSidebar = ({
               );
             }
 
-            // INACTIVE ITEM: Frosted Glass Card + Squircle Mint Icon + Pill Badge (Everything 100% inside card)
             return (
               <button
                 key={item.id}
@@ -228,19 +333,52 @@ export const LeftSidebar = ({
                   if (item.action) item.action();
                   onSelectMode(item.id);
                 }}
-                className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+                className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none group"
+                style={{
+                  height: '48px',
+                  padding: '0 14px',
+                  borderRadius: '14px',
+                  background: 'transparent',
+                  border: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f0fdf4';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                  <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                    <Icon className="w-4.5 h-4.5 stroke-[2]" />
+                <div className="flex items-center min-w-0 flex-1" style={{ gap: '12px' }}>
+                  <div
+                    className="flex items-center justify-center shrink-0"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '10px',
+                      background: '#f0fdf4',
+                      border: '1px solid #d1fae5',
+                      color: '#0d7a5f',
+                    }}
+                  >
+                    <Icon style={{ width: '16px', height: '16px' }} />
                   </div>
-                  <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate tracking-tight">
+                  <span
+                    className="truncate"
+                    style={{ fontSize: '13.5px', fontWeight: 500, color: '#334155' }}
+                  >
                     {item.label}
                   </span>
                 </div>
-
                 {item.badge && (
-                  <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+                  <span
+                    className="shrink-0"
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: '#0d7a5f',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {item.badge}
                   </span>
                 )}
@@ -249,24 +387,36 @@ export const LeftSidebar = ({
           })}
         </div>
 
-        {/* Subtle Glass Gradient Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-[#d1ede4]/90 to-transparent my-0.5 mx-2" />
-
-        {/* ============================================================ */}
-        {/* SECTION 2: BUILDING FLOORS (Every floor is an enclosed Card) */}
-        {/* ============================================================ */}
-        <div className="flex flex-col gap-1.5">
-          <div className="px-1 flex items-center justify-between mb-0.5">
-            <span className="text-[10.5px] font-bold text-[#648782] uppercase tracking-wider">
+        {/* ─── SECTION: BUILDING FLOORS ─── */}
+        <div className="flex flex-col" style={{ gap: '2px' }}>
+          <div
+            className="flex items-center justify-between"
+            style={{ padding: '0 4px', marginBottom: '8px' }}
+          >
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+              }}
+            >
               BUILDING FLOORS
             </span>
             <button
               onClick={() => onSelectFloor('ALL')}
-              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-                activeFloorView === 'ALL'
-                  ? 'glass-item-active text-white shadow-xs'
-                  : 'glass-pill text-[#065f46] hover:bg-[#bbf7d0]'
-              }`}
+              className="cursor-pointer transition-all"
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                borderRadius: '8px',
+                padding: '3px 10px',
+                border: activeFloorView === 'ALL' ? '2px solid #0d7a5f' : '1px solid #d1fae5',
+                background: activeFloorView === 'ALL' ? '#f0fdf4' : 'transparent',
+                color: '#0d7a5f',
+                whiteSpace: 'nowrap',
+              }}
             >
               Show All (10)
             </button>
@@ -277,64 +427,129 @@ export const LeftSidebar = ({
             const isSelected = activeFloorView === String(fl);
 
             if (isSelected) {
-              // Active Floor Selected: Rich Emerald Glass Capsule
               return (
                 <button
                   key={fl}
                   onClick={() => onSelectFloor('ALL')}
-                  className="w-full glass-item-active text-white rounded-2xl h-[50px] px-3.5 flex items-center justify-between shadow-md shadow-[#0d7a5f]/25 transition-all cursor-pointer text-left focus:outline-none"
+                  className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                  style={{
+                    height: '52px',
+                    padding: '0 14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #0d7a5f 0%, #0a664e 100%)',
+                    boxShadow: '0 4px 16px -3px rgba(13, 122, 95, 0.35)',
+                    color: '#ffffff',
+                  }}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                    <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/20 backdrop-blur-xs flex items-center justify-center text-white font-mono font-bold text-xs shrink-0">
+                  <div className="flex items-center min-w-0 flex-1" style={{ gap: '10px' }}>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.2)',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        fontFamily: 'monospace',
+                      }}
+                    >
                       L{fl}
                     </div>
-                    <div className="flex flex-col min-w-0 truncate">
-                      <span className="font-bold text-[13.5px] text-white leading-tight truncate">
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate" style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.3 }}>
                         {getOrdinalName(fl)}
                       </span>
-                      <span className="text-[10.5px] text-white/80 font-medium truncate leading-none mt-0.5">
+                      <span className="truncate" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', fontWeight: 400, lineHeight: 1.2 }}>
                         {info.themeName}
                       </span>
                     </div>
                   </div>
-
-                  <span className="bg-white/25 backdrop-blur-xs text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono whitespace-nowrap border border-white/30">
+                  <span
+                    className="shrink-0"
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: 'rgba(255,255,255,0.9)',
+                      fontFamily: 'monospace',
+                    }}
+                  >
                     {info.occupants}
                   </span>
                 </button>
               );
             }
 
-            // Inactive Floor: Frosted Glass Card with Pill Badge (100% inside card)
             return (
               <button
                 key={fl}
                 onClick={() => onSelectFloor(String(fl))}
-                className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+                className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                style={{
+                  height: '52px',
+                  padding: '0 14px',
+                  borderRadius: '14px',
+                  background: 'transparent',
+                  border: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f0fdf4';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                  <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] font-mono font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                <div className="flex items-center min-w-0 flex-1" style={{ gap: '10px' }}>
+                  <div
+                    className="flex items-center justify-center shrink-0"
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: '#f0fdf4',
+                      border: '2px solid #a7f3d0',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: '#0d7a5f',
+                      fontFamily: 'monospace',
+                    }}
+                  >
                     L{fl}
                   </div>
-                  <div className="flex flex-col min-w-0 truncate">
-                    <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] leading-tight truncate">
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate" style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', lineHeight: 1.3 }}>
                       {getOrdinalName(fl)}
                     </span>
-                    <span className="text-[10.5px] text-[#648782] font-normal truncate leading-none mt-0.5">
+                    <span className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400, lineHeight: 1.2 }}>
                       {info.themeName.split(' ')[0]}
                     </span>
                   </div>
                 </div>
 
-                {/* Right Status / Count Badge */}
-                <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                <div className="flex items-center shrink-0" style={{ gap: '6px' }}>
                   {info.status === 'hazard' ? (
-                    <span className="glass-pill-danger text-[#be123c] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs animate-pulse shrink-0 whitespace-nowrap">
-                      <Flame className="w-3.5 h-3.5 fill-[#be123c]" />
-                      <span>Fire</span>
+                    <span
+                      className="flex items-center"
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#ef4444',
+                        gap: '3px',
+                      }}
+                    >
+                      <Flame style={{ width: '13px', height: '13px', fill: '#fca5a5', color: '#ef4444' }} />
+                      Fire
                     </span>
                   ) : (
-                    <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full font-mono shrink-0 whitespace-nowrap shadow-2xs">
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: '#0d7a5f',
+                        fontFamily: 'monospace',
+                      }}
+                    >
                       {info.occupants}
                     </span>
                   )}
@@ -344,14 +559,19 @@ export const LeftSidebar = ({
           })}
         </div>
 
-        {/* Subtle Glass Gradient Divider */}
-        <div className="h-px bg-gradient-to-r from-transparent via-[#d1ede4]/90 to-transparent my-0.5 mx-2" />
-
-        {/* ============================================================ */}
-        {/* SECTION 3: EMERGENCY EXITS (Every exit is an enclosed Card)  */}
-        {/* ============================================================ */}
-        <div className="flex flex-col gap-1.5">
-          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+        {/* ─── SECTION: EMERGENCY EXITS ─── */}
+        <div className="flex flex-col" style={{ gap: '2px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#94a3b8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              padding: '0 4px',
+              marginBottom: '8px',
+            }}
+          >
             EMERGENCY EXITS
           </div>
 
@@ -359,34 +579,72 @@ export const LeftSidebar = ({
             <button
               key={exit.id}
               onClick={() => onSetCameraPreset && onSetCameraPreset(exit.preset)}
-              className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+              className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+              style={{
+                height: '48px',
+                padding: '0 14px',
+                borderRadius: '14px',
+                background: 'transparent',
+                border: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f0fdf4';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
             >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                  <Milestone className="w-4.5 h-4.5 stroke-[2]" />
+              <div className="flex items-center min-w-0 flex-1" style={{ gap: '12px' }}>
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: '#f0fdf4',
+                    border: '1px solid #d1fae5',
+                    color: '#0d7a5f',
+                  }}
+                >
+                  <Milestone style={{ width: '16px', height: '16px' }} />
                 </div>
-                <div className="flex flex-col min-w-0 truncate">
-                  <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate leading-tight">
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate" style={{ fontSize: '13px', fontWeight: 500, color: '#334155', lineHeight: 1.3 }}>
                     {exit.name}
                   </span>
-                  <span className="text-[10.5px] text-[#648782] font-normal leading-none mt-0.5">
+                  <span className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400, lineHeight: 1.2 }}>
                     Evacuation Core
                   </span>
                 </div>
               </div>
-
-              <span className="glass-pill text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+              <span
+                className="shrink-0"
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#0d7a5f',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {exit.status}
               </span>
             </button>
           ))}
         </div>
 
-        {/* ============================================================ */}
-        {/* SECTION 4: ASSEMBLY MUSTER ZONES (Every zone is a Card)      */}
-        {/* ============================================================ */}
-        <div className="flex flex-col gap-1.5">
-          <div className="px-1 text-[10.5px] font-bold text-[#648782] uppercase tracking-wider mb-0.5">
+        {/* ─── SECTION: ASSEMBLY MUSTER ZONES ─── */}
+        <div className="flex flex-col" style={{ gap: '2px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#94a3b8',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              padding: '0 4px',
+              marginBottom: '8px',
+            }}
+          >
             ASSEMBLY MUSTER ZONES
           </div>
 
@@ -394,23 +652,53 @@ export const LeftSidebar = ({
             <button
               key={zone.id}
               onClick={() => onSetCameraPreset && onSetCameraPreset(zone.preset)}
-              className="w-full glass-item rounded-2xl h-[50px] px-3.5 flex items-center justify-between transition-all cursor-pointer group text-left focus:outline-none"
+              className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+              style={{
+                height: '48px',
+                padding: '0 14px',
+                borderRadius: '14px',
+                background: 'transparent',
+                border: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f0fdf4';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
             >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
-                <div className="w-9 h-9 rounded-xl glass-squircle flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:scale-105 transition-transform">
-                  <MapPin className="w-4.5 h-4.5 stroke-[2]" />
+              <div className="flex items-center min-w-0 flex-1" style={{ gap: '12px' }}>
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '10px',
+                    background: '#f0fdf4',
+                    border: '1px solid #d1fae5',
+                    color: '#0d7a5f',
+                  }}
+                >
+                  <MapPin style={{ width: '16px', height: '16px' }} />
                 </div>
-                <div className="flex flex-col min-w-0 truncate">
-                  <span className="font-semibold text-[13px] text-[#133d36] group-hover:text-[#0a4d3c] truncate leading-tight">
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate" style={{ fontSize: '13px', fontWeight: 500, color: '#334155', lineHeight: 1.3 }}>
                     {zone.name}
                   </span>
-                  <span className="text-[10.5px] text-[#648782] font-normal leading-none mt-0.5 truncate">
+                  <span className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400, lineHeight: 1.2 }}>
                     {zone.loc}
                   </span>
                 </div>
               </div>
-
-              <span className="glass-squircle text-[#0d7a5f] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap shadow-2xs">
+              <span
+                className="shrink-0"
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#64748b',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 Focus
               </span>
             </button>
@@ -419,25 +707,61 @@ export const LeftSidebar = ({
 
       </div>
 
-      {/* BOTTOM FACILITY TELEMETRY CARD - Sits safely inside with mx-4 margin */}
-      <div className="p-3 mx-4 mb-3.5 rounded-2xl glass-card flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl glass-squircle text-[#0d7a5f] flex items-center justify-center shrink-0">
-            <Building2 className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11.5px] font-bold text-[#133d36] leading-tight truncate">
-              10 Floors • 100 Rooms
+      {/* ── Bottom Facility Info ── */}
+      <div className="shrink-0" style={{ padding: '12px 16px 16px 16px' }}>
+        <div
+          className="flex items-center justify-between"
+          style={{
+            padding: '12px 14px',
+            borderRadius: '14px',
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+          }}
+        >
+          <div className="flex items-center min-w-0" style={{ gap: '10px' }}>
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '10px',
+                background: '#f0fdf4',
+                border: '1px solid #d1fae5',
+                color: '#0d7a5f',
+              }}
+            >
+              <Building2 style={{ width: '16px', height: '16px' }} />
             </div>
-            <div className="text-[10px] text-[#648782] font-medium truncate mt-0.5">
-              Gross Area: 25,400 m²
+            <div className="min-w-0">
+              <div className="truncate" style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                10 Floors • 100 Rooms
+              </div>
+              <div className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, lineHeight: 1.2, marginTop: '1px' }}>
+                Gross Area: 25,400 m²
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="relative flex h-2.5 w-2.5 shrink-0 mr-1" title="System Operational">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-2 ring-emerald-200"></span>
+          <div className="relative flex shrink-0" style={{ width: '10px', height: '10px' }} title="System Operational">
+            <span
+              className="absolute animate-ping"
+              style={{
+                inset: 0,
+                borderRadius: '50%',
+                background: '#34d399',
+                opacity: 0.75,
+              }}
+            />
+            <span
+              className="relative"
+              style={{
+                display: 'inline-flex',
+                borderRadius: '50%',
+                width: '10px',
+                height: '10px',
+                background: '#10b981',
+              }}
+            />
+          </div>
         </div>
       </div>
 
