@@ -460,6 +460,7 @@ export class NavigationGraph {
 
   blockStairwell(coreName, floorNum = null) {
     const isWest = coreName.toLowerCase().includes('west') || coreName.toLowerCase().includes('a');
+    const side = isWest ? 'west' : 'east';
     const prefix = isWest ? 'edge_stair_west' : 'edge_stair_east';
 
     this.edges.forEach((edge, id) => {
@@ -470,6 +471,28 @@ export class NavigationGraph {
         }
       }
     });
+
+    if (floorNum) {
+      // Also block descending flight into floorNum from floorNum + 1 to prevent entering hazardous floor from above
+      if (floorNum < this.floorCount) {
+        const edgeIntoFloor = this.edges.get(`edge_stair_${side}_f${floorNum + 1}_to_f${floorNum}`);
+        if (edgeIntoFloor) {
+          edgeIntoFloor.status = EDGE_STATUS.BLOCKED;
+          edgeIntoFloor.hazardLevel = 1.0;
+        }
+      }
+      // Also block corridor doorway leading into the hazardous stair landing on floorNum
+      const edgeCorrToStair = this.edges.get(`edge_f${floorNum}_corr_to_${side}_stair`);
+      if (edgeCorrToStair) {
+        edgeCorrToStair.status = EDGE_STATUS.BLOCKED;
+        edgeCorrToStair.hazardLevel = 1.0;
+      }
+      const edgeCorrToStairRev = this.edges.get(`edge_f${floorNum}_corr_to_${side}_stair_rev`);
+      if (edgeCorrToStairRev) {
+        edgeCorrToStairRev.status = EDGE_STATUS.BLOCKED;
+        edgeCorrToStairRev.hazardLevel = 1.0;
+      }
+    }
   }
 
   setHazardInZone(centerX, centerY, centerZ, radiusMeters, hazardLevel = 0.8) {

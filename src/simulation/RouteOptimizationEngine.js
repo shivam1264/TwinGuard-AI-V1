@@ -8,9 +8,9 @@ export class RouteOptimizationEngine {
     this.navGraph = navGraph;
 
     this.exits = [
-      { id: 'exit_west', name: 'Exit A (West Emergency Core)', nodeId: 'node_exit_a_west', capacity: 60, currentLoad: 0, color: '#00ff88' },
-      { id: 'exit_east', name: 'Exit B (East Fire Escape Core)', nodeId: 'node_exit_b_east', capacity: 60, currentLoad: 0, color: '#00f0ff' },
-      { id: 'exit_south', name: 'Exit C (South Grand Portal)', nodeId: 'node_exit_c_south', capacity: 80, currentLoad: 0, color: '#9d4edd' }
+      { id: 'exit_west', name: 'West Gate / Stair Core A', nodeId: 'node_exit_a_west', capacity: 60, currentLoad: 0, color: '#00ff88', isBlocked: false },
+      { id: 'exit_east', name: 'East Gate / Stair Core B', nodeId: 'node_exit_b_east', capacity: 60, currentLoad: 0, color: '#00f0ff', isBlocked: false },
+      { id: 'exit_south', name: 'Front / Main Gate (South)', nodeId: 'node_exit_c_south', capacity: 80, currentLoad: 0, color: '#9d4edd', isBlocked: false }
     ];
 
     this.musterZones = [
@@ -129,7 +129,7 @@ export class RouteOptimizationEngine {
       return null;
     }
 
-    // Temporarily exclude the most critical edge of the primary route (e.g. primary stair flight or corridor)
+    // Temporarily exclude the most critical edge of the primary route
     const criticalEdge = primaryResult.edgeSequence.find(e =>
       e.type === 'STAIR_FLIGHT' || e.type === 'CORRIDOR_SEGMENT'
     );
@@ -149,13 +149,19 @@ export class RouteOptimizationEngine {
    * Capacity-Aware Multi-Exit Optimization for All Occupants
    * Distributes crowd load across Exit A, Exit B, and Exit C
    */
-  optimizeEvacuationRoutes(agents) {
-    // Reset exit loads
-    this.exits.forEach(ex => ex.currentLoad = 0);
+  optimizeEvacuationRoutes(agents, blockedExitIds = [], floorBlockedMap = {}) {
+    // Reset exit loads and blocked states
+    this.exits.forEach(ex => {
+      ex.currentLoad = 0;
+      ex.isBlocked = blockedExitIds.includes(ex.id);
+    });
     this.navGraph.edges.forEach(edge => edge.currentOccupancy = 0);
 
     const assignments = [];
     const bottlenecks = [];
+
+    const operationalExits = this.exits.filter(ex => !ex.isBlocked);
+    const validOperational = operationalExits.length > 0 ? operationalExits : this.exits;
 
     // Sort agents by floor (top floors first) to give critical egress priority
     const sortedAgents = [...agents].sort((a, b) => (b.floor || 1) - (a.floor || 1));
@@ -163,19 +169,22 @@ export class RouteOptimizationEngine {
     sortedAgents.forEach((agent, index) => {
       const roomCenterNodeId = `node_${agent.roomId}_center`;
       const agentFloor = agent.floor || 1;
+      const floorBlocked = floorBlockedMap[agentFloor] || [];
 
       // Available exits:
-      // Ground floor (L1) can exit directly via West, East, or South Grand Portal!
-      // Upper floors (L2 - L10) must descend via West or East Stairwells to Ground level first
+      // Ground floor (L1) can exit directly via any unblocked gate (West, East, or Front/Main Gate).
+      // Upper floors (L2 - L10) must descend via West or East Stairwells to Ground level first.
       const candidateExits = agentFloor === 1
-        ? this.exits
-        : [this.exits[0], this.exits[1]];
+        ? validOperational.filter(e => !floorBlocked.includes(e.id))
+        : validOperational.filter(e => (e.id === 'exit_west' || e.id === 'exit_east') && !floorBlocked.includes(e.id));
+
+      const activeCandidates = candidateExits.length > 0 ? candidateExits : validOperational;
 
       let bestPath = null;
       let bestExit = null;
       let minTotalCost = Infinity;
 
-      for (const exit of candidateExits) {
+      for (const exit of activeCandidates) {
         // Calculate path to this exit
         const result = this.findShortestPath(roomCenterNodeId, exit.nodeId);
         if (!result.success) continue;
@@ -213,7 +222,6 @@ export class RouteOptimizationEngine {
         let finalWaypoints = [...bestPath.waypoints3D];
 
         if (musterPathResult.success && musterPathResult.waypoints3D.length > 1) {
-          // Append outdoor sidewalk path
           finalWaypoints.push(...musterPathResult.waypoints3D.slice(1));
         }
 
@@ -262,7 +270,10 @@ export class RouteOptimizationEngine {
     this.exits.forEach(exit => {
       const loadPercentage = Math.round((exit.currentLoad / exit.capacity) * 100);
       let status = 'OPTIMAL';
-      if (loadPercentage > 120) {
+      if (exit.isBlocked) {
+        status = 'BLOCKED / HAZARD AVOIDANCE ACTIVE';
+        bottlenecks.push(`⛔ ${exit.name} is BLOCKED due to nearby hazard - All occupants rerouted via other gates`);
+      } else if (loadPercentage > 120) {
         status = 'CRITICAL OVERLOAD';
         bottlenecks.push(`⚠️ Stampede Warning at ${exit.name}: ${exit.currentLoad}/${exit.capacity} queued (${loadPercentage}%)`);
       } else if (loadPercentage > 85) {

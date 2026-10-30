@@ -615,9 +615,18 @@ export class SceneManager {
 
     if (this.isSimulating) {
       const fireLocations = [];
-      this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
-      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+      this.fireSystem.activeFires.forEach((f, rId) => {
+        if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
+      });
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const floorBlockedMap = activeScenario?.structuralFailures?.floorBlockedExits || null;
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap);
       this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
+      if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
     }
   }
 
@@ -630,18 +639,19 @@ export class SceneManager {
     if (this.isSimulating) {
       const fireLocations = [];
       if (this.fireSystem && this.fireSystem.activeFires) {
-        this.fireSystem.activeFires.forEach(f => {
-          if (f.basePos) fireLocations.push(f.basePos);
+        this.fireSystem.activeFires.forEach((f, rId) => {
+          if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
         });
       }
       const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
       const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const floorBlockedMap = activeScenario?.structuralFailures?.floorBlockedExits || null;
       const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
       const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
 
       const newPlan = this.crowdOptimizer
-        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType)
-        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents) : null);
+        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap)
+        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents, blockedExitIds, floorBlockedMap || {}) : null);
 
       if (newPlan && newPlan.assignments) {
         if (this.agentCrowd.rerouteAgents) {
@@ -663,21 +673,22 @@ export class SceneManager {
 
     const fireLocations = [];
     if (this.fireSystem && this.fireSystem.activeFires) {
-      this.fireSystem.activeFires.forEach(f => {
-        if (f.basePos) fireLocations.push(f.basePos);
+      this.fireSystem.activeFires.forEach((f, rId) => {
+        if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
       });
     }
 
     const activeScenario = scenario || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null);
     const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+    const floorBlockedMap = activeScenario?.structuralFailures?.floorBlockedExits || null;
     const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
     const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
 
     let optimizationResult;
     if (this.crowdOptimizer) {
-      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap);
     } else if (this.routeOptimizer) {
-      optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+      optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents, blockedExitIds, floorBlockedMap || {});
     }
 
     if (optimizationResult && optimizationResult.assignments) {
