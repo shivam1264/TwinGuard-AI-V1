@@ -14,8 +14,8 @@ export const RoomModal = ({ room, onClose, onTriggerFire, onUpdateCrowd, onSelec
           border: '1px solid #e2e8f0',
           boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
           fontFamily: "'Inter', system-ui, sans-serif",
-          padding: '20px',
-          gap: '16px',
+          padding: '24px 26px',
+          gap: '18px',
         }}
       >
         {/* Modal Header */}
@@ -43,9 +43,9 @@ export const RoomModal = ({ room, onClose, onTriggerFire, onUpdateCrowd, onSelec
             onClick={onClose}
             className="flex items-center justify-center cursor-pointer transition-colors"
             style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
+              width: '32px',
+              height: '32px',
+              borderRadius: '9px',
               background: '#f8fafc',
               border: '1px solid #e2e8f0',
               color: '#94a3b8',

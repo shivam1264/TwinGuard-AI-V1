@@ -30,7 +30,7 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
         <div
           className="flex items-center justify-between"
           style={{
-            padding: '16px 20px',
+            padding: '22px 28px 18px 28px',
             borderBottom: '1px solid #e2e8f0',
             background: '#ffffff',
           }}
@@ -39,9 +39,9 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
             <div
               className="flex items-center justify-center shrink-0"
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '11px',
+                width: '40px',
+                height: '40px',
+                borderRadius: '12px',
                 background: '#f0fdf4',
                 border: '1px solid #d1fae5',
                 color: '#0d7a5f',
@@ -50,10 +50,10 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
               <FileText style={{ width: '18px', height: '18px' }} />
             </div>
             <div>
-              <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                 Evacuation & Safety Audit Report
               </h2>
-              <p style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: 500, marginTop: '2px' }}>
+              <p style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500, marginTop: '4px' }}>
                 Facility Digital Twin Automated Egress Assessment
               </p>
             </div>
@@ -63,9 +63,9 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
             onClick={onClose}
             className="flex items-center justify-center cursor-pointer transition-colors"
             style={{
-              width: '30px',
-              height: '30px',
-              borderRadius: '8px',
+              width: '34px',
+              height: '34px',
+              borderRadius: '10px',
               background: '#f8fafc',
               border: '1px solid #e2e8f0',
               color: '#94a3b8',

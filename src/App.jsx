@@ -556,25 +556,47 @@ export function App() {
       {isCctvOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6 animate-in fade-in duration-150 select-none">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#0d7a5f] border border-emerald-100 flex items-center justify-center">
-                  <Video className="w-4.5 h-4.5" />
+            <div style={{ padding: '22px 28px 18px 28px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }} className="flex items-center justify-between shrink-0">
+              <div className="flex items-center" style={{ gap: '14px' }}>
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: '#f0fdf4',
+                    border: '1px solid #d1fae5',
+                    color: '#0d7a5f',
+                    boxShadow: '0 2px 6px -1px rgba(13, 122, 95, 0.15)',
+                  }}
+                >
+                  <Video style={{ width: '20px', height: '20px' }} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-extrabold text-slate-800 leading-tight">
+                  <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                     Facility CCTV Surveillance & AI Detection Grid
                   </h2>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  <p style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500, marginTop: '4px', lineHeight: 1.2 }}>
                     100 Vision Cameras • Real-time occupancy & thermal fire tracking
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCctvOpen(false)}
-                className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                className="flex items-center justify-center cursor-pointer transition-colors"
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  borderRadius: '10px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  color: '#94a3b8',
+                }}
+                title="Close Dialog"
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#94a3b8'; }}
               >
-                <X className="w-4 h-4" />
+                <X style={{ width: '16px', height: '16px' }} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -596,31 +618,66 @@ export function App() {
       {isAnalyticsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#0d7a5f] border border-emerald-100 flex items-center justify-center">
-                  <BarChart3 className="w-4.5 h-4.5" />
+            <div style={{ padding: '22px 28px 18px 28px', borderBottom: '1px solid #e2e8f0', background: '#ffffff' }} className="flex items-center justify-between shrink-0">
+              <div className="flex items-center" style={{ gap: '14px' }}>
+                <div
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: '#f0fdf4',
+                    border: '1px solid #d1fae5',
+                    color: '#0d7a5f',
+                    boxShadow: '0 2px 6px -1px rgba(13, 122, 95, 0.15)',
+                  }}
+                >
+                  <BarChart3 style={{ width: '20px', height: '20px' }} />
                 </div>
                 <div>
-                  <h2 className="text-sm font-extrabold text-slate-800 leading-tight">
+                  <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                     Stairwell Cores & 10-Floor Population Analytics
                   </h2>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  <p style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 500, marginTop: '4px', lineHeight: 1.2 }}>
                     Live occupancy, egress flow rates & evacuation throughput telemetry
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#0d7a5f] bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="flex items-center" style={{ gap: '10px' }}>
+                <div
+                  className="flex items-center"
+                  style={{
+                    gap: '6px',
+                    fontSize: '12px',
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    color: '#0d7a5f',
+                    background: '#f0fdf4',
+                    padding: '6px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #d1fae5',
+                  }}
+                >
+                  <Clock style={{ width: '14px', height: '14px' }} />
                   <span>{String(Math.floor((stats.elapsedSeconds || 0) / 60)).padStart(2, '0')}:{String((stats.elapsedSeconds || 0) % 60).padStart(2, '0')}s</span>
                 </div>
                 <button
                   onClick={() => setIsAnalyticsOpen(false)}
-                  className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                  className="flex items-center justify-center cursor-pointer transition-colors"
+                  style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '10px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    color: '#94a3b8',
+                  }}
+                  title="Close Dialog"
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#94a3b8'; }}
                 >
-                  <X className="w-4 h-4" />
+                  <X style={{ width: '16px', height: '16px' }} />
                 </button>
               </div>
             </div>
