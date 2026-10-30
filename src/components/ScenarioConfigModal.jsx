@@ -1,30 +1,113 @@
 import React, { useState } from 'react';
 import {
   Flame,
-  AlertTriangle,
   Users,
-  ShieldAlert,
-  Sliders,
   Check,
   RotateCcw,
   Download,
-  Upload,
   X,
-  Building2,
+  Sparkles,
+  LayoutGrid,
+  DoorOpen,
+  Ban,
+  Moon,
   Milestone,
-  Zap,
   ArrowUpDown,
+  Zap,
   Clock,
-  Sparkles
+  FileText
 } from 'lucide-react';
 import {
   AIEngine,
   PRESET_SCENARIOS,
   HAZARD_TYPES,
-  SEVERITY_LEVELS,
-  MOBILITY_PROFILES
+  SEVERITY_LEVELS
 } from '../ai';
 import { FLOOR_THEMES, ROOM_TEMPLATES } from '../simulation/Doorways';
+
+// Signal / Bar icon for severity badges
+const SignalBars = ({ className = 'w-3 h-3' }) => (
+  <svg viewBox="0 0 16 16" fill="currentColor" className={className}>
+    <rect x="1" y="9" width="2.5" height="5" rx="0.75" />
+    <rect x="5.5" y="6" width="2.5" height="8" rx="0.75" />
+    <rect x="10" y="3" width="2.5" height="11" rx="0.75" />
+  </svg>
+);
+
+// Staircase icon for Stairwell A Blocked card
+const StaircaseIcon = ({ className = 'w-5 h-5' }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M4 19h4v-4h4v-4h4v-4h4" />
+  </svg>
+);
+
+// Preset metadata for pixel-perfect card rendering
+const PRESET_CARD_DATA = {
+  STANDARD_OFFICE_FIRE: {
+    category: 'COMMERCIAL BASELINE',
+    Icon: Flame,
+    iconWrapBg: 'bg-red-50 text-red-500',
+    severityBadge: {
+      text: 'Level 4 (High)',
+      bg: 'bg-red-50 text-red-600 border-red-100'
+    },
+    exitBadge: {
+      text: 'All Exits Open',
+      bg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      Icon: DoorOpen
+    }
+  },
+  STAIRWELL_BLOCKED: {
+    category: 'STRUCTURAL COMPROMISE',
+    Icon: StaircaseIcon,
+    iconWrapBg: 'bg-purple-50 text-purple-600',
+    severityBadge: {
+      text: 'Level 5 (Catastrophic)',
+      bg: 'bg-red-50 text-red-600 border-red-100'
+    },
+    exitBadge: {
+      text: 'Stairwell A Blocked',
+      bg: 'bg-orange-50 text-orange-600 border-orange-100',
+      Icon: Ban
+    }
+  },
+  HIGH_DENSITY_EVENT: {
+    category: 'OVERCROWDED EVENT',
+    Icon: Users,
+    iconWrapBg: 'bg-blue-50 text-blue-600',
+    severityBadge: {
+      text: 'Level 8 (Medium)',
+      bg: 'bg-amber-50 text-amber-600 border-amber-100'
+    },
+    exitBadge: {
+      text: 'All Exits Open',
+      bg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      Icon: DoorOpen
+    }
+  },
+  NIGHT_SHIFT_DELAYED: {
+    category: 'OFF-PEAK HOURS',
+    Icon: Moon,
+    iconWrapBg: 'bg-emerald-50 text-emerald-600',
+    severityBadge: {
+      text: 'Level 3 (Medium)',
+      bg: 'bg-amber-50 text-amber-600 border-amber-100'
+    },
+    exitBadge: {
+      text: 'All Exits Open',
+      bg: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+      Icon: DoorOpen
+    }
+  }
+};
 
 export const ScenarioConfigModal = ({
   isOpen,
@@ -103,151 +186,190 @@ export const ScenarioConfigModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
-      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white border border-slate-200/80 rounded-[24px] w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200/90 flex items-center justify-between bg-slate-50/80">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
-              <Sparkles className="w-5 h-5" />
+        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 bg-white">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-500 flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
-                <span>Emergency Scenario Configuration Studio</span>
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black tracking-wider uppercase">
-                  AI Module • Phase 1
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-black text-slate-900 leading-none">
+                  Emergency Scenario <span className="text-blue-600">Configuration Studio</span>
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-[10px] font-bold tracking-wider uppercase">
+                  AI MODULE • PHASE 1
                 </span>
               </div>
-              <div className="text-xs text-slate-500 font-medium mt-0.5">
-                BIM Hazard Placement • Structural Failures • Heterogeneous Crowd Demographics
-              </div>
+              <p className="text-xs text-slate-400 font-medium mt-1">
+                Choose a pre-configured benchmark scenario to run analysis.
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition-colors"
+            className="w-9 h-9 rounded-xl bg-slate-100/70 hover:bg-slate-200/80 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1.5 px-6 pt-3 pb-2 border-b border-slate-200/80 bg-slate-50/40 text-xs font-bold">
+        {/* Tab Navigation Bar */}
+        <div className="flex items-center px-6 py-3 border-b border-slate-100 bg-white text-xs font-semibold overflow-x-auto">
+          {/* Tab 1: Pre-Configured Scenarios */}
           <button
             onClick={() => setActiveTab('PRESETS')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'PRESETS'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold shadow-md shadow-blue-500/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Pre-Engineered Scenarios</span>
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Pre-Configured Scenarios</span>
           </button>
 
+          <div className="h-4 w-[1px] bg-slate-200 mx-2 shrink-0" />
+
+          {/* Tab 2: Hazard & Room Placement */}
           <button
             onClick={() => setActiveTab('HAZARD')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'HAZARD'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold shadow-md shadow-blue-500/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <Flame className="w-3.5 h-3.5 text-red-500" />
+            <Flame className={`w-3.5 h-3.5 ${activeTab === 'HAZARD' ? 'text-white' : 'text-red-500'}`} />
             <span>Hazard & Room Placement</span>
           </button>
 
+          <div className="h-4 w-[1px] bg-slate-200 mx-2 shrink-0" />
+
+          {/* Tab 3: Exit & Structural Blockages */}
           <button
             onClick={() => setActiveTab('EXITS')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'EXITS'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold shadow-md shadow-blue-500/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <Milestone className="w-3.5 h-3.5 text-amber-500" />
+            <DoorOpen className={`w-3.5 h-3.5 ${activeTab === 'EXITS' ? 'text-white' : 'text-slate-500'}`} />
             <span>Exit & Structural Blockages</span>
           </button>
 
+          <div className="h-4 w-[1px] bg-slate-200 mx-2 shrink-0" />
+
+          {/* Tab 4: Crowd Demographics & Mobility */}
           <button
             onClick={() => setActiveTab('DEMOGRAPHICS')}
-            className={`px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
               activeTab === 'DEMOGRAPHICS'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white font-bold shadow-md shadow-blue-500/20'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <Users className="w-3.5 h-3.5 text-purple-500" />
+            <Users className={`w-3.5 h-3.5 ${activeTab === 'DEMOGRAPHICS' ? 'text-white' : 'text-slate-500'}`} />
             <span>Crowd Demographics & Mobility</span>
           </button>
         </div>
 
-        {/* Tab Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* TAB 1: PRESETS */}
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* TAB 1: PRESETS (Exact match to reference mockup) */}
           {activeTab === 'PRESETS' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
-                  Select Pre-Configured Benchmark Scenario
-                </span>
-                <span className="text-xs text-slate-400">Tested against standard building codes</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(PRESET_SCENARIOS).map(([key, sc]) => {
+                const isSelected = selectedPreset === key;
+                const meta = PRESET_CARD_DATA[key] || {
+                  category: sc.category?.toUpperCase() || 'CUSTOM BENCHMARK',
+                  Icon: Flame,
+                  iconWrapBg: 'bg-blue-50 text-blue-600',
+                  severityBadge: {
+                    text: `Level ${sc.hazard?.floor || 1} (${sc.hazard?.severity || 'Med'})`,
+                    bg: 'bg-red-50 text-red-600 border-red-100'
+                  },
+                  exitBadge: {
+                    text: sc.structuralFailures?.blockedExits?.length > 0 ? 'Exits Blocked' : 'All Exits Open',
+                    bg: sc.structuralFailures?.blockedExits?.length > 0
+                      ? 'bg-orange-50 text-orange-600 border-orange-100'
+                      : 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                    Icon: sc.structuralFailures?.blockedExits?.length > 0 ? Ban : DoorOpen
+                  }
+                };
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                {Object.entries(PRESET_SCENARIOS).map(([key, sc]) => {
-                  const isSelected = selectedPreset === key;
-                  const isBlocked = sc.structuralFailures?.blockedExits?.length > 0;
+                const CardIcon = meta.Icon;
+                const ExitIcon = meta.exitBadge.Icon;
 
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => handleSelectPreset(key)}
-                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer relative flex flex-col justify-between ${
-                        isSelected
-                          ? 'border-blue-600 bg-blue-50/40 shadow-md shadow-blue-500/10'
-                          : 'border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="text-[10px] font-black tracking-wider uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
-                            {sc.category}
-                          </span>
-                          {isSelected && (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                              <Check className="w-3 h-3 stroke-[3]" />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="text-sm font-black text-slate-900">{sc.name}</div>
-                        <div className="text-xs text-slate-500 mt-1 leading-relaxed">{sc.description}</div>
+                return (
+                  <div
+                    key={key}
+                    onClick={() => handleSelectPreset(key)}
+                    className={`rounded-2xl p-4 transition-all cursor-pointer relative bg-white flex flex-col justify-between min-h-[148px] ${
+                      isSelected
+                        ? 'border-2 border-blue-600 shadow-md shadow-blue-500/10'
+                        : 'border border-slate-200/80 hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Top Row: Icon + Header Info + Check Badge */}
+                    <div className="flex items-start gap-3.5">
+                      <div
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${meta.iconWrapBg}`}
+                      >
+                        <CardIcon className="w-5 h-5" />
                       </div>
 
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold">
-                        <div className="flex items-center gap-1.5 text-red-600">
-                          <Flame className="w-3.5 h-3.5" />
-                          <span>Level {sc.hazard.floor} ({sc.hazard.severity})</span>
+                      <div className="flex-1 pr-6">
+                        <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase block">
+                          {meta.category}
+                        </span>
+                        <h3 className="text-sm font-bold text-slate-900 mt-0.5 leading-snug">
+                          {sc.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          {sc.description}
+                        </p>
+                      </div>
+
+                      {/* Selected Checkmark Badge in Top Right */}
+                      {isSelected && (
+                        <div className="absolute top-4 right-4 w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                          <Check className="w-3 h-3 stroke-[3]" />
                         </div>
-                        <div className={`flex items-center gap-1.5 ${isBlocked ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          <Milestone className="w-3.5 h-3.5" />
-                          <span>{isBlocked ? 'Stairwell A Blocked' : 'All Exits Open'}</span>
-                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Row: Severity Tag + Exit Status Tag */}
+                    <div className="mt-3.5 pt-3 flex items-center gap-2">
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-semibold ${meta.severityBadge.bg}`}
+                      >
+                        <SignalBars className="w-3 h-3" />
+                        <span>{meta.severityBadge.text}</span>
+                      </div>
+
+                      <div
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-semibold ${meta.exitBadge.bg}`}
+                      >
+                        <ExitIcon className="w-3.5 h-3.5" />
+                        <span>{meta.exitBadge.text}</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           )}
 
           {/* TAB 2: HAZARD CONFIGURATION */}
           {activeTab === 'HAZARD' && (
-            <div className="space-y-5">
+            <div className="space-y-5 bg-white">
               {/* Room & Floor Target */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Target Floor (1 to 10)
                   </label>
                   <select
@@ -274,7 +396,7 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Target Room / Chamber
                   </label>
                   <select
@@ -304,7 +426,7 @@ export const ScenarioConfigModal = ({
               {/* Hazard Type & Severity */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Emergency Threat Type
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -334,7 +456,7 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Hazard Severity Rating
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -404,7 +526,7 @@ export const ScenarioConfigModal = ({
           {/* TAB 3: STRUCTURAL FAILURES & EXITS */}
           {activeTab === 'EXITS' && (
             <div className="space-y-4">
-              <span className="text-xs font-black text-slate-700 uppercase tracking-wider block">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                 Emergency Stairwell Core Operability
               </span>
 
@@ -419,9 +541,9 @@ export const ScenarioConfigModal = ({
                   return (
                     <div
                       key={core.id}
-                      className={`p-4 rounded-2xl border-2 transition-all flex flex-col justify-between ${
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
                         isBlocked
-                          ? 'border-red-500 bg-red-50/50'
+                          ? 'border-red-500 bg-red-50/40'
                           : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
@@ -429,14 +551,14 @@ export const ScenarioConfigModal = ({
                         <div className="flex items-center justify-between mb-2">
                           <Milestone className={`w-5 h-5 ${isBlocked ? 'text-red-500' : 'text-emerald-500'}`} />
                           <span
-                            className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
-                              isBlocked ? 'bg-red-200 text-red-800' : 'bg-emerald-100 text-emerald-700'
+                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              isBlocked ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                             }`}
                           >
                             {isBlocked ? 'BLOCKED' : 'OPERATIONAL'}
                           </span>
                         </div>
-                        <div className="text-sm font-black text-slate-900">{core.name}</div>
+                        <div className="text-sm font-bold text-slate-900">{core.name}</div>
                         <div className="text-xs text-slate-500 mt-1">{core.desc}</div>
                       </div>
 
@@ -456,8 +578,8 @@ export const ScenarioConfigModal = ({
               </div>
 
               {/* Equipment Failure Toggles */}
-              <div className="pt-2 border-t border-slate-200/80 space-y-2.5">
-                <span className="text-xs font-black text-slate-700 uppercase tracking-wider block">
+              <div className="pt-2 border-t border-slate-100 space-y-2.5">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   Equipment & Facility Failures
                 </span>
 
@@ -512,22 +634,22 @@ export const ScenarioConfigModal = ({
           {activeTab === 'DEMOGRAPHICS' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                   Heterogeneous Human Population Distribution
                 </span>
-                <span className="text-xs text-slate-400">Total Must Equal 100%</span>
+                <span className="text-xs text-slate-400 font-medium">Total Must Equal 100%</span>
               </div>
 
               {/* Mobility Sliders */}
               <div className="space-y-4">
                 {/* Standard Staff */}
-                <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200/80 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-black text-slate-800">
+                <div className="p-4 rounded-2xl bg-blue-50/40 border border-blue-200/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                     <span className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                       Standard Agile Staff (1.20 - 1.45 m/s)
                     </span>
-                    <span className="font-mono text-blue-700 text-sm">
+                    <span className="font-mono text-blue-700 text-sm font-bold">
                       {Math.round((scenarioState.demographics?.standardRatio ?? 0.8) * 100)}%
                     </span>
                   </div>
@@ -545,13 +667,13 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 {/* Slow / Senior */}
-                <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-black text-slate-800">
+                <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                     <span className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                       Slow Cadence / Senior (0.75 - 0.95 m/s)
                     </span>
-                    <span className="font-mono text-amber-700 text-sm">
+                    <span className="font-mono text-amber-700 text-sm font-bold">
                       {Math.round((scenarioState.demographics?.slowRatio ?? 0.15) * 100)}%
                     </span>
                   </div>
@@ -569,13 +691,13 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 {/* Assisted / Wheelchair */}
-                <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/80 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-black text-slate-800">
+                <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200/60 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
                     <span className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
                       Assisted / Reduced Mobility (0.45 - 0.65 m/s)
                     </span>
-                    <span className="font-mono text-purple-700 text-sm">
+                    <span className="font-mono text-purple-700 text-sm font-bold">
                       {Math.round((scenarioState.demographics?.assistedRatio ?? 0.05) * 100)}%
                     </span>
                   </div>
@@ -645,30 +767,20 @@ export const ScenarioConfigModal = ({
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-slate-200/90 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportJSON}
-              className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export JSON</span>
-            </button>
-
-            <button
-              onClick={() => handleSelectPreset('STANDARD_OFFICE_FIRE')}
-              className="px-3 py-2 rounded-xl text-slate-500 hover:text-slate-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Defaults</span>
-            </button>
-          </div>
+        {/* Footer Actions (Matching Reference) */}
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between">
+          <button
+            onClick={handleExportJSON}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-2 transition-colors shadow-xs"
+          >
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export JSON</span>
+          </button>
 
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/70 text-xs font-bold transition-colors"
+              className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-bold transition-colors"
             >
               Cancel
             </button>
@@ -678,10 +790,10 @@ export const ScenarioConfigModal = ({
                 onApplyScenario(scenarioState);
                 onClose();
               }}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-black tracking-wider uppercase shadow-md shadow-blue-500/25 flex items-center gap-2 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
             >
               <Check className="w-4 h-4 stroke-[3]" />
-              <span>Apply Scenario to Digital Twin</span>
+              <span>Apply Scenario</span>
             </button>
           </div>
         </div>
