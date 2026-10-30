@@ -81,14 +81,32 @@ body {
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.8);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 4px;
+  background: rgba(13, 122, 95, 0.25);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8);
+  background: rgba(13, 122, 95, 0.6);
+}
+
+.custom-mint-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(13, 122, 95, 0.25) transparent;
+}
+.custom-mint-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-mint-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-mint-scrollbar::-webkit-scrollbar-thumb {
+  background: #bcebde;
+  border-radius: 9999px;
+}
+.custom-mint-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0d7a5f;
 }
 
 /* Badge styling */

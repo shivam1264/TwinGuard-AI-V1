@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Home,
   Layers,
@@ -17,13 +17,7 @@ import {
   MapPin,
   Shield,
   LifeBuoy,
-  Eye,
-  Bell,
-  Sliders,
-  LogOut,
-  FileText,
-  CreditCard,
-  UserPlus
+  Eye
 } from 'lucide-react';
 import { FLOOR_THEMES } from '../simulation/Doorways';
 
@@ -71,9 +65,9 @@ export const LeftSidebar = ({
     { id: '3D_VIEW', label: 'Home View (3D)', icon: Home, badge: null },
     { id: 'FLOOR_VIEW', label: 'BIM Floor Stack', icon: Layers, badge: '10 Lvl' },
     { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3 Cores' },
-    { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3' },
-    { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100' },
-    { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'IoT' }
+    { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3 Shafts' },
+    { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100 Cams' },
+    { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'IoT Live' }
   ];
 
   // Emergency Escape Cores & Muster Zones
@@ -156,16 +150,16 @@ export const LeftSidebar = ({
   }
 
   // ==========================================
-  // 2. EXPANDED FULL VIEW (Matches Image 2 Exact Look!)
+  // 2. EXPANDED FULL VIEW (Width 335px - Zero Overflow/Clipping!)
   // ==========================================
   return (
-    <aside className="w-[290px] bg-[#f8faf9] border-r border-[#e2ede7] flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300 z-20 font-sans">
+    <aside className="w-[335px] bg-[#f8faf9] border-r border-[#e2ede7] flex flex-col shrink-0 select-none overflow-hidden transition-all duration-300 z-20 font-sans">
       
       {/* Top Header Row with Minimalist Collapse Button */}
       <div className="pt-4 px-4 pb-2 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-[#0d7a5f]" />
-          <span className="text-[12px] font-extrabold text-[#133d36] tracking-tight">
+          <span className="text-[13px] font-extrabold text-[#133d36] tracking-tight">
             TwinGuard AI • Digital Twin
           </span>
         </div>
@@ -179,8 +173,8 @@ export const LeftSidebar = ({
         </button>
       </div>
 
-      {/* Scrollable Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-4">
+      {/* Scrollable Body with Protected Right Padding and Custom Mint Scrollbar */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 pr-3 py-2 flex flex-col gap-4 custom-mint-scrollbar">
 
         {/* ============================================================ */}
         {/* SECTION 1: MAIN MENU (Primary Workspace Views)               */}
@@ -195,7 +189,7 @@ export const LeftSidebar = ({
             const isActive = activeMode === item.id;
 
             if (isActive) {
-              // ACTIVE ITEM: Bold Emerald Pill Capsule with White Outline Icon (Matching Image 2 Home Item!)
+              // ACTIVE ITEM: Bold Emerald Pill Capsule with White Outline Icon
               return (
                 <button
                   key={item.id}
@@ -203,9 +197,9 @@ export const LeftSidebar = ({
                     if (item.action) item.action();
                     onSelectMode(item.id);
                   }}
-                  className="w-full bg-[#0d7a5f] text-white rounded-2xl p-2 px-3 flex items-center justify-between shadow-lg shadow-[#0d7a5f]/20 transition-all cursor-pointer text-left"
+                  className="w-full bg-[#0d7a5f] text-white rounded-2xl p-2 px-3 flex items-center justify-between shadow-md shadow-[#0d7a5f]/20 transition-all cursor-pointer text-left"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                     <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/10 flex items-center justify-center text-white shrink-0">
                       <Icon className="w-5 h-5 text-white" />
                     </div>
@@ -215,7 +209,7 @@ export const LeftSidebar = ({
                   </div>
 
                   {item.badge && (
-                    <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                    <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                       {item.badge}
                     </span>
                   )}
@@ -223,7 +217,7 @@ export const LeftSidebar = ({
               );
             }
 
-            // INACTIVE ITEM: Squircle Mint Icon + Dark Text + Soft Mint Count Pill (Matching Image 2 Patients Item!)
+            // INACTIVE ITEM: Squircle Mint Icon + Dark Text + Soft Mint Count Pill
             return (
               <button
                 key={item.id}
@@ -233,7 +227,7 @@ export const LeftSidebar = ({
                 }}
                 className="w-full flex items-center justify-between p-1.5 px-2 rounded-2xl hover:bg-[#eaf5f0] transition-all cursor-pointer group text-left"
               >
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                   <div className="w-10 h-10 rounded-2xl bg-[#e8f7f2] border border-[#d1f2e8] flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:bg-[#dbf3ea] transition-colors">
                     <Icon className="w-5 h-5 stroke-[2]" />
                   </div>
@@ -243,7 +237,7 @@ export const LeftSidebar = ({
                 </div>
 
                 {item.badge && (
-                  <span className="bg-[#d1fae5] text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                  <span className="bg-[#d1fae5] text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                     {item.badge}
                   </span>
                 )}
@@ -253,7 +247,7 @@ export const LeftSidebar = ({
         </div>
 
         {/* Subtle Mint Divider */}
-        <div className="h-px bg-[#e0f0ea] my-1" />
+        <div className="h-px bg-[#e0f0ea] my-0.5" />
 
         {/* ============================================================ */}
         {/* SECTION 2: BUILDING FLOORS (L10 down to L1)                 */}
@@ -265,7 +259,7 @@ export const LeftSidebar = ({
             </span>
             <button
               onClick={() => onSelectFloor('ALL')}
-              className={`text-xs font-bold px-2.5 py-0.5 rounded-full transition-all cursor-pointer ${
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-full transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                 activeFloorView === 'ALL'
                   ? 'bg-[#0d7a5f] text-white shadow-xs'
                   : 'bg-[#d1fae5] text-[#065f46] hover:bg-[#bbf7d0]'
@@ -285,13 +279,13 @@ export const LeftSidebar = ({
                 <button
                   key={fl}
                   onClick={() => onSelectFloor('ALL')}
-                  className="w-full bg-[#0d7a5f] text-white rounded-2xl p-2 px-3 flex items-center justify-between shadow-lg shadow-[#0d7a5f]/20 transition-all cursor-pointer text-left"
+                  className="w-full bg-[#0d7a5f] text-white rounded-2xl p-2 px-3 flex items-center justify-between shadow-md shadow-[#0d7a5f]/20 transition-all cursor-pointer text-left"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                     <div className="w-9 h-9 rounded-xl border border-white/25 bg-white/10 flex items-center justify-center text-white font-mono font-bold text-xs shrink-0">
                       L{fl}
                     </div>
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 truncate">
                       <span className="font-bold text-[14px] text-white leading-tight truncate">
                         {getOrdinalName(fl)}
                       </span>
@@ -301,7 +295,7 @@ export const LeftSidebar = ({
                     </div>
                   </div>
 
-                  <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono">
+                  <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 font-mono whitespace-nowrap">
                     {info.occupants}
                   </span>
                 </button>
@@ -315,11 +309,11 @@ export const LeftSidebar = ({
                 onClick={() => onSelectFloor(String(fl))}
                 className="w-full flex items-center justify-between p-1.5 px-2 rounded-2xl hover:bg-[#eaf5f0] transition-all cursor-pointer group text-left"
               >
-                <div className="flex items-center gap-3 min-w-0 pr-2">
+                <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                   <div className="w-10 h-10 rounded-2xl bg-[#e8f7f2] border border-[#d1f2e8] flex items-center justify-center text-[#0d7a5f] font-mono font-bold text-xs shrink-0 group-hover:bg-[#dbf3ea] transition-colors">
                     L{fl}
                   </div>
-                  <div className="flex flex-col min-w-0">
+                  <div className="flex flex-col min-w-0 truncate">
                     <span className="font-semibold text-[14px] text-[#133d36] leading-tight truncate">
                       {getOrdinalName(fl)}
                     </span>
@@ -329,15 +323,15 @@ export const LeftSidebar = ({
                   </div>
                 </div>
 
-                {/* Right Status / Count Badge */}
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* Right Status / Count Badge - Protected with shrink-0 and whitespace-nowrap */}
+                <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                   {info.status === 'hazard' ? (
-                    <span className="bg-[#ffe4e6] text-[#be123c] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs animate-pulse">
+                    <span className="bg-[#ffe4e6] text-[#be123c] text-xs font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs animate-pulse shrink-0 whitespace-nowrap">
                       <Flame className="w-3 h-3 fill-[#be123c]" />
                       <span>Fire</span>
                     </span>
                   ) : (
-                    <span className="bg-[#d1fae5] text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full font-mono">
+                    <span className="bg-[#d1fae5] text-[#065f46] text-xs font-bold px-2.5 py-0.5 rounded-full font-mono shrink-0 whitespace-nowrap">
                       {info.occupants}
                     </span>
                   )}
@@ -348,7 +342,7 @@ export const LeftSidebar = ({
         </div>
 
         {/* Subtle Mint Divider */}
-        <div className="h-px bg-[#e0f0ea] my-1" />
+        <div className="h-px bg-[#e0f0ea] my-0.5" />
 
         {/* ============================================================ */}
         {/* SECTION 3: SAFETY & EMERGENCY EXITS                         */}
@@ -364,11 +358,11 @@ export const LeftSidebar = ({
               onClick={() => onSetCameraPreset && onSetCameraPreset(exit.preset)}
               className="w-full flex items-center justify-between p-1.5 px-2 rounded-2xl hover:bg-[#eaf5f0] transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                 <div className="w-10 h-10 rounded-2xl bg-[#e8f7f2] border border-[#d1f2e8] flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:bg-[#dbf3ea] transition-colors">
                   <Milestone className="w-5 h-5 stroke-[2]" />
                 </div>
-                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col min-w-0 truncate">
                   <span className="font-semibold text-[13px] text-[#133d36] truncate leading-tight">
                     {exit.name}
                   </span>
@@ -378,7 +372,7 @@ export const LeftSidebar = ({
                 </div>
               </div>
 
-              <span className="bg-[#d1fae5] text-[#065f46] text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0">
+              <span className="bg-[#d1fae5] text-[#065f46] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 whitespace-nowrap">
                 {exit.status}
               </span>
             </button>
@@ -397,21 +391,21 @@ export const LeftSidebar = ({
               onClick={() => onSetCameraPreset && onSetCameraPreset(zone.preset)}
               className="w-full flex items-center justify-between p-1.5 px-2 rounded-2xl hover:bg-[#eaf5f0] transition-all cursor-pointer group text-left"
             >
-              <div className="flex items-center gap-3 min-w-0 pr-2">
+              <div className="flex items-center gap-3 min-w-0 flex-1 mr-2">
                 <div className="w-10 h-10 rounded-2xl bg-[#e8f7f2] border border-[#d1f2e8] flex items-center justify-center text-[#0d7a5f] shrink-0 group-hover:bg-[#dbf3ea] transition-colors">
                   <MapPin className="w-5 h-5 stroke-[2]" />
                 </div>
-                <div className="flex flex-col min-w-0">
+                <div className="flex flex-col min-w-0 truncate">
                   <span className="font-semibold text-[13px] text-[#133d36] truncate leading-tight">
                     {zone.name}
                   </span>
-                  <span className="text-[11px] text-[#648782] font-medium leading-none mt-0.5">
+                  <span className="text-[11px] text-[#648782] font-medium leading-none mt-0.5 truncate">
                     {zone.loc}
                   </span>
                 </div>
               </div>
 
-              <span className="bg-[#e8f7f2] text-[#0d7a5f] text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 border border-[#d1f2e8]">
+              <span className="bg-[#e8f7f2] text-[#0d7a5f] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 border border-[#d1f2e8] whitespace-nowrap">
                 Focus
               </span>
             </button>
@@ -420,17 +414,17 @@ export const LeftSidebar = ({
 
       </div>
 
-      {/* BOTTOM FACILITY TELEMETRY CARD (Matching Image 2 Bottom Pill Style) */}
+      {/* BOTTOM FACILITY TELEMETRY CARD */}
       <div className="p-3 mx-4 mb-4 rounded-2xl bg-white border border-[#d1f2e8] shadow-xs flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-8 h-8 rounded-xl bg-[#e8f7f2] text-[#0d7a5f] flex items-center justify-center shrink-0">
             <Building2 className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-[12px] font-bold text-[#133d36] leading-tight">
+          <div className="min-w-0">
+            <div className="text-[12px] font-bold text-[#133d36] leading-tight truncate">
               10 Floors • 100 Rooms
             </div>
-            <div className="text-[10px] text-[#648782] font-medium">
+            <div className="text-[10px] text-[#648782] font-medium truncate">
               Gross Area: 25,400 m²
             </div>
           </div>
