@@ -79,266 +79,368 @@ export const RightSidebar = ({
   ] : defaultExits;
 
   // ==========================================
-  // COLLAPSED RAIL VIEW (Width ~64px / w-16)
+  // COLLAPSED RAIL VIEW
   // ==========================================
   if (isCollapsed) {
     return (
-      <aside className="w-16 glass-sidebar flex flex-col items-center py-4 px-2 gap-3.5 shrink-0 select-none transition-all duration-300 ease-in-out z-20">
-        {/* Expand Toggle Button */}
+      <aside
+        className="flex flex-col items-center shrink-0 select-none z-20"
+        style={{
+          width: '64px',
+          background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 100%)',
+          borderLeft: '1px solid #e2e8f0',
+          padding: '16px 8px',
+          gap: '10px',
+        }}
+      >
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-2xl bg-white/80 hover:bg-[#e8f7f2] text-slate-500 hover:text-[#0d7a5f] border border-[#d1f2e8] flex items-center justify-center transition-all shadow-xs cursor-pointer"
+          className="flex items-center justify-center cursor-pointer transition-all"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+            color: '#0d7a5f',
+          }}
           title="Expand Right Panel"
         >
-          <PanelRightOpen className="w-4 h-4" />
+          <PanelRightOpen style={{ width: '16px', height: '16px' }} />
         </button>
 
-        <div className="w-8 border-t border-[#e2ede7]/80 my-0.5" />
+        <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
-        {/* 1. Emergency Status Icon */}
+        {/* Emergency Status */}
         <button
           onClick={onToggleCollapse}
-          className={`w-10 h-10 rounded-2xl flex items-center justify-center relative transition-all group cursor-pointer ${
-            hasFire
-              ? 'bg-red-500 text-white shadow-md shadow-red-500/40 animate-pulse'
-              : 'glass-squircle text-emerald-700'
-          }`}
-          title={`Emergency Status: ${hasFire ? 'FIRE ALARM ACTIVE' : 'NORMAL'}`}
+          className="flex items-center justify-center relative transition-all cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: hasFire ? '#ef4444' : '#f0fdf4',
+            border: hasFire ? 'none' : '1px solid #d1fae5',
+            color: hasFire ? '#ffffff' : '#0d7a5f',
+            boxShadow: hasFire ? '0 4px 12px -2px rgba(239, 68, 68, 0.4)' : 'none',
+          }}
+          title={`Emergency: ${hasFire ? 'FIRE' : 'NORMAL'}`}
         >
-          {hasFire ? <Flame className="w-4 h-4 fill-white" /> : <ShieldCheck className="w-4 h-4" />}
-          <span className="absolute right-full mr-2.5 px-2.5 py-1 bg-[#133d36] text-white text-xs font-semibold rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-            Emergency Status: {hasFire ? 'FIRE' : 'NORMAL'}
-          </span>
+          {hasFire ? <Flame style={{ width: '16px', height: '16px', fill: 'white' }} /> : <ShieldCheck style={{ width: '16px', height: '16px' }} />}
         </button>
 
-        {/* 2. Evacuation Progress Mini Ring */}
+        {/* Evac Progress */}
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-2xl bg-white/70 hover:bg-white border border-[#d1f2e8] flex flex-col items-center justify-center text-center transition-all group relative cursor-pointer shadow-2xs"
-          title={`Evacuation Progress: ${evacProgress}%`}
+          className="flex flex-col items-center justify-center transition-all cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+          }}
+          title={`Evacuation: ${evacProgress}%`}
         >
-          <span className="text-[10px] font-black text-slate-800 leading-none">{evacProgress}%</span>
-          <span className="text-[7px] font-bold text-slate-400 uppercase mt-0.5">EVAC</span>
-          <span className="absolute right-full mr-2.5 px-2.5 py-1 bg-[#133d36] text-white text-xs font-semibold rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-            Evacuation Progress: {evacProgress}%
-          </span>
+          <span style={{ fontSize: '10px', fontWeight: 900, color: '#1e293b', lineHeight: 1 }}>{evacProgress}%</span>
+          <span style={{ fontSize: '7px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: '2px' }}>EVAC</span>
         </button>
 
-        {/* 3. Stairwell Status Icon */}
+        {/* Stairwell */}
         <button
           onClick={onToggleCollapse}
-          className="w-10 h-10 rounded-2xl bg-white/70 hover:bg-[#e8f7f2] text-slate-600 hover:text-[#0d7a5f] border border-[#d1f2e8] flex items-center justify-center transition-all group relative cursor-pointer shadow-2xs"
+          className="flex items-center justify-center transition-all cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#f0fdf4',
+            border: '1px solid #d1fae5',
+            color: '#0d7a5f',
+          }}
           title="Stairwell Status"
         >
-          <Milestone className="w-4 h-4" />
-          <span className="absolute right-full mr-2.5 px-2.5 py-1 bg-[#133d36] text-white text-xs font-semibold rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-            Stairwell Cores
-          </span>
+          <Milestone style={{ width: '16px', height: '16px' }} />
         </button>
 
-        {/* 4. Live Incidents Icon (with red badge) */}
+        {/* Incidents */}
         <button
           onClick={() => {
             if (onOpenIncidents) onOpenIncidents();
             else onToggleCollapse();
           }}
-          className="w-10 h-10 rounded-2xl bg-white/70 hover:bg-red-50 text-slate-600 hover:text-red-600 border border-slate-200/90 flex items-center justify-center relative transition-all group cursor-pointer shadow-2xs"
-          title={`Live Incidents (${incidents.length})`}
+          className="flex items-center justify-center relative transition-all cursor-pointer"
+          style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '12px',
+            background: '#fff5f5',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+          }}
+          title={`Incidents (${incidents.length})`}
         >
-          <Bell className="w-4 h-4" />
+          <Bell style={{ width: '16px', height: '16px' }} />
           {incidents.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white font-extrabold text-[9px] flex items-center justify-center shadow-xs">
+            <span
+              className="absolute flex items-center justify-center"
+              style={{
+                top: '-4px',
+                right: '-4px',
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                color: '#ffffff',
+                fontSize: '9px',
+                fontWeight: 900,
+              }}
+            >
               {incidents.length}
             </span>
           )}
-          <span className="absolute right-full mr-2.5 px-2.5 py-1 bg-[#133d36] text-white text-xs font-semibold rounded-lg shadow-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-            Live Incidents ({incidents.length})
-          </span>
         </button>
       </aside>
     );
   }
 
   // ==========================================
-  // EXPANDED FULL VIEW (Width ~360px - Glassmorphism)
+  // EXPANDED FULL VIEW — Clean Professional
   // ==========================================
   return (
-    <aside className="w-88 lg:w-[360px] glass-sidebar flex flex-col gap-3.5 shrink-0 select-none overflow-y-auto no-scrollbar p-4 transition-all duration-300 ease-in-out z-20">
-      {/* Top Header Row with Collapse Button */}
-      <div className="flex items-center justify-between px-1">
-        <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider">
+    <aside
+      className="flex flex-col shrink-0 select-none overflow-y-auto no-scrollbar z-20"
+      style={{
+        width: '360px',
+        background: 'linear-gradient(180deg, #f0fdf8 0%, #ffffff 50%, #ffffff 100%)',
+        borderLeft: '1px solid #e2e8f0',
+        padding: '16px',
+        gap: '16px',
+        fontFamily: "'Inter', system-ui, sans-serif",
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+      }}
+    >
+      {/* Header Row */}
+      <div className="flex items-center justify-between" style={{ padding: '0 4px' }}>
+        <span
+          style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            color: '#94a3b8',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}
+        >
           COMMAND & TELEMETRY
         </span>
         <button
           onClick={onToggleCollapse}
-          className="w-8 h-8 rounded-xl bg-white/70 hover:bg-[#e8f7f2] text-slate-400 hover:text-[#0d7a5f] border border-[#d1f2e8] flex items-center justify-center transition-all shadow-2xs cursor-pointer"
+          className="flex items-center justify-center cursor-pointer transition-all"
+          style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            background: '#f1f5f9',
+            border: '1px solid #e2e8f0',
+            color: '#94a3b8',
+          }}
           title="Collapse Right Panel"
         >
-          <PanelRightClose className="w-4 h-4" />
+          <PanelRightClose style={{ width: '14px', height: '14px' }} />
         </button>
       </div>
 
-      {/* CARD 1: Emergency Status */}
-      <div className="glass-card rounded-2xl p-4 flex flex-col gap-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white ${
-              hasFire ? 'bg-red-500 shadow-md shadow-red-500/30' : 'bg-[#0d7a5f] shadow-sm shadow-[#0d7a5f]/25'
-            }`}>
-              {hasFire ? <Flame className="w-4 h-4 fill-white" /> : <ShieldCheck className="w-4 h-4" />}
+      {/* CARD 1: Emergency Status + Progress */}
+      <div
+        style={{
+          padding: '16px',
+          borderRadius: '16px',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        {/* Status Header */}
+        <div className="flex items-center justify-between" style={{ marginBottom: '16px' }}>
+          <div className="flex items-center" style={{ gap: '10px' }}>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '10px',
+                background: hasFire ? '#ef4444' : '#0d7a5f',
+                color: '#ffffff',
+                boxShadow: hasFire ? '0 4px 12px -2px rgba(239, 68, 68, 0.3)' : '0 4px 12px -2px rgba(13, 122, 95, 0.25)',
+              }}
+            >
+              {hasFire ? <Flame style={{ width: '16px', height: '16px', fill: 'white' }} /> : <ShieldCheck style={{ width: '16px', height: '16px' }} />}
             </div>
-            <span className="font-extrabold text-sm text-slate-900">
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
               Emergency Status
             </span>
           </div>
-
-          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wider uppercase ${
-            hasFire
-              ? 'glass-pill-danger text-[#be123c] animate-pulse'
-              : 'glass-pill text-[#065f46]'
-          }`}>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              padding: '4px 10px',
+              borderRadius: '20px',
+              background: hasFire ? '#fef2f2' : '#f0fdf4',
+              color: hasFire ? '#dc2626' : '#0d7a5f',
+              border: hasFire ? '1px solid #fecaca' : '1px solid #d1fae5',
+            }}
+          >
             {hasFire ? 'FIRE HAZARD' : 'NORMAL'}
           </span>
         </div>
 
-        {/* Circular Donut Gauge + KPI Breakdown */}
-        <div className="flex items-center justify-between gap-4">
-          {/* Donut Chart (SVG) */}
-          <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+        {/* Donut + KPIs */}
+        <div className="flex items-center justify-between" style={{ gap: '16px' }}>
+          {/* Donut Chart */}
+          <div className="relative flex items-center justify-center shrink-0" style={{ width: '96px', height: '96px' }}>
+            <svg className="w-full h-full" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+              <circle cx="50" cy="50" r={radius} stroke="#e2e8f0" strokeWidth="10" fill="none" />
               <circle
-                cx="50"
-                cy="50"
-                r={radius}
-                stroke="#e2ede7"
-                strokeWidth="10"
-                fill="none"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r={radius}
+                cx="50" cy="50" r={radius}
                 stroke="#0d7a5f"
                 strokeWidth="10"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
                 fill="none"
-                className="transition-all duration-500 ease-out"
+                className="transition-all"
+                style={{ transitionDuration: '500ms' }}
               />
             </svg>
-
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-xl font-black text-slate-900 leading-none">
+              <span style={{ fontSize: '20px', fontWeight: 900, color: '#1e293b', lineHeight: 1 }}>
                 {evacProgress}%
               </span>
-              <span className="text-[9px] font-bold text-slate-400 mt-1 leading-tight max-w-[65px]">
+              <span style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', marginTop: '4px', lineHeight: 1.1, maxWidth: '65px' }}>
                 Evacuation Progress
               </span>
             </div>
           </div>
 
           {/* KPI Rows */}
-          <div className="flex-1 flex flex-col gap-2 text-xs">
-            {/* Total Occupants */}
-            <div className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <Users className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[11px] font-medium">Total Occupants</span>
-              </div>
-              <span className="font-extrabold text-slate-900">{total}</span>
-            </div>
-
-            {/* Evacuated */}
-            <div className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-[11px] font-medium">Evacuated</span>
-              </div>
-              <span className="font-extrabold text-emerald-600">{evacuated}</span>
-            </div>
-
-            {/* In Movement */}
-            <div className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <Activity className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[11px] font-medium">In Movement</span>
-              </div>
-              <span className="font-extrabold text-amber-600">{inTransit}</span>
-            </div>
-
-            {/* Remaining */}
-            <div className="flex items-center justify-between py-0.5">
-              <div className="flex items-center gap-1.5 text-slate-500">
-                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                <span className="text-[11px] font-medium">Remaining</span>
-              </div>
-              <span className="font-extrabold text-rose-600">{remaining}</span>
-            </div>
+          <div className="flex-1 flex flex-col" style={{ gap: '8px' }}>
+            {[
+              { icon: Users, label: 'Total Occupants', value: total, color: '#64748b', valueColor: '#1e293b', iconColor: '#94a3b8' },
+              { icon: CheckCircle2, label: 'Evacuated', value: evacuated, color: '#64748b', valueColor: '#0d7a5f', iconColor: '#0d7a5f' },
+              { icon: Activity, label: 'In Movement', value: inTransit, color: '#64748b', valueColor: '#d97706', iconColor: '#f59e0b' },
+              { icon: AlertCircle, label: 'Remaining', value: remaining, color: '#64748b', valueColor: '#dc2626', iconColor: '#f43f5e' },
+            ].map((kpi) => {
+              const KpiIcon = kpi.icon;
+              return (
+                <div key={kpi.label} className="flex items-center justify-between" style={{ padding: '2px 0' }}>
+                  <div className="flex items-center" style={{ gap: '6px' }}>
+                    <KpiIcon style={{ width: '14px', height: '14px', color: kpi.iconColor }} />
+                    <span style={{ fontSize: '11px', fontWeight: 500, color: kpi.color }}>{kpi.label}</span>
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: kpi.valueColor }}>{kpi.value}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* CARD 2: Stairwell Status (Spacious Full-Width Row Items - Zero Overlap!) */}
-      <div className="glass-card rounded-2xl p-4 flex flex-col gap-3">
+      {/* CARD 2: Stairwell Status */}
+      <div
+        style={{
+          padding: '16px',
+          borderRadius: '16px',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl glass-squircle text-[#0d7a5f] flex items-center justify-center">
-              <Milestone className="w-4 h-4" />
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: '#f0fdf4',
+                border: '1px solid #d1fae5',
+                color: '#0d7a5f',
+              }}
+            >
+              <Milestone style={{ width: '14px', height: '14px' }} />
             </div>
-            <span className="font-extrabold text-sm text-slate-900">
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
               Stairwell Status
             </span>
           </div>
-
           <button
             onClick={onOpenAnalytics}
-            className="text-xs font-bold text-[#0d7a5f] hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer"
+            className="flex items-center cursor-pointer transition-all"
+            style={{ gap: '4px', fontSize: '11px', fontWeight: 600, color: '#0d7a5f', background: 'none', border: 'none' }}
           >
             <span>View All</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight style={{ width: '12px', height: '12px' }} />
           </button>
         </div>
 
-        {/* Stacked Egress Core Items */}
-        <div className="flex flex-col gap-2">
+        {/* Stairwell Items */}
+        <div className="flex flex-col" style={{ gap: '8px' }}>
           {displayExits.map((stair) => {
             const isCongested = stair.status === 'Congested';
             return (
               <div
                 key={stair.id}
-                className="bg-white/60 backdrop-blur-xs border border-white/80 rounded-xl p-2.5 flex flex-col gap-1.5 shadow-2xs"
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: '12px',
+                  background: '#ffffff',
+                  border: '1px solid #f1f5f9',
+                }}
               >
                 {/* Title & Status */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-800">{stair.name}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${isCongested ? 'bg-amber-500 animate-pulse ring-2 ring-amber-200' : 'bg-emerald-500'}`} />
-                    <span className={`text-[10px] font-extrabold ${isCongested ? 'text-amber-600' : 'text-emerald-700'}`}>
+                <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{stair.name}</span>
+                  <div className="flex items-center" style={{ gap: '5px' }}>
+                    <span
+                      style={{
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: isCongested ? '#f59e0b' : '#10b981',
+                        display: 'inline-block',
+                      }}
+                    />
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: isCongested ? '#d97706' : '#0d7a5f' }}>
                       {stair.status}
                     </span>
                   </div>
                 </div>
 
-                {/* Occupants & Percentage */}
-                <div className="flex items-center justify-between text-xs text-slate-500 font-mono">
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3 text-slate-400" />
-                    <span className="font-bold text-slate-700">{stair.load}</span>
-                    <span className="text-[10px] text-slate-400">/ {stair.capacity} max</span>
+                {/* Occupant count */}
+                <div className="flex items-center justify-between" style={{ marginBottom: '6px' }}>
+                  <div className="flex items-center" style={{ gap: '4px' }}>
+                    <Users style={{ width: '12px', height: '12px', color: '#94a3b8' }} />
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{stair.load}</span>
+                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>/ {stair.capacity} max</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-700">{stair.percent}%</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#334155', fontFamily: 'monospace' }}>{stair.percent}%</span>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                <div style={{ width: '100%', height: '4px', borderRadius: '999px', background: '#e2e8f0', overflow: 'hidden' }}>
                   <div
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      isCongested ? 'bg-amber-500' : 'bg-[#0d7a5f]'
-                    }`}
-                    style={{ width: `${Math.min(100, stair.percent)}%` }}
+                    className="transition-all"
+                    style={{
+                      height: '100%',
+                      borderRadius: '999px',
+                      width: `${Math.min(100, stair.percent)}%`,
+                      background: isCongested ? '#f59e0b' : '#0d7a5f',
+                      transitionDuration: '300ms',
+                    }}
                   />
                 </div>
               </div>
@@ -348,66 +450,133 @@ export const RightSidebar = ({
       </div>
 
       {/* CARD 3: Live Incidents */}
-      <div className="glass-card rounded-2xl p-4 flex flex-col gap-3 flex-1 min-h-[210px]">
+      <div
+        className="flex-1"
+        style={{
+          padding: '16px',
+          borderRadius: '16px',
+          background: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          minHeight: '200px',
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-red-100/80 text-red-600 flex items-center justify-center border border-red-200/60">
-              <Bell className="w-4 h-4 fill-red-500" />
+        <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
+              }}
+            >
+              <Bell style={{ width: '14px', height: '14px' }} />
             </div>
-            <span className="font-extrabold text-sm text-slate-900">
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
               Live Incidents
             </span>
-            <span className="w-4 h-4 rounded-full bg-red-500 text-white font-black text-[10px] flex items-center justify-center leading-none">
+            <span
+              className="flex items-center justify-center"
+              style={{
+                width: '18px',
+                height: '18px',
+                borderRadius: '50%',
+                background: '#ef4444',
+                color: '#ffffff',
+                fontSize: '10px',
+                fontWeight: 900,
+                lineHeight: 1,
+              }}
+            >
               {incidents.length}
             </span>
           </div>
-
           <button
             onClick={onOpenIncidents}
-            className="text-xs font-bold text-[#0d7a5f] hover:text-emerald-700 flex items-center gap-1 transition-colors cursor-pointer"
+            className="flex items-center cursor-pointer transition-all"
+            style={{ gap: '4px', fontSize: '11px', fontWeight: 600, color: '#0d7a5f', background: 'none', border: 'none' }}
           >
             <span>View All</span>
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight style={{ width: '12px', height: '12px' }} />
           </button>
         </div>
 
         {/* Incidents Timeline */}
-        <div className="flex flex-col gap-3 relative before:absolute before:left-[47px] before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-200/80">
-          {incidents.slice(0, 3).map((item, index) => {
-            const badgeColor =
-              item.severity === 'High'
-                ? 'bg-red-50 text-red-600 border-red-200'
-                : item.severity === 'Medium'
-                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                : 'bg-emerald-50 text-[#0d7a5f] border-emerald-200';
+        <div className="flex flex-col relative" style={{ gap: '12px' }}>
+          {/* Timeline line */}
+          <div
+            className="absolute"
+            style={{
+              left: '47px',
+              top: '8px',
+              bottom: '8px',
+              width: '1.5px',
+              background: '#e2e8f0',
+            }}
+          />
 
-            const dotColor =
-              item.severity === 'High'
-                ? 'bg-red-500 ring-red-100'
-                : item.severity === 'Medium'
-                ? 'bg-amber-500 ring-amber-100'
-                : 'bg-[#0d7a5f] ring-emerald-100';
+          {incidents.slice(0, 3).map((item, index) => {
+            const severityStyles = {
+              High: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca', dot: '#ef4444' },
+              Medium: { bg: '#fffbeb', color: '#d97706', border: '#fde68a', dot: '#f59e0b' },
+              Low: { bg: '#f0fdf4', color: '#0d7a5f', border: '#d1fae5', dot: '#0d7a5f' },
+            };
+            const sv = severityStyles[item.severity] || severityStyles.Low;
 
             return (
-              <div key={item.id || index} className="flex items-start gap-3 relative z-10">
-                <span className="text-[10px] font-mono font-bold text-slate-400 w-9 shrink-0 pt-0.5">
+              <div key={item.id || index} className="flex items-start relative" style={{ gap: '12px', zIndex: 10 }}>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    color: '#94a3b8',
+                    width: '36px',
+                    flexShrink: 0,
+                    paddingTop: '2px',
+                  }}
+                >
                   {item.time}
                 </span>
 
-                <span className={`w-2.5 h-2.5 rounded-full ${dotColor} ring-4 mt-1 shrink-0`} />
+                <span
+                  className="shrink-0"
+                  style={{
+                    width: '10px',
+                    height: '10px',
+                    borderRadius: '50%',
+                    background: sv.dot,
+                    marginTop: '4px',
+                    boxShadow: `0 0 0 4px ${sv.bg}`,
+                  }}
+                />
 
-                <div className="flex-1 flex items-start justify-between gap-1.5 min-w-0">
+                <div className="flex-1 flex items-start justify-between min-w-0" style={{ gap: '6px' }}>
                   <div className="min-w-0">
-                    <div className="text-xs font-extrabold text-slate-900 truncate">
+                    <div className="truncate" style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
                       {item.title}
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">
+                    <div className="truncate" style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500, marginTop: '2px' }}>
                       {item.subtitle}
                     </div>
                   </div>
-
-                  <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold border shrink-0 ${badgeColor}`}>
+                  <span
+                    className="shrink-0"
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: sv.bg,
+                      color: sv.color,
+                      border: `1px solid ${sv.border}`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
                     {item.severity}
                   </span>
                 </div>
