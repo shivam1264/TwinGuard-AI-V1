@@ -13,6 +13,9 @@ import { ReportsModal } from './components/ReportsModal';
 import { RoomModal } from './components/RoomModal';
 import { FireTriggerBubble } from './components/FireTriggerBubble';
 import { SettingsModal } from './components/SettingsModal';
+import { ScenarioConfigModal } from './components/ScenarioConfigModal';
+import { StrategyRankModal } from './components/StrategyRankModal';
+import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3, Clock } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -108,6 +111,9 @@ export function App() {
   const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [activeScenario, setActiveScenario] = useState(() => AIEngine.getActiveScenario());
 
   const [bimLayers, setBimLayers] = useState({
     structure: true,
@@ -459,6 +465,8 @@ export function App() {
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenReports={() => setIsReportsOpen(true)}
+        onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
+        onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         serverConnected={serverConnected}
       />
 
@@ -621,6 +629,26 @@ export function App() {
           onSelectFloor={handleSetFloorView}
         />
       )}
+
+      
+      {/* MODAL 8: AI Multi-Strategy Simulation & TOPSIS Ranker (Phase 3 AI Module) */}
+      <StrategyRankModal
+        isOpen={isStrategyModalOpen}
+        onClose={() => setIsStrategyModalOpen(false)}
+        scenario={activeScenario}
+        rooms={rooms}
+        exits={exits}
+        onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
+      />
+
+      {/* MODAL 7: Emergency Scenario Configuration Studio (AI Module Phase 1) */}
+      <ScenarioConfigModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentScenario={activeScenario}
+        onApplyScenario={handleApplyScenario}
+        rooms={rooms}
+      />
 
       {/* MODAL 7: System Settings Modal */}
       {isSettingsOpen && (

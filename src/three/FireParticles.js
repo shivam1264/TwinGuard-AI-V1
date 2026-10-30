@@ -318,12 +318,15 @@ export class FireParticles {
   setFloorMode(mode) {
     this.floorMode = mode;
     this.activeFires.forEach((fire, roomId) => {
+      const floorNum = fire.floor || parseInt(roomId.replace(/\D/g, '').slice(0, 2), 10) || 1;
+      // Always canonical elevation
+      fire.group.position.y = fire.basePos ? fire.basePos.y : fire.group.position.y;
+
       if (mode === 'ALL' || mode === 'EXPLODED') {
         fire.group.visible = true;
       } else {
-        const floorNum = parseInt(mode, 10);
-        const isTargetFloor = roomId.toLowerCase().startsWith(`f${floorNum}_`);
-        fire.group.visible = isTargetFloor;
+        const targetFloor = parseInt(mode, 10);
+        fire.group.visible = (floorNum === targetFloor);
       }
     });
   }

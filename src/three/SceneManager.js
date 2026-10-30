@@ -1,3 +1,4 @@
+import { AIEngine } from "../ai/index.js";
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
@@ -120,7 +121,7 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minPolarAngle = 0.02;
-    this.controls.maxPolarAngle = Math.PI * 0.96;
+    this.controls.maxPolarAngle = Math.PI * 0.49; // Clamped above ground plane
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.5;
     this.controls.maxDistance = 280;
@@ -415,7 +416,7 @@ export class SceneManager {
       : [parseInt(activeMode, 10) || 1];
 
     for (const fl of floorLevels) {
-      const floorY = (fl - 1) * this.building.floorHeight + (activeMode === 'EXPLODED' ? (fl - 1) * 5.0 : 0);
+      const floorY = (fl - 1) * this.building.floorHeight;
       const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -floorY);
       const intersection = new THREE.Vector3();
 
@@ -763,33 +764,72 @@ export class SceneManager {
 
     // If currently simulating, perform real-time dynamic rerouting!
     if (this.isSimulating) {
-      const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      this.agentCrowd.rerouteAgents(newPlan.assignments);
-      this.renderRouteOverlays(newPlan.assignments);
-      this.updateExitHoloBadges(newPlan.exitStats);
+      if (this.routeOptimizer) {
+        const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(newPlan.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(newPlan.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      } else if (this.crowdOptimizer) {
+        const fireLocations = [];
+        this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
+        const activeScenario = AIEngine.getActiveScenario();
+        const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+        const activeStrategy = AIEngine.getActiveStrategy();
+        const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+        const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+        this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      }
     }
   }
 
   blockStairwell(coreName, floorNum = null) {
-    this.scenarioEngine.blockStairwellCore(coreName, floorNum);
+    if (this.scenarioEngine && this.scenarioEngine.blockStairwellCore) {
+      this.scenarioEngine.blockStairwellCore(coreName, floorNum);
+    }
 
     // If currently simulating, recalculate paths dynamically!
-    if (this.isSimulating) {
+    if (this.isSimulating && this.routeOptimizer) {
       const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      this.agentCrowd.rerouteAgents(newPlan.assignments);
-      this.renderRouteOverlays(newPlan.assignments);
-      this.updateExitHoloBadges(newPlan.exitStats);
+      if (this.agentCrowd.rerouteAgents) {
+        this.agentCrowd.rerouteAgents(newPlan.assignments);
+      } else {
+        this.agentCrowd.assignRoutes(newPlan.assignments);
+      }
+      if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+      if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
       return newPlan;
     }
     return null;
   }
 
-  startEvacuation() {
+  startEvacuation(scenario = null, strategy = null) {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
-    // Use Enterprise Route Optimization Engine
-    const optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+    let optimizationResult;
+    if (scenario || strategy || !this.routeOptimizer) {
+      const fireLocations = [];
+      this.fireSystem.activeFires.forEach(f => {
+        fireLocations.push(f.basePos);
+      });
+
+      const activeScenario = scenario || AIEngine.getActiveScenario();
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = strategy || AIEngine.getActiveStrategy();
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+      if (this.crowdOptimizer) {
+        optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+      } else if (this.routeOptimizer) {
+        optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+      }
+    } else {
+      optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
+    }
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
 
     // Render 3D Visual Overlays
@@ -867,7 +907,11 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
-      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
+      }
+      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0, fireLocations);
 
       if (this.isSimulating) {
         this.elapsedSeconds += delta * this.simSpeed;

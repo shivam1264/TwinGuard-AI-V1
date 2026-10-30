@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { AIEngine } from '../ai';
 import {
   FileText,
   X,
@@ -13,6 +14,9 @@ export const ReportsModal = ({ stats = {}, exits = [], onClose }) => {
   const evacuated = stats.evacuated || 0;
   const elapsed = stats.elapsedSeconds || 0;
   const evacPercent = total > 0 ? Math.round((evacuated / total) * 100) : 0;
+  const nfpaAudit = useMemo(() => {
+    return AIEngine.auditNFPACompliance();
+  }, [stats]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">

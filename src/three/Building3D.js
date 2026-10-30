@@ -940,8 +940,8 @@ export class Building3D {
       const cMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(cGeos), this.precastFacadeMat);
       cMesh.castShadow = true;
       cMesh.receiveShadow = true;
-      cMesh.userData = { floor: floorNum, architecturalLayer: 'STRUCTURE' };
-      group.add(cMesh);
+      cMesh.userData = { floor: floorNum, architecturalLayer: 'STRUCTURE', component: 'CORNER_PIER' };
+      this.layers.structure.add(cMesh);
     }
 
     // 1. Architectural Floor Slab
@@ -1024,7 +1024,8 @@ export class Building3D {
       const colMesh = new THREE.Mesh(mergedColGeo, this.concreteMat);
       colMesh.castShadow = true;
       colMesh.receiveShadow = true;
-      group.add(colMesh);
+      colMesh.userData = { floor: floorNum, architecturalLayer: 'STRUCTURE', component: 'STRUCTURAL_COLUMN' };
+      this.layers.structure.add(colMesh);
     }
 
     // 6. Instanced Room Furnishings per Floor
@@ -1574,8 +1575,8 @@ export class Building3D {
       northWall.position.set(x, floorWallCenterY, z - 1.2 - shaftD / 2 + wallThick / 2);
       northWall.castShadow = true;
       northWall.receiveShadow = true;
-      northWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
-      this.facadeCutawayGroup.add(northWall);
+      northWall.userData = { floor: f, component: 'STAIR_WALL' };
+      this.stairsGroup.add(northWall);
 
       const southWall = new THREE.Mesh(new THREE.BoxGeometry(shaftW, floorWallH, wallThick), this.precastFacadeMat);
       southWall.position.set(x, floorWallCenterY, z - 1.2 + shaftD / 2 - wallThick / 2);
@@ -1587,8 +1588,8 @@ export class Building3D {
       const intWall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, floorWallH, shaftD), this.stairWallMat);
       intWall.position.set(intWallX, floorWallCenterY, z - 1.2);
       intWall.receiveShadow = true;
-      intWall.userData = { floor: f, architecturalLayer: 'EXTERIOR_ENVELOPE' };
-      this.facadeCutawayGroup.add(intWall);
+      intWall.userData = { floor: f, component: 'STAIR_WALL' };
+      this.stairsGroup.add(intWall);
 
       // Vision slit glazing
       const slitMesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, 0.45), this.glassExteriorMat);
@@ -1746,40 +1747,25 @@ export class Building3D {
       bulkG.translate(x, flY + 2.45, 0.85);
       fBulkheadGeos.push(bulkG);
 
-      // Merge and add directly to floorGroups[f] so stairs move with their owning floor
-      if (fLandingGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fLandingGeos), this.tileFloorMat));
-      }
-      if (fStringerGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fStringerGeos), this.concreteMat));
-      }
-      if (fTreadGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fTreadGeos), this.stairTreadMat));
-      }
-      if (fRiserGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fRiserGeos), this.columnMat));
-      }
-      if (fNosingGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fNosingGeos), this.antiSlipNosingMat));
-      }
-      if (fRailingGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fRailingGeos), this.railingMat));
-      }
-      if (fDoorFrameGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fDoorFrameGeos), this.mullionMat));
-      }
-      if (fDoorLeafGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fDoorLeafGeos), this.fireDoorMat));
-      }
-      if (fPushBarGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fPushBarGeos), this.panicBarSilverMat));
-      }
-      if (fExitSignGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fExitSignGeos), isWest ? this.exitSignLeftMat : this.exitSignRightMat));
-      }
-      if (fBulkheadGeos.length > 0) {
-        group.add(new THREE.Mesh(BufferGeometryUtils.mergeGeometries(fBulkheadGeos), this.stairLightMat));
-      }
+      // Continuous Vertical Circulation: Merge and anchor to stairsGroup with canonical floor metadata
+      const addStairPart = (geos, mat) => {
+        if (!geos || geos.length === 0) return;
+        const mesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(geos), mat);
+        mesh.userData = { floor: f, component: 'STAIR_STRUCTURE' };
+        this.stairsGroup.add(mesh);
+      };
+
+      addStairPart(fLandingGeos, this.tileFloorMat);
+      addStairPart(fStringerGeos, this.concreteMat);
+      addStairPart(fTreadGeos, this.stairTreadMat);
+      addStairPart(fRiserGeos, this.columnMat);
+      addStairPart(fNosingGeos, this.antiSlipNosingMat);
+      addStairPart(fRailingGeos, this.railingMat);
+      addStairPart(fDoorFrameGeos, this.mullionMat);
+      addStairPart(fDoorLeafGeos, this.fireDoorMat);
+      addStairPart(fPushBarGeos, this.panicBarSilverMat);
+      addStairPart(fExitSignGeos, isWest ? this.exitSignLeftMat : this.exitSignRightMat);
+      addStairPart(fBulkheadGeos, this.stairLightMat);
     }
   }
 
@@ -1800,39 +1786,44 @@ export class Building3D {
       roughness: 0.2
     });
 
-    // 1. Hierarchical Elevator Core Walls & Lobby Doors per Floor Layer
+    // 1. Continuous Vertical Elevator Shaft Core Walls & Portals per Floor Layer
     for (let f = 1; f <= this.totalFloors; f++) {
-      const group = this.floorGroups[f];
       const baseY = (f - 1) * this.floorHeight;
       const frontZ = shaftZ + shaftD / 2 + 0.10;
       const coreH = this.floorHeight;
       const coreCenterY = baseY + coreH / 2;
+
+      const addElevElement = (mesh) => {
+        mesh.userData = { floor: f, component: 'ELEVATOR_CORE' };
+        this.elevatorGroup.add(mesh);
+        return mesh;
+      };
 
       // Shaft Shear Walls for Floor f
       const coreBack = new THREE.Mesh(new THREE.BoxGeometry(6.6, coreH, 0.35), this.precastFacadeMat);
       coreBack.position.set(3.2, coreCenterY, shaftZ - shaftD / 2 - 0.175);
       coreBack.castShadow = true;
       coreBack.receiveShadow = true;
-      group.add(coreBack);
+      addElevElement(coreBack);
 
       const coreWest = new THREE.Mesh(new THREE.BoxGeometry(0.35, coreH, shaftD + 0.35), this.precastFacadeMat);
       coreWest.position.set(0.15, coreCenterY, shaftZ);
-      group.add(coreWest);
+      addElevElement(coreWest);
 
       const coreEast = new THREE.Mesh(new THREE.BoxGeometry(0.35, coreH, shaftD + 0.35), this.precastFacadeMat);
       coreEast.position.set(6.25, coreCenterY, shaftZ);
-      group.add(coreEast);
+      addElevElement(coreEast);
 
       [2.2, 4.2].forEach(divX => {
         const divWall = new THREE.Mesh(new THREE.BoxGeometry(0.20, coreH, shaftD), this.columnMat);
         divWall.position.set(divX, coreCenterY, shaftZ);
-        group.add(divWall);
+        addElevElement(divWall);
       });
 
       // Solid architectural lobby fascia above doors
       const fascia = new THREE.Mesh(new THREE.BoxGeometry(6.2, 1.0, 0.22), portalMat);
       fascia.position.set(3.2, baseY + 0.175 + 2.9, frontZ);
-      group.add(fascia);
+      addElevElement(fascia);
 
       // 3 Elevator Landing Portals, Sliding Doors & Lanterns for Floor f
       shaftX.forEach((sx, idx) => {
@@ -1840,7 +1831,7 @@ export class Building3D {
         const frameH = 2.45;
         const portalFrame = new THREE.Mesh(new THREE.BoxGeometry(frameW, frameH, 0.14), portalMat);
         portalFrame.position.set(sx, baseY + 0.175 + frameH / 2, frontZ);
-        group.add(portalFrame);
+        addElevElement(portalFrame);
 
         const leafW = 0.58;
         const leafH = 2.30;
@@ -1848,24 +1839,24 @@ export class Building3D {
 
         const doorLeft = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
         doorLeft.position.set(sx - leafW / 2 - 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
-        group.add(doorLeft);
+        addElevElement(doorLeft);
 
         const doorRight = new THREE.Mesh(new THREE.BoxGeometry(leafW, leafH, leafThick), doorLeafMat);
         doorRight.position.set(sx + leafW / 2 + 0.01, baseY + 0.175 + leafH / 2, frontZ + 0.03);
-        group.add(doorRight);
+        addElevElement(doorRight);
 
         const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.04), indicatorMat);
         indicator.position.set(sx, baseY + 0.175 + frameH + 0.18, frontZ + 0.06);
-        group.add(indicator);
+        addElevElement(indicator);
       });
 
       const callPanel = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.35, 0.04), portalMat);
       callPanel.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.08);
-      group.add(callPanel);
+      addElevElement(callPanel);
 
       const callButton = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.02), indicatorMat);
       callButton.position.set(2.2, baseY + 0.175 + 1.25, frontZ + 0.11);
-      group.add(callButton);
+      addElevElement(callButton);
     }
 
     // 2. Animated Elevator Cabs inside the Shafts
@@ -2506,42 +2497,71 @@ export class Building3D {
     setFloorMode(mode) {
     this.floorMode = mode;
 
+    // CANONICAL PHYSICAL ARCHITECTURE:
+    // Zero vertical displacement in all modes. Layered mode is a BIM visual layer state,
+    // keeping the entire building 100% assembled at canonical world coordinates.
     for (let f = 1; f <= this.totalFloors; f++) {
       const group = this.floorGroups[f];
+      group.position.y = 0;
 
-      if (mode === 'ALL') {
+      if (mode === 'ALL' || mode === 'EXPLODED') {
         group.visible = true;
-        group.position.y = 0;
-        this.roofGroup.visible = true;
-        this.roofGroup.position.y = 0;
-      } else if (mode === 'EXPLODED') {
-        group.visible = true;
-        group.position.y = (f - 1) * 5.0;
-        this.roofGroup.visible = true;
-        this.roofGroup.position.y = (this.totalFloors - 1) * 5.0;
       } else {
         const targetFloor = parseInt(mode, 10);
         group.visible = (f === targetFloor);
-        group.position.y = 0;
-        this.roofGroup.visible = false;
       }
     }
 
+    // Continuous Vertical Circulation: Stairs remain fully connected at canonical coordinates
+    if (this.stairsGroup) {
+      this.stairsGroup.position.y = 0;
+      this.stairsGroup.visible = true;
+      this.stairsGroup.children.forEach(child => {
+        child.visible = true;
+      });
+    }
+
+    // Continuous Vertical Core: Elevator Bank remains fully aligned at canonical coordinates
+    if (this.elevatorGroup) {
+      this.elevatorGroup.position.y = 0;
+      this.elevatorGroup.visible = true;
+      this.elevatorGroup.children.forEach(child => {
+        child.visible = true;
+      });
+    }
+
+    // Continuous Structural Framework: Concrete Columns & Corner Piers remain unbroken
+    if (this.layers.structure) {
+      this.layers.structure.position.y = 0;
+      this.layers.structure.visible = true;
+      this.layers.structure.children.forEach(child => {
+        child.visible = true;
+      });
+    }
+
+    // Roof & Helipad: Canonical elevation
+    if (this.roofGroup) {
+      this.roofGroup.position.y = 0;
+      this.roofGroup.visible = (mode === 'ALL' || mode === 'EXPLODED');
+    }
+
+    // Exterior Envelope Facade: Canonical elevation
     if (this.facadeCutawayGroup) {
+      // In Layered BIM mode, cut away front facade to reveal internal BIM systems inside the assembled building
+      if (mode === 'EXPLODED') {
+        this.setFacadeMode('CUTAWAY');
+      }
+
       const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
         const fl = (sub.userData && sub.userData.floor !== undefined) ? sub.userData.floor : 1;
+        sub.position.y = 0;
 
-        if (mode === 'ALL') {
+        if (mode === 'ALL' || mode === 'EXPLODED') {
           sub.visible = isShowingFacade;
-          sub.position.y = 0;
-        } else if (mode === 'EXPLODED') {
-          sub.visible = isShowingFacade;
-          sub.position.y = (fl - 1) * 5.0;
         } else {
           const targetFloor = parseInt(mode, 10);
           sub.visible = isShowingFacade && (fl === targetFloor);
-          sub.position.y = 0;
         }
       });
     }

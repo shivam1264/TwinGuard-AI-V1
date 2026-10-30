@@ -19,6 +19,8 @@ export const TopHeader = ({
   onOpenAnalytics,
   onOpenIncidents,
   onOpenReports,
+  onOpenScenarioStudio,
+  onOpenStrategyRanker,
   onOpenSettings,
   serverConnected = true
 }) => {
@@ -46,54 +48,15 @@ export const TopHeader = ({
     });
   };
 
-  const navItems = [
-    { id: 'LIVE_VIEW', label: 'Live View', icon: Home, onClick: () => onSelectTab && onSelectTab('LIVE_VIEW') },
-    {
-      id: 'ANALYTICS',
-      label: 'Analytics',
-      icon: BarChart3,
-      onClick: () => {
-        if (onSelectTab) onSelectTab('ANALYTICS');
-        if (onOpenAnalytics) onOpenAnalytics();
-      }
-    },
-    {
-      id: 'CCTV',
-      label: 'CCTV',
-      icon: Video,
-      onClick: () => {
-        if (onSelectTab) onSelectTab('CCTV');
-        if (onOpenCctv) onOpenCctv();
-      }
-    },
-    {
-      id: 'INCIDENTS',
-      label: 'Incidents',
-      icon: AlertTriangle,
-      badge: incidentCount,
-      onClick: () => {
-        if (onSelectTab) onSelectTab('INCIDENTS');
-        if (onOpenIncidents) onOpenIncidents();
-      }
-    },
-    {
-      id: 'REPORTS',
-      label: 'Reports',
-      icon: FileText,
-      onClick: () => {
-        if (onSelectTab) onSelectTab('REPORTS');
-        if (onOpenReports) onOpenReports();
-      }
-    },
-    {
-      id: 'SETTINGS',
-      label: 'Settings',
-      icon: Settings,
-      onClick: () => {
-        if (onSelectTab) onSelectTab('SETTINGS');
-        if (onOpenSettings) onOpenSettings();
-      }
-    }
+    const navItems = [
+    { id: 'LIVE_VIEW', label: 'Live View', icon: Home, onClick: () => onSelectTab('LIVE_VIEW') },
+    { id: 'SCENARIOS', label: 'AI Scenarios', icon: Sparkles, onClick: () => { onSelectTab('SCENARIOS'); if (onOpenScenarioStudio) onOpenScenarioStudio(); } },
+    { id: 'STRATEGY_RANKER', label: 'Strategy Ranker', icon: Trophy, onClick: () => { onSelectTab('STRATEGY_RANKER'); if (onOpenStrategyRanker) onOpenStrategyRanker(); } },
+    { id: 'ANALYTICS', label: 'Analytics', icon: BarChart3, onClick: () => { onSelectTab('ANALYTICS'); if (onOpenAnalytics) onOpenAnalytics(); } },
+    { id: 'CCTV', label: 'CCTV', icon: Video, onClick: () => { onSelectTab('CCTV'); if (onOpenCctv) onOpenCctv(); } },
+    { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle, badge: incidentCount > 0 ? incidentCount : null, onClick: () => { onSelectTab('INCIDENTS'); if (onOpenIncidents) onOpenIncidents(); } },
+    { id: 'REPORTS', label: 'Reports', icon: FileText, onClick: () => { onSelectTab('REPORTS'); if (onOpenReports) onOpenReports(); } },
+    { id: 'SETTINGS', label: 'Settings', icon: Settings, onClick: () => { onSelectTab('SETTINGS'); if (onOpenSettings) onOpenSettings(); } },
   ];
 
   return (
