@@ -597,7 +597,10 @@ export class AgentCrowd {
 
             let displayY = agent.y;
             if (this.floorMode === 'EXPLODED') {
-              displayY = agent.y + (agent.floor - 1) * 5.0;
+              const inStairOrGround = Math.abs(agent.x) >= 25.0 || agent.y < (agent.floor - 1) * 3.8 - 0.2 || agent.y <= 0.2;
+              if (!inStairOrGround) {
+                displayY = agent.y + (agent.floor - 1) * 1.8;
+              }
             }
 
             agent.mesh.position.set(agent.x, displayY, agent.z);
@@ -618,6 +621,7 @@ export class AgentCrowd {
 
   setFloorMode(mode) {
     this.floorMode = mode;
+    const EXPLOSION_OFFSET = 1.8;
     const isSingleFloor = mode !== 'ALL' && mode !== 'EXPLODED';
     const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
 
@@ -627,7 +631,12 @@ export class AgentCrowd {
         agent.mesh.position.y = agent.y;
       } else if (mode === 'EXPLODED') {
         agent.mesh.visible = agent.state !== 'SAFE';
-        agent.mesh.position.y = agent.y + (agent.floor - 1) * 5.0;
+        const inStairOrGround = Math.abs(agent.x) >= 25.0 || agent.y < (agent.floor - 1) * 3.8 - 0.2 || agent.y <= 0.2;
+        if (inStairOrGround) {
+          agent.mesh.position.y = agent.y;
+        } else {
+          agent.mesh.position.y = agent.y + (agent.floor - 1) * EXPLOSION_OFFSET;
+        }
       } else {
         const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
         agent.mesh.visible = isOnTargetFloor && agent.state !== 'SAFE';

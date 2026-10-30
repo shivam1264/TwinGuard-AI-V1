@@ -63,7 +63,7 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minPolarAngle = 0.02;
-    this.controls.maxPolarAngle = Math.PI * 0.96;
+    this.controls.maxPolarAngle = Math.PI * 0.49; // Clamped above ground plane
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.5;
     this.controls.maxDistance = 280;
