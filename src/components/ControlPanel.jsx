@@ -130,6 +130,12 @@ export const ControlPanel = React.memo(({
           Top Down
         </button>
         <button
+          onClick={() => onSetCameraPreset('CAMPUS_OVERVIEW')}
+          className="px-2 py-1 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-400 text-slate-300 text-xs font-hud rounded border border-slate-700 transition-colors"
+        >
+          Campus Site
+        </button>
+        <button
           onClick={() => onSetCameraPreset('STAIRS_FOCUS')}
           className="px-2 py-1 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-400 text-slate-300 text-xs font-hud rounded border border-slate-700 transition-colors"
         >

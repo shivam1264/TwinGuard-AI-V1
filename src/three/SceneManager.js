@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Building3D } from './Building3D.js';
+import { CampusSite } from './site/CampusSite.js';
 import { FireParticles } from './FireParticles.js';
 import { AgentCrowd } from './AgentCrowd.js';
 import { NavGrid } from '../simulation/NavGrid.js';
@@ -38,11 +39,11 @@ export class SceneManager {
   initScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xf1f5f9); // Clean architectural daylight studio sky
-    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.0032); // Soft architectural daylight haze
+    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.00075); // Soft architectural daylight haze
 
     const width = this.container.clientWidth || window.innerWidth || 1200;
     const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 600);
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 1.5, 2800);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -67,7 +68,7 @@ export class SceneManager {
     this.controls.maxPolarAngle = Math.PI * 0.49; // Clamped above ground plane
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.5;
-    this.controls.maxDistance = 280;
+    this.controls.maxDistance = 1400;
 
     // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -75,16 +76,16 @@ export class SceneManager {
 
     // Primary Directional Sunlight with optimized shadow map
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.2);
-    sunLight.position.set(45, 68, 50);
+    sunLight.position.set(120, 220, 160);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 180;
-    sunLight.shadow.camera.left = -65;
-    sunLight.shadow.camera.right = 65;
-    sunLight.shadow.camera.top = 65;
-    sunLight.shadow.camera.bottom = -65;
+    sunLight.shadow.camera.far = 650;
+    sunLight.shadow.camera.left = -280;
+    sunLight.shadow.camera.right = 280;
+    sunLight.shadow.camera.top = 280;
+    sunLight.shadow.camera.bottom = -280;
     sunLight.shadow.bias = -0.0004;
     sunLight.shadow.normalBias = 0.02;
     this.scene.add(sunLight);
@@ -124,6 +125,15 @@ export class SceneManager {
 
   initSystems() {
     this.building = new Building3D(this.scene);
+    this.campusSite = new CampusSite(this.scene);
+
+    // Hide legacy 260m ground plane from Building3D environment so CampusSite master plan is fully visible
+    if (this.building && this.building.layers && this.building.layers.environment) {
+      const envChildren = this.building.layers.environment.children;
+      if (envChildren && envChildren.length > 0) {
+        envChildren[0].visible = false;
+      }
+    }
     this.fireSystem = new FireParticles(this.scene, (parentRoomId, targetRoomId) => {
       this.triggerFire(targetRoomId);
       if (this.onFireSpread) {
@@ -320,6 +330,11 @@ export class SceneManager {
 
   // Layer Filter Control (Structure, Architecture, Facade, Furniture, Occupancy, MEP, Environment)
   setLayerVisibility(layerName, isVisible) {
+    if (layerName === 'environment' || layerName === 'site') {
+      if (this.campusSite) {
+        this.campusSite.setVisibility(isVisible);
+      }
+    }
     if (layerName === 'occupancy') {
       if (this.agentCrowd && this.agentCrowd.group) {
         this.agentCrowd.group.visible = isVisible;
@@ -429,7 +444,10 @@ export class SceneManager {
     let targetPos = new THREE.Vector3(3, 20, 68);
     let targetLook = new THREE.Vector3(0, 19, 0);
 
-    if (presetName === 'HERO_VIEW') {
+    if (presetName === 'CAMPUS_OVERVIEW') {
+      targetPos.set(0, 310, 340);
+      targetLook.set(0, 10, 20);
+    } else if (presetName === 'HERO_VIEW') {
       targetPos.set(0, 20, 70);
       targetLook.set(0, 19, 0);
     } else if (presetName === 'CUTAWAY_VIEW') {
@@ -699,6 +717,9 @@ export class SceneManager {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
+    if (this.campusSite) {
+      this.campusSite.dispose();
+    }
     if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
       this.container.removeChild(this.renderer.domElement);
