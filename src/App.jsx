@@ -555,9 +555,9 @@ export function App() {
       {isCctvOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
-            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                <div className="p-1.5 rounded-lg bg-emerald-50 text-[#0d7a5f] border border-emerald-100">
                   <Video className="w-4 h-4" />
                 </div>
                 <span>Facility CCTV Security Multiviewer (100 Cams)</span>
@@ -588,9 +588,9 @@ export function App() {
       {isAnalyticsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
-                <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
+                <div className="p-1.5 rounded-lg bg-emerald-50 text-[#0d7a5f] border border-emerald-100">
                   <BarChart3 className="w-4 h-4" />
                 </div>
                 <span>Stairwell Cores & 10-Floor Population Analytics</span>

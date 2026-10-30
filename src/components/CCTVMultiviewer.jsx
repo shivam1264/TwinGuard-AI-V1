@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Video, Flame, Users, AlertTriangle, Maximize2, Minimize2, Eye, Layers, Upload, PlayCircle } from 'lucide-react';
+import { Video, Flame, Users, Maximize2, Minimize2, Eye, Layers, Upload } from 'lucide-react';
 
 export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd, onFocusRoom }) => {
   const [selectedCam, setSelectedCam] = useState(null);
@@ -34,12 +34,12 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
         const w = canvas.width;
         const h = canvas.height;
 
-        ctx.fillStyle = room.hasFire ? '#2a0808' : '#070f1e';
+        ctx.fillStyle = room.hasFire ? '#2a0808' : '#0a101d';
         ctx.fillRect(0, 0, w, h);
 
-        ctx.strokeStyle = room.hasFire ? 'rgba(255, 60, 60, 0.4)' : 'rgba(0, 240, 255, 0.15)';
+        ctx.strokeStyle = room.hasFire ? 'rgba(239, 68, 68, 0.4)' : 'rgba(13, 122, 95, 0.25)';
         ctx.lineWidth = 1;
-        ctx.strokeRect(10, 10, w - 20, h - 20);
+        ctx.strokeRect(8, 8, w - 16, h - 16);
 
         // Perspective corridor lines
         ctx.beginPath();
@@ -58,7 +58,7 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
           const px = 25 + ((Math.sin(frame * 0.02 * speedFactor + i * 2 + seed) + 1) / 2) * (w - 50);
           const py = 35 + ((Math.cos(frame * 0.015 * speedFactor + i * 1.5 + seed) + 1) / 2) * (h - 65);
 
-          ctx.fillStyle = room.hasFire ? '#ffaa00' : '#38bdf8';
+          ctx.fillStyle = room.hasFire ? '#ffaa00' : '#10b981';
           ctx.beginPath();
           ctx.arc(px, py - 6, 3.5, 0, Math.PI * 2);
           ctx.fill();
@@ -66,11 +66,11 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
           ctx.fillRect(px - 2.5, py - 2.5, 5, 9);
 
           // AI Bounding Box
-          ctx.strokeStyle = '#00ff88';
+          ctx.strokeStyle = '#10b981';
           ctx.lineWidth = 1.0;
           ctx.strokeRect(px - 6, py - 11, 12, 19);
 
-          ctx.fillStyle = '#00ff88';
+          ctx.fillStyle = '#10b981';
           ctx.font = '6px "JetBrains Mono", monospace';
           ctx.fillText(`P${i + 1}`, px - 6, py - 13);
         }
@@ -90,30 +90,30 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
           ctx.arc(fireX, fireY, 45, 0, Math.PI * 2);
           ctx.fill();
 
-          ctx.strokeStyle = '#ff3344';
-          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1.5;
           ctx.strokeRect(fireX - 32, fireY - 26, 64, 48);
 
-          ctx.fillStyle = '#ff3344';
+          ctx.fillStyle = '#ef4444';
           ctx.fillRect(fireX - 32, fireY - 38, 64, 11);
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 7px "Chakra Petch", sans-serif';
+          ctx.font = 'bold 7px sans-serif';
           ctx.fillText('🔥 FIRE: 99.4%', fireX - 28, fireY - 30);
         }
 
         // CCTV HUD Overlays
         const isBlink = Math.floor(frame / 25) % 2 === 0;
-        ctx.fillStyle = isBlink ? '#ff3344' : '#551111';
+        ctx.fillStyle = isBlink ? '#ef4444' : '#7f1d1d';
         ctx.beginPath();
-        ctx.arc(10, 10, 3, 0, Math.PI * 2);
+        ctx.arc(12, 12, 3, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.font = '7px "JetBrains Mono", monospace';
-        ctx.fillStyle = '#f1f5f9';
-        ctx.fillText(`REC • L${room.floor} • ${room.camId}`, 18, 12);
+        ctx.font = '7px monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(`REC • L${room.floor} • ${room.camId}`, 20, 14);
 
         // Scanlines
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
         for (let y = 0; y < h; y += 4) {
           ctx.fillRect(0, y, w, 1);
         }
@@ -130,7 +130,6 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
   const handleVideoUpload = (roomId, event) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Ingest video and automatically trigger AI Fire detection
       onTriggerFire(roomId);
     }
   };
@@ -144,65 +143,113 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
     : floorFilteredRooms;
 
   return (
-    <div className="glass-panel rounded-xl p-3 flex flex-col gap-2 h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-cyan-500/20">
-        <div className="flex items-center gap-1.5">
-          <Video className="w-4 h-4 text-cyan-400" />
-          <span className="font-hud font-bold text-xs tracking-wide text-cyan-300">
+    <div
+      className="flex flex-col h-full select-none"
+      style={{
+        gap: '12px',
+        fontFamily: "'Inter', system-ui, sans-serif",
+      }}
+    >
+      {/* Header Bar */}
+      <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid #1e293b' }}>
+        <div className="flex items-center" style={{ gap: '8px' }}>
+          <div
+            className="flex items-center justify-center"
+            style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '7px',
+              background: 'rgba(13, 122, 95, 0.2)',
+              color: '#10b981',
+            }}
+          >
+            <Video style={{ width: '14px', height: '14px' }} />
+          </div>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '0.02em' }}>
             CCTV AI FEEDS ({displayedRooms.length} CAMS)
           </span>
         </div>
         {selectedCam && (
           <button
             onClick={() => setSelectedCam(null)}
-            className="text-[10px] text-cyan-400 hover:text-white flex items-center gap-1 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30"
+            className="flex items-center cursor-pointer transition-colors"
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#10b981',
+              background: 'rgba(13, 122, 95, 0.15)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '6px',
+              padding: '3px 8px',
+              gap: '4px',
+            }}
           >
-            <Minimize2 className="w-2.5 h-2.5" /> Grid
+            <Minimize2 style={{ width: '12px', height: '12px' }} />
+            <span>Grid View</span>
           </button>
         )}
       </div>
 
       {/* Floor Filter Tabs */}
-      <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 text-[10px] font-hud overflow-x-auto">
-        <span className="text-slate-400 px-1 flex items-center gap-1 shrink-0">
-          <Layers className="w-2.5 h-2.5 text-cyan-400" /> FLOOR:
+      <div
+        className="flex items-center overflow-x-auto"
+        style={{
+          background: '#090d16',
+          padding: '4px',
+          borderRadius: '10px',
+          border: '1px solid #1e293b',
+          gap: '4px',
+        }}
+      >
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', padding: '0 6px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <Layers style={{ width: '12px', height: '12px', color: '#10b981' }} /> FLOOR:
         </span>
-        {['ALL', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map((fl) => (
-          <button
-            key={fl}
-            onClick={() => {
-              setSelectedFloor(fl);
-              setSelectedCam(null);
-            }}
-            className={`px-1.5 py-0.5 rounded transition-all text-center shrink-0 ${
-              selectedFloor === fl
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-[0_0_8px_rgba(0,240,255,0.6)]'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            {fl === 'ALL' ? 'ALL' : `L${fl}`}
-          </button>
-        ))}
+        {['ALL', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map((fl) => {
+          const isActive = selectedFloor === fl;
+          return (
+            <button
+              key={fl}
+              onClick={() => {
+                setSelectedFloor(fl);
+                setSelectedCam(null);
+              }}
+              className="cursor-pointer transition-all flex-shrink-0"
+              style={{
+                padding: '3px 9px',
+                borderRadius: '6px',
+                fontSize: '10.5px',
+                fontWeight: isActive ? 800 : 600,
+                background: isActive ? '#0d7a5f' : 'transparent',
+                color: isActive ? '#ffffff' : '#94a3b8',
+                border: 'none',
+              }}
+            >
+              {fl === 'ALL' ? 'ALL' : `L${fl}`}
+            </button>
+          );
+        })}
       </div>
 
       {/* Camera Grid */}
       <div
         className={`grid ${
           selectedCam ? 'grid-cols-1' : 'grid-cols-2'
-        } gap-2 flex-1 overflow-y-auto pr-0.5`}
+        } flex-1 overflow-y-auto`}
+        style={{ gap: '10px' }}
       >
         {displayedRooms.map((room) => (
           <div
             key={room.id}
-            className={`relative rounded-lg overflow-hidden border transition-all ${
-              room.hasFire
-                ? 'border-red-500 shadow-[0_0_15px_rgba(255,51,68,0.4)]'
-                : 'border-slate-800 hover:border-cyan-500/50'
-            } bg-slate-950 flex flex-col`}
+            className="flex flex-col overflow-hidden transition-all"
+            style={{
+              borderRadius: '12px',
+              border: room.hasFire ? '1px solid #ef4444' : '1px solid #1e293b',
+              background: '#0c1322',
+              boxShadow: room.hasFire ? '0 0 15px rgba(239, 68, 68, 0.3)' : 'none',
+            }}
           >
             {/* Camera Canvas Feed */}
-            <div className="relative flex-1 min-h-[95px] bg-black">
+            <div className="relative flex-1 bg-black" style={{ minHeight: '110px' }}>
               <canvas
                 ref={(el) => (canvasRefs.current[room.id] = el)}
                 width={220}
@@ -212,9 +259,22 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
 
               {/* Fire Warning Banner */}
               {room.hasFire && (
-                <div className="absolute bottom-1 left-1 right-1 bg-red-600/90 text-white text-[9px] font-hud font-bold px-1.5 py-0.5 rounded flex items-center justify-between animate-pulse">
-                  <span className="flex items-center gap-1">
-                    <Flame className="w-2.5 h-2.5 text-yellow-300" /> FIRE DETECTED!
+                <div
+                  className="absolute flex items-center justify-between"
+                  style={{
+                    bottom: '6px',
+                    left: '6px',
+                    right: '6px',
+                    background: 'rgba(239, 68, 68, 0.9)',
+                    color: '#ffffff',
+                    fontSize: '10px',
+                    fontWeight: 800,
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                  }}
+                >
+                  <span className="flex items-center" style={{ gap: '4px' }}>
+                    <Flame style={{ width: '12px', height: '12px', fill: 'white' }} /> FIRE DETECTED!
                   </span>
                   <span>{room.tempCelsius}°C</span>
                 </div>
@@ -222,32 +282,46 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
             </div>
 
             {/* Camera Controls & Info Footer */}
-            <div className="p-1.5 bg-slate-900/90 flex flex-col gap-1 text-[10px]">
+            <div
+              className="flex flex-col"
+              style={{
+                padding: '8px 10px',
+                background: '#090d16',
+                borderTop: '1px solid #1e293b',
+                gap: '6px',
+              }}
+            >
               <div className="flex items-center justify-between">
-                <div className="font-hud font-bold text-slate-200 truncate">{room.name}</div>
-                <div className="font-mono text-[8px] text-cyan-400 flex items-center gap-0.5">
-                  <Users className="w-2 h-2" /> {room.peopleCount}
+                <div className="truncate" style={{ fontSize: '11.5px', fontWeight: 700, color: '#e2e8f0' }}>
+                  {room.name}
+                </div>
+                <div className="flex items-center" style={{ gap: '3px', fontSize: '10px', color: '#10b981', fontFamily: 'monospace', fontWeight: 700 }}>
+                  <Users style={{ width: '11px', height: '11px' }} /> {room.peopleCount}
                 </div>
               </div>
 
               {/* Action Toolbar */}
-              <div className="flex items-center justify-between pt-0.5 border-t border-slate-800">
-                {/* Video Feed Simulation Mode / Upload Button */}
-                <div className="flex items-center gap-1">
+              <div className="flex items-center justify-between pt-1" style={{ borderTop: '1px solid #131d2e' }}>
+                <div className="flex items-center" style={{ gap: '6px' }}>
                   <button
                     onClick={() => onTriggerFire(room.id)}
                     title={room.hasFire ? 'Fire Video Feed Active' : 'Switch to Fire Video Stream'}
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-hud flex items-center gap-1 transition-colors ${
-                      room.hasFire
-                        ? 'bg-red-600 text-white'
-                        : 'bg-slate-800 hover:bg-red-950 hover:text-red-400 text-slate-400 border border-slate-700'
-                    }`}
+                    className="flex items-center cursor-pointer transition-colors"
+                    style={{
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      fontSize: '9.5px',
+                      fontWeight: 700,
+                      gap: '4px',
+                      background: room.hasFire ? '#dc2626' : '#1e293b',
+                      color: room.hasFire ? '#ffffff' : '#94a3b8',
+                      border: 'none',
+                    }}
                   >
-                    <Flame className="w-2.5 h-2.5" />
-                    {room.hasFire ? 'FIRE FEED' : 'SIMULATE FIRE'}
+                    <Flame style={{ width: '11px', height: '11px', fill: room.hasFire ? 'white' : 'none' }} />
+                    <span>{room.hasFire ? 'FIRE FEED' : 'TRIGGER FIRE'}</span>
                   </button>
 
-                  {/* Upload Custom Video file */}
                   <input
                     type="file"
                     accept="video/*"
@@ -257,31 +331,53 @@ export const CCTVMultiviewer = React.memo(({ rooms, onTriggerFire, onUpdateCrowd
                   />
                   <button
                     onClick={() => fileInputRefs.current[room.id]?.click()}
-                    title="Upload Fire CCTV Video (.mp4 / webm)"
-                    className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded border border-slate-700"
+                    title="Upload Fire CCTV Video"
+                    className="flex items-center justify-center cursor-pointer transition-colors"
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '6px',
+                      background: '#1e293b',
+                      color: '#94a3b8',
+                      border: 'none',
+                    }}
                   >
-                    <Upload className="w-2.5 h-2.5" />
+                    <Upload style={{ width: '11px', height: '11px' }} />
                   </button>
                 </div>
 
-                <div className="flex items-center gap-1">
-                  {/* Focus in 3D */}
+                <div className="flex items-center" style={{ gap: '4px' }}>
                   <button
                     onClick={() => onFocusRoom(room.id)}
                     title="Focus 3D View on this Room"
-                    className="p-1 bg-slate-800 hover:bg-cyan-950 hover:text-cyan-400 text-slate-400 rounded border border-slate-700"
+                    className="flex items-center justify-center cursor-pointer transition-colors"
+                    style={{
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '6px',
+                      background: '#1e293b',
+                      color: '#94a3b8',
+                      border: 'none',
+                    }}
                   >
-                    <Eye className="w-2.5 h-2.5" />
+                    <Eye style={{ width: '12px', height: '12px' }} />
                   </button>
 
-                  {/* Expand */}
                   {!selectedCam && (
                     <button
                       onClick={() => setSelectedCam(room.id)}
                       title="Maximize Camera"
-                      className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded border border-slate-700"
+                      className="flex items-center justify-center cursor-pointer transition-colors"
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '6px',
+                        background: '#1e293b',
+                        color: '#94a3b8',
+                        border: 'none',
+                      }}
                     >
-                      <Maximize2 className="w-2.5 h-2.5" />
+                      <Maximize2 style={{ width: '12px', height: '12px' }} />
                     </button>
                   )}
                 </div>
