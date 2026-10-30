@@ -521,7 +521,7 @@ export class AgentCrowd {
 
       if (agent.state === 'SAFE') {
         agent.mesh.visible = true;
-        agent.mesh.position.set(agent.x, agent.y, agent.z);
+        agent.mesh.position.set(agent.x, 0.15, agent.z);
         agent.leftLeg.rotation.x = 0;
         agent.rightLeg.rotation.x = 0;
         agent.leftKnee.rotation.x = 0;
@@ -587,14 +587,14 @@ export class AgentCrowd {
     const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
 
     this.agents.forEach(agent => {
-      // Always canonical world Y position
-      agent.mesh.position.y = agent.y;
+      agent.displayPos = null;
+      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y;
 
       if (mode === 'ALL' || mode === 'EXPLODED') {
-        agent.mesh.visible = agent.state !== 'SAFE';
+        agent.mesh.visible = true;
       } else {
         const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
-        agent.mesh.visible = isOnTargetFloor && agent.state !== 'SAFE';
+        agent.mesh.visible = isOnTargetFloor;
       }
     });
 

@@ -792,15 +792,31 @@ export class SceneManager {
     }
 
     // If currently simulating, recalculate paths dynamically!
-    if (this.isSimulating && this.routeOptimizer) {
-      const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      if (this.agentCrowd.rerouteAgents) {
-        this.agentCrowd.rerouteAgents(newPlan.assignments);
-      } else {
-        this.agentCrowd.assignRoutes(newPlan.assignments);
+    if (this.isSimulating) {
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => {
+          if (f.basePos) fireLocations.push(f.basePos);
+        });
       }
-      if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
-      if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+      const newPlan = this.crowdOptimizer
+        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType)
+        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents) : null);
+
+      if (newPlan && newPlan.assignments) {
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(newPlan.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(newPlan.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      }
       return newPlan;
     }
     return null;
@@ -810,31 +826,30 @@ export class SceneManager {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
-    let optimizationResult;
-    if (scenario || strategy || !this.routeOptimizer) {
-      const fireLocations = [];
+    const fireLocations = [];
+    if (this.fireSystem && this.fireSystem.activeFires) {
       this.fireSystem.activeFires.forEach(f => {
-        fireLocations.push(f.basePos);
+        if (f.basePos) fireLocations.push(f.basePos);
       });
+    }
 
-      const activeScenario = scenario || AIEngine.getActiveScenario();
-      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
-      const activeStrategy = strategy || AIEngine.getActiveStrategy();
-      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+    const activeScenario = scenario || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null);
+    const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+    const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
+    const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
 
-      if (this.crowdOptimizer) {
-        optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
-      } else if (this.routeOptimizer) {
-        optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      }
-    } else {
+    let optimizationResult;
+    if (this.crowdOptimizer) {
+      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+    } else if (this.routeOptimizer) {
       optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
     }
-    this.agentCrowd.assignRoutes(optimizationResult.assignments);
 
-    // Render 3D Visual Overlays
-    this.renderRouteOverlays(optimizationResult.assignments);
-    this.updateExitHoloBadges(optimizationResult.exitStats);
+    if (optimizationResult && optimizationResult.assignments) {
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      this.renderRouteOverlays(optimizationResult.assignments);
+      this.updateExitHoloBadges(optimizationResult.exitStats);
+    }
 
     return optimizationResult;
   }
