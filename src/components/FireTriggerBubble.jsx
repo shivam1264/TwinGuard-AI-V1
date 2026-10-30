@@ -10,41 +10,27 @@ export const FireTriggerBubble = ({ room, position, onClose, onToggleFire }) => 
 
   return (
     <div
-      style={{
-        left: `${left}px`,
-        top: `${top}px`,
-        fontFamily: "'Inter', system-ui, sans-serif",
-      }}
-      className="fixed z-50 pointer-events-auto animate-in fade-in zoom-in-90 duration-150 select-none"
+      style={{ left: `${left}px`, top: `${top}px` }}
+      className="fixed z-50 pointer-events-auto animate-in fade-in zoom-in-90 duration-150"
     >
-      <div
-        className="flex items-center gap-2.5"
-        style={{
-          background: '#ffffff',
-          borderRadius: '999px',
-          padding: '6px 12px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 8px 25px -4px rgba(0, 0, 0, 0.12)',
-        }}
-      >
+      <div className="bg-white/95 backdrop-blur-md rounded-full px-3 py-1.5 border border-slate-200 shadow-xl flex items-center gap-2.5 text-xs text-slate-800">
         {/* Fire Emoji / Icon Badge */}
         <div
-          className={`flex items-center justify-center text-sm shadow-sm transition-transform ${
+          className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm transition-transform transform hover:scale-110 ${
             room.hasFire
               ? 'bg-red-600 shadow-md shadow-red-500/50 animate-bounce text-white'
               : 'bg-gradient-to-tr from-amber-400 to-red-500 text-white'
           }`}
-          style={{ width: '26px', height: '26px', borderRadius: '50%' }}
         >
           🔥
         </div>
 
         {/* Room Info */}
         <div className="flex flex-col">
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#1e293b', lineHeight: 1.2, maxWidth: '130px' }} className="truncate">
+          <span className="font-bold text-slate-900 text-[11px] leading-tight truncate max-w-[130px]">
             {room.name}
           </span>
-          <span style={{ fontSize: '9.5px', fontFamily: 'monospace', color: '#0d7a5f', fontWeight: 700, marginTop: '1px' }}>
+          <span className="font-mono text-[9px] text-blue-600 font-semibold">
             L{room.floor} • {room.peopleCount} occupants
           </span>
         </div>
@@ -55,19 +41,11 @@ export const FireTriggerBubble = ({ room, position, onClose, onToggleFire }) => 
             onToggleFire(room.id);
             onClose();
           }}
-          className="cursor-pointer transition-all flex items-center"
-          style={{
-            padding: '4px 12px',
-            borderRadius: '999px',
-            fontSize: '10px',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            background: room.hasFire ? '#f8fafc' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-            color: room.hasFire ? '#475569' : '#ffffff',
-            border: room.hasFire ? '1px solid #e2e8f0' : 'none',
-            boxShadow: room.hasFire ? 'none' : '0 2px 6px -1px rgba(239, 68, 68, 0.35)',
-          }}
+          className={`px-3 py-1 rounded-full font-bold text-[10px] tracking-wider transition-all flex items-center gap-1 ${
+            room.hasFire
+              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+              : 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white shadow-md shadow-red-500/25'
+          }`}
         >
           {room.hasFire ? 'Extinguish' : 'Start Fire'}
         </button>
@@ -75,19 +53,9 @@ export const FireTriggerBubble = ({ room, position, onClose, onToggleFire }) => 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="flex items-center justify-center cursor-pointer transition-colors"
-          style={{
-            width: '20px',
-            height: '20px',
-            borderRadius: '50%',
-            background: 'transparent',
-            color: '#94a3b8',
-            border: 'none',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#334155'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = '#94a3b8'; }}
+          className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
         >
-          <X style={{ width: '13px', height: '13px' }} />
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>
