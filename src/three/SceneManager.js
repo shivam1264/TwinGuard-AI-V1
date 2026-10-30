@@ -1,21 +1,16 @@
-import { AIEngine } from "../ai/index.js";
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Sky } from 'three/examples/jsm/objects/Sky.js';
-import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { TextureHelper } from './TextureHelper.js';
 import { Building3D } from './Building3D.js';
+import { CampusSite } from './site/CampusSite.js';
 import { FireParticles } from './FireParticles.js';
 import { AgentCrowd } from './AgentCrowd.js';
 import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
-import { NavigationGraph } from '../simulation/NavigationGraph.js';
-import { RouteOptimizationEngine } from '../simulation/RouteOptimizationEngine.js';
-import { ScenarioEngine } from '../simulation/ScenarioEngine.js';
 
 export class SceneManager {
-  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange) {
+  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread) {
+    this.onFireSpread = onFireSpread;
     this.container = containerElement;
     this.onStatsUpdate = onStatsUpdate;
     this.onRoomSelect = onRoomSelect;
@@ -43,10 +38,12 @@ export class SceneManager {
 
   initScene() {
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0xf1f5f9); // Clean architectural daylight studio sky
+    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.00075); // Soft architectural daylight haze
+
     const width = this.container.clientWidth || window.innerWidth || 1200;
     const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
-    // Set near to 0.4 and far to 18000 for full architectural depth and giant sky vault without z-fighting
-    this.camera = new THREE.PerspectiveCamera(38, width / height, 0.4, 25000);
+    this.camera = new THREE.PerspectiveCamera(42, width / height, 1.5, 2800);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -64,59 +61,6 @@ export class SceneManager {
 
     this.container.appendChild(this.renderer.domElement);
 
-    // 1. Physically-Based Mathematical Atmospheric Sky Shader (Preetham / Bruneton Model)
-    // 100% Optical Rayleigh & Mie Atmospheric Scattering - Zero Fake Circles, Pure Real Physics!
-    this.sky = new Sky();
-    this.sky.scale.setScalar(9000);
-    this.scene.add(this.sky);
-
-    const sun = new THREE.Vector3();
-    const skyUniforms = this.sky.material.uniforms;
-    skyUniforms['turbidity'].value = 2.5;         // Crisp, pure mountain daylight air
-    skyUniforms['rayleigh'].value = 1.5;          // Natural optical Rayleigh atmospheric blue
-    skyUniforms['mieCoefficient'].value = 0.0035; // Gentle atmospheric Mie aerosol scattering
-    skyUniforms['mieDirectionalG'].value = 0.82;  // Realistic forward solar halo
-
-    const elevation = 32; // 32 degrees daylight elevation
-    const azimuth = 65;   // 65 degrees azimuth (matches the direct sunlight)
-    const phi = THREE.MathUtils.degToRad(90 - elevation);
-    const theta = THREE.MathUtils.degToRad(azimuth);
-    sun.setFromSphericalCoords(1, phi, theta);
-    skyUniforms['sunPosition'].value.copy(sun);
-
-    // 2. High-Altitude Natural Wispy Cloud Dome (Feathery Wind-Swept Bands, ZERO circles)
-    const cloudGeo = new THREE.SphereGeometry(8200, 48, 24, 0, Math.PI * 2, 0, Math.PI * 0.45);
-    const cloudTex = TextureHelper.createNaturalWispyCloudTexture();
-    const cloudMat = new THREE.MeshBasicMaterial({
-      map: cloudTex,
-      transparent: true,
-      opacity: 0.55,
-      depthWrite: false,
-      side: THREE.BackSide
-    });
-    this.cloudDome = new THREE.Mesh(cloudGeo, cloudMat);
-    this.scene.add(this.cloudDome);
-
-    // 3. Pre-Filtered Radiance Environment Map (PMREM) for Photorealistic Glass Reflections
-    this.scene.background = new THREE.Color(0xd8e6f3);
-    try {
-      const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-      const skyScene = new THREE.Scene();
-      const skyClone = this.sky.clone();
-      skyClone.scale.setScalar(9000);
-      skyScene.add(skyClone);
-      const envMap = pmremGenerator.fromScene(skyScene, 0.04, 0.1, 10000);
-      if (envMap && envMap.texture) {
-        this.scene.environment = envMap.texture;
-      }
-      pmremGenerator.dispose();
-    } catch (err) {
-      console.warn('PMREM environment generation skipped:', err);
-    }
-
-    // 4. Soft Atmospheric Distance Fog (Blends distant terrain into horizon)
-    this.scene.fog = new THREE.FogExp2(0xd6e4f0, 0.0012);
-
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
@@ -124,36 +68,36 @@ export class SceneManager {
     this.controls.maxPolarAngle = Math.PI * 0.49; // Clamped above ground plane
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.5;
-    this.controls.maxDistance = 280;
+    this.controls.maxDistance = 1400;
 
-    // Architectural Natural Daylight Illumination
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     this.scene.add(ambientLight);
 
-    // Warm Directional Sunlight with optimized shadow map
-    const sunLight = new THREE.DirectionalLight(0xfff7e6, 2.2);
-    sunLight.position.set(45, 68, 50);
+    // Primary Directional Sunlight with optimized shadow map
+    const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.2);
+    sunLight.position.set(120, 220, 160);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 320;
-    sunLight.shadow.camera.left = -110;
-    sunLight.shadow.camera.right = 110;
-    sunLight.shadow.camera.top = 110;
-    sunLight.shadow.camera.bottom = -110;
+    sunLight.shadow.camera.far = 650;
+    sunLight.shadow.camera.left = -280;
+    sunLight.shadow.camera.right = 280;
+    sunLight.shadow.camera.top = 280;
+    sunLight.shadow.camera.bottom = -280;
     sunLight.shadow.bias = -0.0004;
     sunLight.shadow.normalBias = 0.02;
     this.scene.add(sunLight);
 
-    // Soft Ambient Daylight Fill Light
-    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.65);
+    // Cool Sky Fill Light
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.75);
     fillLight.position.set(-50, 42, -45);
     fillLight.castShadow = false;
     this.scene.add(fillLight);
 
-    // Natural Sky & Earth Bounce Light
-    const hemiLight = new THREE.HemisphereLight(0x7bb3e8, 0x64748b, 0.75);
+    // Subtle Ground Hemisphere Bounce
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.65);
     this.scene.add(hemiLight);
 
     // Initial Hero View (Architectural Section Elevation)
@@ -181,30 +125,26 @@ export class SceneManager {
 
   initSystems() {
     this.building = new Building3D(this.scene);
+    this.campusSite = new CampusSite(this.scene);
+
+    // Hide legacy 260m ground plane from Building3D environment so CampusSite master plan is fully visible
+    if (this.building && this.building.layers && this.building.layers.environment) {
+      const envChildren = this.building.layers.environment.children;
+      if (envChildren && envChildren.length > 0) {
+        envChildren[0].visible = false;
+      }
+    }
     this.fireSystem = new FireParticles(this.scene, (parentRoomId, targetRoomId) => {
       this.triggerFire(targetRoomId);
-    });
+      if (this.onFireSpread) {
+        this.onFireSpread(targetRoomId);
+      }
+    }, this.building);
     this.agentCrowd = new AgentCrowd(this.scene);
 
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
-
-    // Enterprise Navigation Graph & Scenario Engine
-    this.navGraph = new NavigationGraph(10, 3.8);
-    this.routeOptimizer = new RouteOptimizationEngine(this.navGraph);
-    this.scenarioEngine = new ScenarioEngine(this.navGraph, this.routeOptimizer);
-
-    // Independent 3D Visual Overlay Groups
-    this.routeOverlayGroup = new THREE.Group();
-    this.exitOverlayGroup = new THREE.Group();
-    this.stairwellOverlayGroup = new THREE.Group();
-    this.scene.add(this.routeOverlayGroup);
-    this.scene.add(this.exitOverlayGroup);
-    this.scene.add(this.stairwellOverlayGroup);
-
-    this.showRouteOverlays = true;
-    this.showExitBadges = true;
   }
 
   initKeyboardControls() {
@@ -390,6 +330,11 @@ export class SceneManager {
 
   // Layer Filter Control (Structure, Architecture, Facade, Furniture, Occupancy, MEP, Environment)
   setLayerVisibility(layerName, isVisible) {
+    if (layerName === 'environment' || layerName === 'site') {
+      if (this.campusSite) {
+        this.campusSite.setVisibility(isVisible);
+      }
+    }
     if (layerName === 'occupancy') {
       if (this.agentCrowd && this.agentCrowd.group) {
         this.agentCrowd.group.visible = isVisible;
@@ -496,35 +441,50 @@ export class SceneManager {
   setCameraPreset(presetName, targetRoomId = null, animate = true) {
     if (!this.camera || !this.controls) return;
 
-    // Professional Architectural 3/4 Perspective Framing (Building occupies ~70% of viewport height)
-    let targetPos = new THREE.Vector3(-44, 18, 58);
-    let targetLook = new THREE.Vector3(0, 17, 0);
+    let targetPos = new THREE.Vector3(3, 20, 68);
+    let targetLook = new THREE.Vector3(0, 19, 0);
 
-    if (presetName === 'HERO_VIEW' || presetName === 'DEFAULT') {
-      // Golden Ratio 3/4 Perspective framing south plaza, entrance canopy, and west corner
-      targetPos.set(-44, 18, 58);
-      targetLook.set(0, 17, 0);
+    if (presetName === 'CAMPUS_OVERVIEW') {
+      targetPos.set(0, 310, 340);
+      targetLook.set(0, 10, 20);
+    } else if (presetName === 'HERO_VIEW') {
+      targetPos.set(0, 20, 70);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'CUTAWAY_VIEW') {
-      targetPos.set(-36, 18, 50);
-      targetLook.set(0, 17, 0);
+      targetPos.set(16, 22, 64);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'FULL_BUILDING') {
-      targetPos.set(-52, 24, 68);
-      targetLook.set(0, 17, 0);
+      targetPos.set(68, 48, 75);
+      targetLook.set(0, 18, 0);
     } else if (presetName === 'SOUTH_FACADE') {
-      targetPos.set(0, 18, 60);
-      targetLook.set(0, 17, 0);
+      targetPos.set(0, 22, 75);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'NORTH_FACADE') {
+      targetPos.set(0, 22, -75);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'EAST_FACADE') {
+      targetPos.set(75, 22, 0);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'WEST_FACADE') {
+      targetPos.set(-75, 22, 0);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'TOP_DOWN') {
-      targetPos.set(0, 135, 1);
-      targetLook.set(0, 0, 0);
+      targetPos.set(0, 120, 1);
+      targetLook.set(0, 19, 0);
+    } else if (presetName === 'FLOOR_PLAN') {
+      const fl = (this.building && parseInt(this.building.floorMode, 10)) || 1;
+      const baseY = (fl - 1) * (this.building ? this.building.floorHeight : 3.8);
+      targetPos.set(0, baseY + 38, 12);
+      targetLook.set(0, baseY + 0.5, 0);
     } else if (presetName === 'AXONOMETRIC') {
-      targetPos.set(56, 52, 60);
-      targetLook.set(0, 17, 0);
+      targetPos.set(62, 68, 68);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'SECTION') {
-      targetPos.set(0, 18, 55);
-      targetLook.set(0, 17, 0);
+      targetPos.set(0, 20, 62);
+      targetLook.set(0, 19, 0);
     } else if (presetName === 'ENTRANCE') {
-      targetPos.set(-8, 5.5, 34);
-      targetLook.set(0, 3.5, 20);
+      targetPos.set(0, 6.5, 42);
+      targetLook.set(0, 3.5, 24);
     } else if (presetName === 'ROOF') {
       targetPos.set(0, 56, 32);
       targetLook.set(0, 38, -2);
@@ -539,15 +499,6 @@ export class SceneManager {
       const baseY = (fl - 1) * this.building.floorHeight;
       targetPos.set(32, baseY + 14, 36);
       targetLook.set(0, baseY + 1.5, 0);
-    } else if (presetName === 'FOCUS_HYDRANT') {
-      targetPos.set(24, 12, 54);
-      targetLook.set(24, 0.5, 38);
-    } else if (presetName === 'FOCUS_MUSTER_A') {
-      targetPos.set(0, 14, 66);
-      targetLook.set(0, 0.5, 48);
-    } else if (presetName === 'FOCUS_HELIPAD') {
-      targetPos.set(0, 52, 22);
-      targetLook.set(0, 38.5, 0);
     } else if (presetName === 'ROOM_FOCUS' && targetRoomId) {
       const room = this.building.roomsData.find(r => r.id === targetRoomId);
       if (room) {
@@ -597,6 +548,9 @@ export class SceneManager {
       if (this.fireSystem && this.fireSystem.group) {
         this.fireSystem.group.visible = isVisible;
       }
+      this.fireSystem?.activeFires?.forEach(fire => {
+        if (fire.group) fire.group.visible = isVisible;
+      });
       if (this.building && this.building.layers && this.building.layers.mep) {
         this.building.layers.mep.visible = isVisible;
       }
@@ -627,130 +581,6 @@ export class SceneManager {
     this.agentCrowd.spawnAgentsForRooms(rooms);
   }
 
-  renderRouteOverlays(assignments) {
-    // Clear existing route line meshes
-    while (this.routeOverlayGroup.children.length > 0) {
-      const obj = this.routeOverlayGroup.children[0];
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
-      this.routeOverlayGroup.remove(obj);
-    }
-
-    if (!this.showRouteOverlays || !assignments || assignments.length === 0) return;
-
-    // Pick unique representative paths per floor to avoid cluttering 600 overlapping lines
-    const pathsByFloor = new Map();
-    assignments.forEach(a => {
-      if (a.path && a.path.length > 1) {
-        const fl = a.path[0]?.y ? Math.round(a.path[0].y / 3.8) + 1 : 1;
-        if (!pathsByFloor.has(fl)) pathsByFloor.set(fl, []);
-        if (pathsByFloor.get(fl).length < 5) {
-          pathsByFloor.get(fl).push(a);
-        }
-      }
-    });
-
-    pathsByFloor.forEach(routeList => {
-      routeList.forEach(a => {
-        const pts = a.path.map(p => new THREE.Vector3(p.x, p.y + 0.15, p.z));
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-
-        // Primary Recommended Route: Glowing emerald green line
-        const primaryMat = new THREE.LineBasicMaterial({
-          color: new THREE.Color(a.exitColor || 0x00ff88),
-          transparent: true,
-          opacity: 0.75,
-          linewidth: 2
-        });
-        const primaryLine = new THREE.Line(lineGeo, primaryMat);
-        primaryLine.userData = { floor: a.path[0]?.y ? Math.round(a.path[0].y / 3.8) + 1 : 1 };
-        this.routeOverlayGroup.add(primaryLine);
-
-        // Alternative Route (if available): Cyan dashed line
-        if (a.altPathWaypoints && a.altPathWaypoints.length > 1) {
-          const altPts = a.altPathWaypoints.map(p => new THREE.Vector3(p.x, p.y + 0.18, p.z));
-          const altGeo = new THREE.BufferGeometry().setFromPoints(altPts);
-          const altMat = new THREE.LineDashedMaterial({
-            color: 0x00e5ff,
-            dashSize: 1.2,
-            gapSize: 0.6,
-            transparent: true,
-            opacity: 0.55
-          });
-          const altLine = new THREE.Line(altGeo, altMat);
-          altLine.computeLineDistances();
-          this.routeOverlayGroup.add(altLine);
-        }
-      });
-    });
-  }
-
-  updateExitHoloBadges(exitStats) {
-    while (this.exitOverlayGroup.children.length > 0) {
-      const obj = this.exitOverlayGroup.children[0];
-      if (obj.material && obj.material.map) obj.material.map.dispose();
-      if (obj.material) obj.material.dispose();
-      this.exitOverlayGroup.remove(obj);
-    }
-
-    if (!this.showExitBadges || !exitStats) return;
-
-    const exitLocations = {
-      exit_west: { x: -29.5, y: 3.5, z: 0.0, name: 'EXIT A (WEST)' },
-      exit_east: { x: 29.5, y: 3.5, z: 0.0, name: 'EXIT B (EAST)' },
-      exit_south: { x: 0.0, y: 3.5, z: 24.5, name: 'EXIT C (SOUTH)' }
-    };
-
-    exitStats.forEach(ex => {
-      const loc = exitLocations[ex.id];
-      if (!loc) return;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-
-      const load = ex.load || ex.currentLoad || 0;
-      const cap = ex.capacity || 60;
-      const pct = Math.round((load / cap) * 100);
-
-      // Background rounded card
-      ctx.fillStyle = 'rgba(10, 16, 28, 0.92)';
-      ctx.beginPath();
-      ctx.roundRect(8, 8, 240, 112, 12);
-      ctx.fill();
-
-      // Border with status color
-      const borderColor = pct > 110 ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981';
-      ctx.strokeStyle = borderColor;
-      ctx.lineWidth = 4;
-      ctx.stroke();
-
-      // Text Header
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 22px Inter, sans-serif';
-      ctx.fillText(loc.name, 22, 42);
-
-      // Load & Percentage
-      ctx.font = '18px Inter, sans-serif';
-      ctx.fillStyle = borderColor;
-      ctx.fillText(`${load} / ${cap} queued (${pct}%)`, 22, 74);
-
-      // Status pill
-      ctx.font = '14px Inter, sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText(pct > 110 ? 'CRITICAL OVERLOAD' : pct > 80 ? 'CONGESTION WARNING' : 'OPTIMAL FLOW', 22, 100);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      texture.minFilter = THREE.LinearFilter;
-      const mat = new THREE.SpriteMaterial({ map: texture, transparent: true });
-      const sprite = new THREE.Sprite(mat);
-      sprite.position.set(loc.x, loc.y, loc.z);
-      sprite.scale.set(7.5, 3.8, 1.0);
-      this.exitOverlayGroup.add(sprite);
-    });
-  }
-
   triggerFire(roomId) {
     const room = this.building.roomsData.find(r => r.id === roomId);
     if (!room) return;
@@ -759,30 +589,11 @@ export class SceneManager {
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
     this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
 
-    // Register with Scenario Engine
-    this.scenarioEngine.triggerRoomFire(roomId, 1.0);
-
-    // If currently simulating, perform real-time dynamic rerouting!
     if (this.isSimulating) {
-      if (this.routeOptimizer) {
-        const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-        if (this.agentCrowd.rerouteAgents) {
-          this.agentCrowd.rerouteAgents(newPlan.assignments);
-        } else {
-          this.agentCrowd.assignRoutes(newPlan.assignments);
-        }
-        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
-        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
-      } else if (this.crowdOptimizer) {
-        const fireLocations = [];
-        this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
-        const activeScenario = AIEngine.getActiveScenario();
-        const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
-        const activeStrategy = AIEngine.getActiveStrategy();
-        const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
-        const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
-        this.agentCrowd.assignRoutes(optimizationResult.assignments);
-      }
+      const fireLocations = [];
+      this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
+      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations);
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
     }
   }
 
@@ -792,15 +603,31 @@ export class SceneManager {
     }
 
     // If currently simulating, recalculate paths dynamically!
-    if (this.isSimulating && this.routeOptimizer) {
-      const newPlan = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      if (this.agentCrowd.rerouteAgents) {
-        this.agentCrowd.rerouteAgents(newPlan.assignments);
-      } else {
-        this.agentCrowd.assignRoutes(newPlan.assignments);
+    if (this.isSimulating) {
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => {
+          if (f.basePos) fireLocations.push(f.basePos);
+        });
       }
-      if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
-      if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+      const newPlan = this.crowdOptimizer
+        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType)
+        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents) : null);
+
+      if (newPlan && newPlan.assignments) {
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(newPlan.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(newPlan.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      }
       return newPlan;
     }
     return null;
@@ -810,32 +637,30 @@ export class SceneManager {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
-    let optimizationResult;
-    if (scenario || strategy || !this.routeOptimizer) {
-      const fireLocations = [];
+    const fireLocations = [];
+    if (this.fireSystem && this.fireSystem.activeFires) {
       this.fireSystem.activeFires.forEach(f => {
-        fireLocations.push(f.basePos);
+        if (f.basePos) fireLocations.push(f.basePos);
       });
+    }
 
-      const activeScenario = scenario || AIEngine.getActiveScenario();
-      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
-      const activeStrategy = strategy || AIEngine.getActiveStrategy();
-      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+    const activeScenario = scenario || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null);
+    const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+    const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
+    const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
 
-      if (this.crowdOptimizer) {
-        optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
-      } else if (this.routeOptimizer) {
-        optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
-      }
-    } else {
+    let optimizationResult;
+    if (this.crowdOptimizer) {
+      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType);
+    } else if (this.routeOptimizer) {
       optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents);
     }
-    this.agentCrowd.assignRoutes(optimizationResult.assignments);
 
-    // Render 3D Visual Overlays
-    this.renderRouteOverlays(optimizationResult.assignments);
-    this.updateExitHoloBadges(optimizationResult.exitStats);
-
+    if (optimizationResult && optimizationResult.assignments) {
+      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      this.renderRouteOverlays(optimizationResult.assignments);
+      this.updateExitHoloBadges(optimizationResult.exitStats);
+    }
     return optimizationResult;
   }
 
@@ -855,12 +680,6 @@ export class SceneManager {
     this._lastElapsedSec = -1;
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
-    this.scenarioEngine.clearAllIncidents();
-
-    // Clear route overlays & badges
-    this.renderRouteOverlays([]);
-    this.updateExitHoloBadges([]);
-
     const targetRooms = rooms || (this.building ? this.building.roomsData : []);
     this.agentCrowd.spawnAgentsForRooms(targetRooms);
   }
@@ -899,7 +718,7 @@ export class SceneManager {
     }
 
     if (this.fireSystem) {
-      this.fireSystem.update(delta);
+      this.fireSystem.update(delta, this.camera);
     }
 
     if (this.building && this.building.update) {
@@ -907,11 +726,7 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
-      const fireLocations = [];
-      if (this.fireSystem && this.fireSystem.activeFires) {
-        this.fireSystem.activeFires.forEach(f => fireLocations.push(f.basePos));
-      }
-      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0, fireLocations);
+      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
 
       if (this.isSimulating) {
         this.elapsedSeconds += delta * this.simSpeed;
@@ -955,6 +770,9 @@ export class SceneManager {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
+    if (this.campusSite) {
+      this.campusSite.dispose();
+    }
     if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
       this.container.removeChild(this.renderer.domElement);

@@ -1,4 +1,3 @@
-import { CampusEnvironment } from './CampusEnvironment.js';
 import * as THREE from 'three';
 import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { FLOOR_THEMES, ROOM_TEMPLATES, getRoomFurnishingType } from '../simulation/Doorways.js';
@@ -109,20 +108,16 @@ export class Building3D {
     this.tileTex = TextureHelper.createTileTexture();
     this.ceilingTex = TextureHelper.createCeilingTileTexture();
     this.plazaTex = TextureHelper.createPlazaPavingTexture();
+    this.terrazzoTex = TextureHelper.createTerrazzoTexture();
     this.asphaltTex = TextureHelper.createAsphaltRoadTexture();
-    this.grassTex = TextureHelper.createGrassLawnTexture();
-    this.crosswalkTex = TextureHelper.createCrosswalkTexture();
-    this.waterTex = TextureHelper.createWaterCausticsTexture();
-    this.treeBarkTex = TextureHelper.createTreeBarkTexture();
-    this.treeFoliageTex = TextureHelper.createTreeFoliageTexture();
-    this.treeGrateTex = TextureHelper.createTreeGrateTexture();
-    this.tactileTex = TextureHelper.createTactilePaverTexture();
-    this.terrazzoTex = TextureHelper.createTerrazzoTexture ? TextureHelper.createTerrazzoTexture() : null;
-    this.roofMembraneTex = TextureHelper.createRoofMembraneTexture ? TextureHelper.createRoofMembraneTexture() : null;
-    this.louverTex = TextureHelper.createMetalLouverTexture ? TextureHelper.createMetalLouverTexture() : null;
+    this.roofMembraneTex = TextureHelper.createRoofMembraneTexture();
+    this.louverTex = TextureHelper.createMetalLouverTexture();
+
+    // Upgraded Architectural Stair & Envelope Textures
     this.stairTreadTex = TextureHelper.createConcreteStairTexture ? TextureHelper.createConcreteStairTexture() : this.concreteTex;
     this.antiSlipNosingTex = TextureHelper.createAntiSlipNosingTexture ? TextureHelper.createAntiSlipNosingTexture() : null;
     this.precastFacadeTex = TextureHelper.createPrecastFacadeTexture ? TextureHelper.createPrecastFacadeTexture() : this.concreteTex;
+
     this.exitSignLeftTex = TextureHelper.createExitSignLeftTexture();
     this.exitSignRightTex = TextureHelper.createExitSignRightTexture();
 
@@ -156,180 +151,16 @@ export class Building3D {
       metalness: 0.05
     });
 
-    // Exterior Architectural Granite Plaza Paver Material (Realistic Multi-tone Stone)
     this.plazaMat = new THREE.MeshStandardMaterial({
       map: this.plazaTex,
-      roughness: 0.72,
-      metalness: 0.12
-    });
-
-    // Photorealistic Bitumen Asphalt Road Surface
-    this.asphaltMat = new THREE.MeshStandardMaterial({
-      map: this.asphaltTex,
-      roughness: 0.90,
-      metalness: 0.05
-    });
-
-    // Manicured Campus Grass Lawn Surface
-    this.grassMat = new THREE.MeshStandardMaterial({
-      map: this.grassTex,
-      roughness: 0.92,
-      metalness: 0.02
-    });
-
-    // Pedestrian Zebra Crosswalk Material
-    this.crosswalkMat = new THREE.MeshStandardMaterial({
-      map: this.crosswalkTex,
-      roughness: 0.65,
-      metalness: 0.08
-    });
-
-    // Tactile Warning Blister Paver Material
-    this.tactileMat = new THREE.MeshStandardMaterial({
-      map: this.tactileTex,
-      roughness: 0.65,
-      metalness: 0.1
-    });
-
-    // Architectural Reflecting Pool Water & Basalt Coping
-    this.waterMat = new THREE.MeshStandardMaterial({
-      map: this.waterTex,
-      color: 0x0284c7,
-      transparent: true,
-      opacity: 0.78,
-      roughness: 0.04,
-      metalness: 0.2
-    });
-    this.poolCopingMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.35,
-      metalness: 0.3
-    });
-
-    // Architectural 3D Tree Trunk, Foliage & Urban Plaza Grate Materials
-    this.treeTrunkMat = new THREE.MeshStandardMaterial({
-      map: this.treeBarkTex,
-      roughness: 0.92,
-      metalness: 0.05
-    });
-    this.treeFoliageMat = new THREE.MeshStandardMaterial({
-      map: this.treeFoliageTex,
-      color: 0x2e6b26,
-      roughness: 0.78,
-      metalness: 0.02
-    });
-    this.cypressFoliageMat = new THREE.MeshStandardMaterial({
-      map: this.treeFoliageTex,
-      color: 0x163814,
-      roughness: 0.85,
-      metalness: 0.02
-    });
-    this.treeGrateMat = new THREE.MeshStandardMaterial({
-      map: this.treeGrateTex,
-      roughness: 0.45,
-      metalness: 0.85
-    });
-    this.treeMulchMat = new THREE.MeshStandardMaterial({
-      color: 0x20140c,
-      roughness: 0.95,
-      metalness: 0.02
-    });
-
-    // Modern Executive & EV Vehicle Materials
-    this.carBodyDarkMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.12,
-      metalness: 0.85
-    });
-    this.carBodyWhiteMat = new THREE.MeshStandardMaterial({
-      color: 0xf8fafc,
-      roughness: 0.15,
-      metalness: 0.75
-    });
-    this.carBodyBlueMat = new THREE.MeshStandardMaterial({
-      color: 0x1d4ed8,
-      roughness: 0.14,
-      metalness: 0.82
-    });
-    this.carGlassMat = new THREE.MeshStandardMaterial({
-      color: 0x090d16,
-      transparent: true,
-      opacity: 0.75,
-      roughness: 0.05,
-      metalness: 0.9
-    });
-    this.carWheelMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.6,
-      metalness: 0.3
-    });
-
-    // Modern Park Bench Materials
-    this.benchWoodMat = new THREE.MeshStandardMaterial({
-      color: 0xb45309,
-      roughness: 0.45,
-      metalness: 0.05
-    });
-    this.benchFrameMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.4,
-      metalness: 0.8
-    });
-
-    // High-Visibility Safety Red Fire Hydrant Material
-    this.fireHydrantMat = new THREE.MeshStandardMaterial({
-      color: 0xdc2626,
-      roughness: 0.3,
-      metalness: 0.4
-    });
-
-    // Architectural Chamfered Concrete Curb Stone
-    this.curbMat = new THREE.MeshStandardMaterial({
-      color: 0x475569,
-      roughness: 0.6,
+      roughness: 0.8,
       metalness: 0.15
     });
 
-    // Modern Planter Box Material
-    this.planterMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.5,
-      metalness: 0.2
-    });
-
-    // Lush Green Hedge Foliage Material
-    this.hedgeFoliageMat = new THREE.MeshStandardMaterial({
-      color: 0x245820,
+    this.asphaltMat = new THREE.MeshStandardMaterial({
+      map: this.asphaltTex,
       roughness: 0.85,
-      metalness: 0.05
-    });
-
-    // Modern Architectural Street Lamp Materials
-    this.streetLampPoleMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.35,
-      metalness: 0.85
-    });
-    this.streetLampLuminaireMat = new THREE.MeshBasicMaterial({
-      color: 0xfffcf0
-    });
-
-    // Pedestrian Pathway Stainless Steel & Glow Bollards
-    this.bollardSteelMat = new THREE.MeshStandardMaterial({
-      color: 0x94a3b8,
-      roughness: 0.25,
-      metalness: 0.85
-    });
-    this.bollardGlowMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8
-    });
-
-    // Painted Road Striping (Crisp White & Safety Yellow)
-    this.roadStripeWhiteMat = new THREE.MeshBasicMaterial({
-      color: 0xf8fafc
-    });
-    this.roadStripeYellowMat = new THREE.MeshBasicMaterial({
-      color: 0xf59e0b
+      metalness: 0.1
     });
 
     this.roofMembraneMat = new THREE.MeshStandardMaterial({
@@ -365,13 +196,17 @@ export class Building3D {
       roughness: 0.2,
       metalness: 0.9
     });
+    this.benchWoodMat = new THREE.MeshStandardMaterial({
+      color: 0x92400e,
+      roughness: 0.4,
+      metalness: 0.1
+    });
 
-    // 7. Glowing Recessed Ceiling Light Fixtures
     this.ceilingLightMat = new THREE.MeshStandardMaterial({
-      color: 0xfffcf5,
-      emissive: 0xfff5ea,
-      emissiveIntensity: 1.2,
-      roughness: 0.2
+      color: 0xe2e8f0,
+      emissive: 0xf1f5f9,
+      emissiveIntensity: 0.35,
+      roughness: 0.4
     });
 
     this.linearLightMat = new THREE.MeshStandardMaterial({
@@ -406,13 +241,12 @@ export class Building3D {
       roughness: 0.3
     });
 
-    // 10. Ultra-Fast Architectural Reflective Glass (Full PMREM Sky & Cloud Reflection)
     this.glassMat = new THREE.MeshStandardMaterial({
       color: 0x93c5fd,
       transparent: true,
-      opacity: 0.30,
-      roughness: 0.04,
-      metalness: 0.55
+      opacity: 0.24,
+      roughness: 0.1,
+      metalness: 0.4
     });
 
     this.glassExteriorMat = new THREE.MeshStandardMaterial({
@@ -902,11 +736,182 @@ export class Building3D {
   }
 
   createEnvironment() {
-    // Upgraded photorealistic architectural campus environment & 3D city skyline
-    this.campusEnv = new CampusEnvironment(this.scene, this.layers.environment);
+    const envGroup = this.layers.environment;
+
+    // 1. Broad Executive Campus Plaza Ground Plane
+    const groundGeo = new THREE.PlaneGeometry(260, 260);
+    const ground = new THREE.Mesh(groundGeo, this.plazaMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    envGroup.add(ground);
+
+    // 2. Elevated Building Foundation Podium Curb in Precast Concrete
+    const podiumGeo = new THREE.BoxGeometry(66, 0.5, 54);
+    const podium = new THREE.Mesh(podiumGeo, this.concreteMat);
+    podium.position.set(0, -0.25, 0);
+    podium.receiveShadow = true;
+    envGroup.add(podium);
+
+    // 3. Vehicular Drop-Off Loop Roadway with Striping
+    const roadInnerR = 14;
+    const roadOuterR = 21;
+    const roadCurveGeo = new THREE.RingGeometry(roadInnerR, roadOuterR, 48, 1, 0, Math.PI);
+    const roadCurve = new THREE.Mesh(roadCurveGeo, this.asphaltMat);
+    roadCurve.rotation.x = -Math.PI / 2;
+    roadCurve.rotation.z = Math.PI;
+    roadCurve.position.set(0, 0.01, 35);
+    roadCurve.receiveShadow = true;
+    envGroup.add(roadCurve);
+
+    const straightW = roadOuterR - roadInnerR;
+    const straightL = 42;
+    const roadStrW = new THREE.Mesh(new THREE.PlaneGeometry(straightW, straightL), this.asphaltMat);
+    roadStrW.rotation.x = -Math.PI / 2;
+    roadStrW.position.set(-17.5, 0.01, 56);
+    roadStrW.receiveShadow = true;
+    envGroup.add(roadStrW);
+
+    const roadStrE = new THREE.Mesh(new THREE.PlaneGeometry(straightW, straightL), this.asphaltMat);
+    roadStrE.rotation.x = -Math.PI / 2;
+    roadStrE.position.set(17.5, 0.01, 56);
+    roadStrE.receiveShadow = true;
+    envGroup.add(roadStrE);
+
+    // 4. Landscaped Planters with Manicured Evergreen Hedges
+    const planterGeos = [];
+    const hedgeGeos = [];
+    const planterBoxes = [
+      { x: -22, z: 28, w: 9, d: 2.8 },
+      { x: 22, z: 28, w: 9, d: 2.8 },
+      { x: -38, z: 12, w: 2.8, d: 14 },
+      { x: 38, z: 12, w: 2.8, d: 14 },
+      { x: -38, z: -12, w: 2.8, d: 14 },
+      { x: 38, z: -12, w: 2.8, d: 14 }
+    ];
+
+    planterBoxes.forEach(box => {
+      const pG = new THREE.BoxGeometry(box.w, 0.55, box.d);
+      pG.translate(box.x, 0.275, box.z);
+      planterGeos.push(pG);
+
+      const hG = new THREE.BoxGeometry(box.w - 0.4, 0.65, box.d - 0.4);
+      hG.translate(box.x, 0.55 + 0.325, box.z);
+      hedgeGeos.push(hG);
+    });
+
+    if (planterGeos.length > 0) {
+      const mergedPlanters = BufferGeometryUtils.mergeGeometries(planterGeos);
+      const planterMesh = new THREE.Mesh(mergedPlanters, this.concreteMat);
+      planterMesh.castShadow = true;
+      planterMesh.receiveShadow = true;
+      envGroup.add(planterMesh);
+    }
+
+    if (hedgeGeos.length > 0) {
+      const mergedHedges = BufferGeometryUtils.mergeGeometries(hedgeGeos);
+      const hedgeMesh = new THREE.Mesh(mergedHedges, this.foliageMat);
+      hedgeMesh.castShadow = true;
+      hedgeMesh.receiveShadow = true;
+      envGroup.add(hedgeMesh);
+    }
+
+    // 5. Specimen Shade Trees
+    const treePositions = [
+      { x: -24, z: 34 }, { x: 24, z: 34 },
+      { x: -38, z: 24 }, { x: 38, z: 24 },
+      { x: -38, z: -24 }, { x: 38, z: -24 },
+      { x: -14, z: 52 }, { x: 14, z: 52 }
+    ];
+
+    const trunkGeos = [];
+    const foliageClustGeos = [];
+    const trunkBase = new THREE.CylinderGeometry(0.18, 0.26, 3.2, 8);
+    const crownBase1 = new THREE.SphereGeometry(1.6, 8, 8);
+    const crownBase2 = new THREE.SphereGeometry(1.2, 8, 8);
+
+    treePositions.forEach(tp => {
+      const tr = trunkBase.clone();
+      tr.translate(tp.x, 1.6, tp.z);
+      trunkGeos.push(tr);
+
+      const cr1 = crownBase1.clone();
+      cr1.scale(1.1, 0.85, 1.1);
+      cr1.translate(tp.x, 3.6, tp.z);
+      foliageClustGeos.push(cr1);
+
+      const cr2 = crownBase2.clone();
+      cr2.translate(tp.x + 0.3, 4.4, tp.z - 0.2);
+      foliageClustGeos.push(cr2);
+    });
+
+    if (trunkGeos.length > 0) {
+      const trunkMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(trunkGeos), this.trunkMat);
+      trunkMesh.castShadow = true;
+      envGroup.add(trunkMesh);
+    }
+
+    if (foliageClustGeos.length > 0) {
+      const foliageMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(foliageClustGeos), this.foliageMat);
+      foliageMesh.castShadow = true;
+      envGroup.add(foliageMesh);
+    }
+
+    // 6. Stainless Security Bollards along Drop-off Curb
+    const bollardGeos = [];
+    const bollardBase = new THREE.CylinderGeometry(0.11, 0.11, 0.9, 14);
+    for (let bx = -14; bx <= 14; bx += 2.8) {
+      const b = bollardBase.clone();
+      b.translate(bx, 0.45, 27.2);
+      bollardGeos.push(b);
+    }
+    if (bollardGeos.length > 0) {
+      const bollardMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(bollardGeos), this.bollardMat);
+      bollardMesh.castShadow = true;
+      envGroup.add(bollardMesh);
+    }
+
+    // 7. Executive Teak Plaza Benches
+    const benchGeos = [];
+    const benchPositions = [
+      { x: -16, z: 27.4, rot: 0 },
+      { x: 16, z: 27.4, rot: 0 },
+      { x: -35, z: 12, rot: Math.PI / 2 },
+      { x: 35, z: 12, rot: -Math.PI / 2 }
+    ];
+
+    benchPositions.forEach(bp => {
+      const bG = new THREE.BoxGeometry(2.4, 0.46, 0.65);
+      bG.rotateY(bp.rot);
+      bG.translate(bp.x, 0.23, bp.z);
+      benchGeos.push(bG);
+    });
+
+    if (benchGeos.length > 0) {
+      const benchMesh = new THREE.Mesh(BufferGeometryUtils.mergeGeometries(benchGeos), this.benchWoodMat);
+      benchMesh.castShadow = true;
+      envGroup.add(benchMesh);
+    }
+
+    // 8. Campus Identity Totem Monolith
+    const totemGeo = new THREE.BoxGeometry(0.75, 4.6, 1.4);
+    const totemMesh = new THREE.Mesh(totemGeo, this.columnMat);
+    totemMesh.position.set(-18, 2.3, 42);
+    totemMesh.castShadow = true;
+    envGroup.add(totemMesh);
+
+    const totemBeacon = new THREE.Mesh(
+      new THREE.BoxGeometry(0.77, 0.18, 1.42),
+      this.screenDisplayCyanMat
+    );
+    totemBeacon.position.set(-18, 4.4, 42);
+    envGroup.add(totemBeacon);
   }
 
   buildAllFloors() {
+        // Architectural Corner Piers are now generated hierarchically per floor inside buildFloor()
+    // so they move seamlessly with their owning floor in Layered / Exploded mode.
+
     for (let f = 1; f <= this.totalFloors; f++) {
       this.buildFloor(f);
     }
@@ -2597,10 +2602,6 @@ export class Building3D {
       this.hvacFans.forEach(fan => {
         fan.mesh.rotation.y += fan.speed * delta;
       });
-    }
-
-    if (this.campusEnv && this.campusEnv.update) {
-      this.campusEnv.update(delta);
     }
   }
 

@@ -186,6 +186,9 @@ export class BehavioralCrowdEngine {
         if (!targetWaypoint) {
           // Reached end of route: Safe in exterior muster zone!
           agent.state = 'SAFE';
+          agent.y = 0.15;
+          agent.displayPos = { x: agent.x, y: 0.15, z: agent.z };
+          agent.mesh.position.set(agent.x, 0.15, agent.z);
           agent.mesh.visible = true;
           safeCount++;
           stateCounts.safe++;
@@ -310,6 +313,9 @@ export class BehavioralCrowdEngine {
           agent.currentWaypointIdx++;
           if (agent.currentWaypointIdx >= agent.path.length) {
             agent.state = 'SAFE';
+            agent.y = 0.15;
+            agent.displayPos = { x: agent.x, y: 0.15, z: agent.z };
+            agent.mesh.position.set(agent.x, 0.15, agent.z);
             agent.mesh.visible = true;
             safeCount++;
             stateCounts.safe++;
@@ -320,16 +326,23 @@ export class BehavioralCrowdEngine {
           const step = currentEffectiveSpeed * effectiveDelta;
           const moveRatio = Math.min(1.0, step / totalDist);
 
-          agent.x += (dx * moveRatio) + (clampedRepulseX * effectiveDelta * 0.4);
+          // Suppress lateral repulsion drift inside stair core to prevent exterior wall clipping
+          const repulseScale = isStairCore ? 0.05 : 0.4;
+          agent.x += (dx * moveRatio) + (clampedRepulseX * effectiveDelta * repulseScale);
           agent.y += dy * moveRatio;
-          agent.z += (dz * moveRatio) + (clampedRepulseZ * effectiveDelta * 0.4);
+          agent.z += (dz * moveRatio) + (clampedRepulseZ * effectiveDelta * repulseScale);
 
-          let displayY = agent.y;
-          if (floorMode === 'EXPLODED') {
-            displayY = agent.y + (agent.floor - 1) * 5.0;
+          // Hard architectural containment while on upper floors
+          if (agent.y > 0.45) {
+            agent.x = Math.max(-28.8, Math.min(28.8, agent.x));
+            agent.z = Math.max(-22.8, Math.min(22.8, agent.z));
           }
 
-          agent.displayPos = { x: agent.x, y: displayY, z: agent.z };
+          // Dynamically track real physical floor altitude
+          agent.floor = Math.max(1, Math.min(10, Math.floor(agent.y / 3.8) + 1));
+
+          // Canonical elevation matches building model perfectly
+          agent.displayPos = { x: agent.x, y: agent.y, z: agent.z };
         }
 
         // --- STAGE E: Cumulative Risk & Smoke Exposure Tracking ---

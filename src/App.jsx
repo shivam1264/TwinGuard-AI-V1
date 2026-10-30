@@ -18,7 +18,7 @@ import { StrategyRankModal } from './components/StrategyRankModal';
 import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
-import { X, Video, BarChart3, Clock } from 'lucide-react';
+import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
 
@@ -116,7 +116,7 @@ export function App() {
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
-  const [activeScenario, setActiveScenario] = useState(() => AIEngine.getActiveScenario());
+  const [activeScenario, setActiveScenario] = useState(() => (AIEngine && AIEngine.getActiveScenario ? AIEngine.getActiveScenario() : null));
 
   const [bimLayers, setBimLayers] = useState({
     structure: true,
@@ -128,14 +128,10 @@ export function App() {
   const [systemStatus, setSystemStatus] = useState('STANDBY');
   const [serverConnected, setServerConnected] = useState(false);
 
-
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
     evacuated: 0,
-    inside: calculateTotal(INITIAL_ROOMS),
     inTransit: calculateTotal(INITIAL_ROOMS),
-    queued: 0,
-    trapped: 0,
     elapsedSeconds: 0
   });
 
@@ -161,6 +157,9 @@ export function App() {
       },
       (newFacadeMode) => {
         setFacadeMode(newFacadeMode);
+      },
+      (spreadRoomId) => {
+        handleTriggerFire(spreadRoomId, false);
       }
     );
 
@@ -289,75 +288,44 @@ export function App() {
     }
   };
 
-  // Apply Emergency Scenario from Scenario Studio (AI Module Phase 1)
+  // Apply Emergency Scenario from Scenario Studio (AI Module)
   const handleApplyScenario = (newScenario) => {
-    AIEngine.setScenario(newScenario);
-    setActiveScenario(newScenario);
+    if (AIEngine && AIEngine.setScenario) {
+      AIEngine.setScenario(newScenario);
+      setActiveScenario(newScenario);
 
-    const updatedRooms = AIEngine.applyScenarioToRooms(INITIAL_ROOMS);
-    setRooms(updatedRooms);
+      const updatedRooms = AIEngine.applyScenarioToRooms ? AIEngine.applyScenarioToRooms(INITIAL_ROOMS) : INITIAL_ROOMS;
+      setRooms(updatedRooms);
 
-    const updatedExits = AIEngine.applyScenarioToExits(INITIAL_EXITS);
-    setExits(updatedExits);
+      const updatedExits = AIEngine.applyScenarioToExits ? AIEngine.applyScenarioToExits(INITIAL_EXITS) : INITIAL_EXITS;
+      setExits(updatedExits);
 
-    if (newScenario.hazard?.roomId) {
-      setSystemStatus('ALARM');
-      if (sceneManagerRef.current) {
-        sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+      if (newScenario.hazard && newScenario.hazard.roomId) {
+        setSystemStatus('ALARM');
+        if (sceneManagerRef.current) {
+          sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+        }
+      }
+
+      if (sceneManagerRef.current && sceneManagerRef.current.syncOccupants) {
+        sceneManagerRef.current.syncOccupants(updatedRooms);
       }
     }
-
-    if (sceneManagerRef.current) {
-      sceneManagerRef.current.syncOccupants(updatedRooms);
-    }
-
-    const nowTime = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-
-    const isBlocked = newScenario.structuralFailures?.blockedExits?.length > 0;
-    const scenarioIncident = {
-      id: `inc_${Date.now()}`,
-      time: nowTime,
-      title: `Scenario Configured: ${newScenario.name}`,
-      subtitle: isBlocked
-        ? `Threat: Level ${newScenario.hazard?.floor} | ${newScenario.structuralFailures.blockedExits.join(', ')} COMPROMISED`
-        : `Threat: Level ${newScenario.hazard?.floor} (${newScenario.hazard?.type}) | Normal Exit Readiness`,
-      severity: isBlocked ? 'High' : 'Medium',
-      floor: newScenario.hazard?.floor || 1,
-      roomId: newScenario.hazard?.roomId
-    };
-
-    setIncidents((prev) => [scenarioIncident, ...prev]);
   };
 
   const handleApplyStrategyToSimulation = (selectedStrategy) => {
-    AIEngine.setActiveStrategy(selectedStrategy);
-
+    if (AIEngine && AIEngine.setActiveStrategy) {
+      AIEngine.setActiveStrategy(selectedStrategy);
+    }
     if (sceneManagerRef.current) {
       const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
       if (result) {
-        setExits(result.exitStats);
-        setBottlenecks(result.bottlenecks || []);
+        if (result.exitStats) setExits(result.exitStats);
+        if (result.bottlenecks) setBottlenecks(result.bottlenecks);
       }
       setIsSimulating(true);
       setSystemStatus('EVACUATING');
     }
-
-    const stratIncident = {
-      id: `strat_${Date.now()}`,
-      time: new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }),
-      title: `AI Strategy Activated: ${selectedStrategy.shortName || selectedStrategy.name}`,
-      subtitle: `${selectedStrategy.category} • Headless rollouts deployed to 3D Twin`,
-      severity: 'Info'
-    };
-    setIncidents((prev) => [stratIncident, ...prev]);
   };
 
   // Start Evacuation Simulation
@@ -428,54 +396,6 @@ export function App() {
     }
   };
 
-  const handleBlockStairwell = (coreName) => {
-    if (sceneManagerRef.current) {
-      const result = sceneManagerRef.current.blockStairwell(coreName);
-      if (result) {
-        setExits(result.exitStats);
-        setBottlenecks(result.bottlenecks || []);
-      }
-    }
-  };
-
-  const handleClearHazards = () => {
-    if (sceneManagerRef.current) {
-      sceneManagerRef.current.fireSystem.extinguishAll();
-      sceneManagerRef.current.scenarioEngine.clearAllIncidents();
-      const freshRooms = rooms.map(r => ({ ...r, hasFire: false, tempCelsius: 22 }));
-      setRooms(freshRooms);
-      if (isSimulating) {
-        const result = sceneManagerRef.current.routeOptimizer.optimizeEvacuationRoutes(sceneManagerRef.current.agentCrowd.agents);
-        sceneManagerRef.current.agentCrowd.rerouteAgents(result.assignments);
-        sceneManagerRef.current.renderRouteOverlays(result.assignments);
-        sceneManagerRef.current.updateExitHoloBadges(result.exitStats);
-        setExits(result.exitStats);
-      }
-    }
-  };
-
-  const handleToggleRouteOverlays = () => {
-    setShowRouteOverlays(prev => {
-      const next = !prev;
-      if (sceneManagerRef.current) {
-        sceneManagerRef.current.showRouteOverlays = next;
-        sceneManagerRef.current.routeOverlayGroup.visible = next;
-      }
-      return next;
-    });
-  };
-
-  const handleToggleExitBadges = () => {
-    setShowExitBadges(prev => {
-      const next = !prev;
-      if (sceneManagerRef.current) {
-        sceneManagerRef.current.showExitBadges = next;
-        sceneManagerRef.current.exitOverlayGroup.visible = next;
-      }
-      return next;
-    });
-  };
-
   const handleSetSpeed = (speed) => {
     setSimSpeed(speed);
     if (sceneManagerRef.current) {
@@ -539,12 +459,12 @@ export function App() {
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
         onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenReports={() => setIsReportsOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
         serverConnected={serverConnected}
       />
-
 
       {/* 2. MAIN WORKSPACE (Collapsible Left Sidebar + Center 3D Digital Twin Viewport + Collapsible Right Sidebar) */}
       <div className="flex-1 flex overflow-hidden w-full relative">
@@ -575,14 +495,11 @@ export function App() {
           activeFloorView={activeFloorView}
           onSelectFloor={handleSetFloorView}
           rooms={rooms}
-          exits={exits}
-          hasFire={hasAnyFire}
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
           onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
           onSetCameraPreset={handleSetCameraPreset}
         />
-
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f1f5f9] relative overflow-hidden">
@@ -635,7 +552,6 @@ export function App() {
           )}
         </div>
 
-
         {/* Right Sidebar (Collapsible with icon-only rail) */}
         <RightSidebar
           isCollapsed={isRightCollapsed}
@@ -647,7 +563,6 @@ export function App() {
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
           onOpenIncidents={() => setIsIncidentsOpen(true)}
         />
-
       </div>
 
       {/* 3. BOTTOM CONTROL DOCK (Start Evacuation, Reset, Speed, BIM Layers, Camera View - Matching Image 1) */}
@@ -666,9 +581,23 @@ export function App() {
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-6 animate-in fade-in duration-150 select-none">
-          <div className="bg-[#f8fafc] border border-slate-200/90 rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="flex-1 overflow-y-auto p-4 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
+                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-600">
+                  <Video className="w-4 h-4" />
+                </div>
+                <span>Facility CCTV Security Multiviewer (100 Cams)</span>
+              </div>
+              <button
+                onClick={() => setIsCctvOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 bg-slate-950">
               <CCTVMultiviewer
                 rooms={rooms}
                 onTriggerFire={handleTriggerFire}
@@ -677,7 +606,6 @@ export function App() {
                   handleSetCameraPreset('ROOM_FOCUS', roomId);
                   setIsCctvOpen(false);
                 }}
-                onClose={() => setIsCctvOpen(false)}
               />
             </div>
           </div>
@@ -686,16 +614,28 @@ export function App() {
 
       {/* MODAL 2: Evacuation Analytics & Stairwell Core Intel */}
       {isAnalyticsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-6 animate-in fade-in duration-150 select-none">
-          <div className="bg-[#f8fafc] border border-slate-200/90 rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="flex-1 overflow-y-auto p-4 no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="px-6 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
+                <div className="p-1.5 rounded-lg bg-purple-100 text-purple-600">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <span>Stairwell Cores & 10-Floor Population Analytics</span>
+              </div>
+              <button
+                onClick={() => setIsAnalyticsOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
               <BottleneckAnalytics
                 stats={stats}
                 exits={exits}
                 rooms={rooms}
                 bottlenecks={bottlenecks}
-                onClose={() => setIsAnalyticsOpen(false)}
-                onReset={handleReset}
               />
             </div>
           </div>
@@ -734,8 +674,16 @@ export function App() {
         />
       )}
 
-      
-      {/* MODAL 8: AI Multi-Strategy Simulation & TOPSIS Ranker (Phase 3 AI Module) */}
+      {/* MODAL 7: Scenario Studio Modal (AI Engine) */}
+      <ScenarioConfigModal
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentScenario={activeScenario}
+        onApplyScenario={handleApplyScenario}
+        rooms={rooms}
+      />
+
+      {/* MODAL 8: AI Evacuation Strategy Ranker (TOPSIS Engine) */}
       <StrategyRankModal
         isOpen={isStrategyModalOpen}
         onClose={() => setIsStrategyModalOpen(false)}
@@ -745,18 +693,13 @@ export function App() {
         onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
       />
 
-      {/* MODAL 7: Emergency Scenario Configuration Studio (AI Module Phase 1) */}
-      <ScenarioConfigModal
-        isOpen={isScenarioModalOpen}
-        onClose={() => setIsScenarioModalOpen(false)}
-        currentScenario={activeScenario}
-        onApplyScenario={handleApplyScenario}
-        rooms={rooms}
-      />
-
-      {/* MODAL 7: System Settings Modal */}
+      {/* MODAL 9: System Settings Modal */}
       {isSettingsOpen && (
-        <SettingsModal onClose={() => setIsSettingsOpen(false)} />
+        <SettingsModal
+          onClose={() => setIsSettingsOpen(false)}
+          onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
+          onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
+        />
       )}
 
       {/* MODAL 9: Building Information Modeling & Architectural Specs */}

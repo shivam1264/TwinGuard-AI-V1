@@ -105,6 +105,7 @@ export class MultiStrategyRanker {
 
     // Assign Exits based on Strategy Type
     const operationalExits = exits.filter((e) => !e.isBlocked);
+    const validOperational = operationalExits.length > 0 ? operationalExits : exits;
     const coreA = exits.find((e) => e.id === 'exit_west' && !e.isBlocked);
     const coreB = exits.find((e) => e.id === 'exit_east' && !e.isBlocked);
     const exitC = exits.find((e) => e.id === 'exit_south' && !e.isBlocked);
@@ -114,16 +115,17 @@ export class MultiStrategyRanker {
 
       if (strategyConfig.type === 'NEAREST_CORE') {
         // Strategy A: Uncontrolled nearest exit rush
-        const candidateExits = agent.floor === 1 ? operationalExits : [coreA, coreB].filter(Boolean);
+        const candidateExits = (agent.floor === 1 ? validOperational : [coreA, coreB].filter(Boolean));
+        const usableList = candidateExits.length > 0 ? candidateExits : validOperational;
         let minDist = Infinity;
-        candidateExits.forEach((ex) => {
+        usableList.forEach((ex) => {
           const d = Math.hypot(agent.x - ex.x, agent.z - ex.z);
           if (d < minDist) {
             minDist = d;
             chosenExit = ex;
           }
         });
-        if (!chosenExit) chosenExit = operationalExits[0];
+        if (!chosenExit) chosenExit = usableList[0] || exits[0];
       } else if (strategyConfig.type === 'LOAD_BALANCED') {
         // Strategy B: Dynamic load balanced core assignment
         if (agent.floor === 1 && exitC) {
@@ -132,7 +134,7 @@ export class MultiStrategyRanker {
           // Balance evenly between Core A and Core B based on current assigned load
           chosenExit = coreA.load <= coreB.load ? coreA : coreB;
         } else {
-          chosenExit = coreA || coreB || operationalExits[0];
+          chosenExit = coreA || coreB || validOperational[0] || exits[0];
         }
       } else if (strategyConfig.type === 'PHASED_ZONE') {
         // Strategy C: Phased evacuation (balanced cores with priority routing)
@@ -141,11 +143,12 @@ export class MultiStrategyRanker {
         } else if (coreA && coreB) {
           chosenExit = (agent.floor % 2 === 0) ? coreA : coreB;
         } else {
-          chosenExit = operationalExits[0];
+          chosenExit = validOperational[0] || exits[0];
         }
       }
 
-      chosenExit.load++;
+      if (!chosenExit) chosenExit = exits[0];
+      chosenExit.load = (chosenExit.load || 0) + 1;
       agent.assignedExit = chosenExit;
 
       // Calculate total 3D travel distance (room -> door -> corridor -> stairs -> plaza)
@@ -156,7 +159,8 @@ export class MultiStrategyRanker {
       const dStairs = stairFlights * 14.5; // Switchback descent distance
       const dPlaza = 12.0; // Distance to muster zone
 
-      agent.totalDistance = dInside + 2.4 + dCorridor + dStairs + dPlaza;
+      agent.totalDistance = Math.max(15, dInside + 2.4 + dCorridor + dStairs + dPlaza);
+      agent.speed = agent.speed || 3.2;
     });
 
     // Fast-Forward Tick Simulation Loop (0.5s time step, max 450s)
@@ -185,9 +189,10 @@ export class MultiStrategyRanker {
 
         // Stairwell speed friction factor
         const isDescending = a.currentDistance > (a.totalDistance - 15.0) && a.currentDistance < a.totalDistance;
-        const currentSpeed = isDescending ? a.speed * 0.58 : a.speed;
+        const baseSpd = (typeof a.speed === 'number' && !isNaN(a.speed)) ? a.speed : 3.2;
+        const currentSpeed = isDescending ? baseSpd * 0.58 : baseSpd;
 
-        a.currentDistance += currentSpeed * timeStep;
+        a.currentDistance += Math.max(0.2, currentSpeed) * timeStep;
 
         if (isDescending) {
           if (a.assignedExit.id === 'exit_west') activeInStairsCoreA++;

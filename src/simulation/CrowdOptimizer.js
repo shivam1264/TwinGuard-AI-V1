@@ -38,14 +38,14 @@ export class CrowdOptimizer {
       let bestExit = null;
       let minScore = Infinity;
 
-      // Available exits: Upper floors (L2 to L10) must use stairwell towers (West or East)
+      // Available exits: Upper floors (L2 to L10) MUST egress via vertical Stairwell Cores (West Core A or East Core B)
       // Ground floor (L1) can use West, East, or South Grand Exit!
       const floorExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
       let availableExits = floorExits.filter(e => !e.isBlocked);
 
-      // Fallback: If both floor stairwells are compromised, fallback to any operational exit
+      // Fallback: If both floor stairwells are flagged, select the least compromised stair core
       if (availableExits.length === 0) {
-        availableExits = allOperational.length > 0 ? allOperational : this.exits;
+        availableExits = [this.exits[0], this.exits[1]];
       }
 
       for (const exit of availableExits) {
@@ -97,7 +97,20 @@ export class CrowdOptimizer {
 
       if (bestExit) {
         bestExit.load++;
-        const stairEntry = this.stairwellEntries[bestExit.id];
+
+        // Determine stairwell core for upper floor descent
+        let stairCoreId = bestExit.id;
+        if (agent.floor > 1) {
+          if (stairCoreId !== 'exit_west' && stairCoreId !== 'exit_east') {
+            const westBlocked = blockedExitIds.includes('exit_west');
+            const eastBlocked = blockedExitIds.includes('exit_east');
+            if (westBlocked && !eastBlocked) stairCoreId = 'exit_east';
+            else if (!westBlocked && eastBlocked) stairCoreId = 'exit_west';
+            else stairCoreId = (agent.x < 0) ? 'exit_west' : 'exit_east';
+          }
+        }
+
+        const stairEntry = this.stairwellEntries[stairCoreId] || this.stairwellEntries[bestExit.id];
 
         // 1. MUST ROUTE THROUGH ROOM'S PHYSICAL DOORWAY!
         // Retrieve designated 3-stage doorway waypoints (inside ➔ threshold ➔ corridor)
@@ -128,8 +141,8 @@ export class CrowdOptimizer {
         });
 
         // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
-        if (agent.floor > 1 && (bestExit.id === 'exit_west' || bestExit.id === 'exit_east')) {
-          const isWest = bestExit.id === 'exit_west';
+        if (agent.floor > 1) {
+          const isWest = stairCoreId === 'exit_west';
           const flight1X = isWest ? -27.2 : 27.2;
           const flight2X = isWest ? -28.8 : 28.8;
           const landingX = isWest ? -26.4 : 26.4;
@@ -160,8 +173,8 @@ export class CrowdOptimizer {
         }
 
         // 3. Step out through the Ground Floor Emergency Exit into safety plaza & Muster Zone
-        const isWest = bestExit.id === 'exit_west';
-        const isEast = bestExit.id === 'exit_east';
+        const isWest = bestExit.id === 'exit_west' || (agent.floor > 1 && stairCoreId === 'exit_west' && bestExit.id !== 'exit_south');
+        const isEast = bestExit.id === 'exit_east' || (agent.floor > 1 && stairCoreId === 'exit_east' && bestExit.id !== 'exit_south');
         const isSouth = bestExit.id === 'exit_south';
 
         // Organic crowd dispersal jitter inside muster circle so people don't overlap
@@ -180,6 +193,11 @@ export class CrowdOptimizer {
           full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
           full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
         } else if (isSouth) {
+          if (agent.floor > 1) {
+            // Walk from Ground Landing along Ground Central Corridor to South Foyer
+            full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: 0.0, y: 0.15, z: 18.0 });
+          }
           full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
           full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
           full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
