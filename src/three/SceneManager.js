@@ -877,10 +877,6 @@ export class SceneManager {
     // Spawn visual fire particles with room reference for proper positioning
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
 
-const fireY = (room.center.y || 0) + 0.2;
-    // Spawn visual fire particles with room reference for proper positioning
-    this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
-
     // Inject interactive fire source into hazard state with room center for grid radius
     const injectOptions = {
       originRoomCenterX: room.center.x,
