@@ -204,7 +204,7 @@ export function EmergencyControlModal({
                   }`}
                 >
                   {isSirenOn ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5" />}
-                  {isSirenOn ? 'Siren Audio ON' : 'Mute Siren'}
+                  {isSirenOn ? 'Mute Siren' : 'Unmute Siren'}
                 </button>
               </div>
             </div>

@@ -32,7 +32,8 @@ export const LeftSidebar = ({
   onSetCameraPreset,
   onOpenEmergencyControl,
   isSimulating = false,
-  elapsedSeconds = 0
+  elapsedSeconds = 0,
+  emergencyStatus = null
 }) => {
   const getFloorInfo = (floorNum) => {
     const floorRooms = rooms.filter((r) => r.floor === floorNum);
@@ -79,9 +80,15 @@ export const LeftSidebar = ({
       icon: Flame,
       iconColor: '#ef4444',
       action: onOpenEmergencyControl,
-      badge: isSimulating ? (elapsedSeconds >= 30 ? 'On Scene' : `${Math.max(0, 30 - elapsedSeconds)}s`) : '30s Resp',
-      badgeColor: isSimulating ? (elapsedSeconds >= 30 ? '#dcfce7' : '#fee2e2') : '#fef2f2',
-      badgeText: isSimulating ? (elapsedSeconds >= 30 ? '#15803d' : '#b91c1c') : '#dc2626'
+      badge: emergencyStatus?.isActive
+        ? (emergencyStatus.isArrived ? 'On Scene' : `${Math.ceil(emergencyStatus.etaSeconds)}s`)
+        : (isSimulating ? (elapsedSeconds >= 30 ? 'On Scene' : `${Math.max(0, 30 - elapsedSeconds)}s`) : '30s Resp'),
+      badgeColor: emergencyStatus?.isActive
+        ? (emergencyStatus.isArrived ? '#dcfce7' : '#fee2e2')
+        : (isSimulating ? (elapsedSeconds >= 30 ? '#dcfce7' : '#fee2e2') : '#fef2f2'),
+      badgeText: emergencyStatus?.isActive
+        ? (emergencyStatus.isArrived ? '#15803d' : '#b91c1c')
+        : (isSimulating ? (elapsedSeconds >= 30 ? '#15803d' : '#b91c1c') : '#dc2626')
     },
     { id: 'INFO', label: 'Building Information', icon: FileText, badge: null }
   ];

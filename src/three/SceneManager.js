@@ -626,6 +626,20 @@ export class SceneManager {
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
     this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
 
+    // Automatically trigger Emergency Support Vehicles to the nearest exit gate
+    if (this.emergencyManager) {
+      const activeFires = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach((f, rId) => {
+          if (f.basePos) activeFires.push({ ...f.basePos, roomId: rId, floor: f.floor });
+        });
+      }
+      if (activeFires.length === 0) {
+        activeFires.push({ x: room.center.x, y: fireY, z: room.center.z, roomId, floor: room.floor });
+      }
+      this.emergencyManager.dispatch(null, activeFires);
+    }
+
     if (this.isSimulating) {
       const fireLocations = [];
       this.fireSystem.activeFires.forEach((f, rId) => {
@@ -710,7 +724,7 @@ export class SceneManager {
       this.updateExitHoloBadges(optimizationResult.exitStats);
     }
 
-    if (this.emergencyManager) {
+    if (this.emergencyManager && !this.emergencyManager.isActive) {
       this.emergencyManager.dispatch(null, fireLocations);
     }
 
@@ -782,7 +796,8 @@ export class SceneManager {
     }
 
     if (this.emergencyManager) {
-      this.emergencyManager.update(delta, this.elapsedSeconds, this.isSimulating);
+      const speed = this.isSimulating ? (this.simSpeed || 1.0) : 1.0;
+      this.emergencyManager.update(delta, speed);
     }
 
     if (this.agentCrowd) {
