@@ -11,7 +11,8 @@ import {
   Milestone,
   Flame,
   FileText,
-  Info
+  Info,
+  ChevronRight
 } from 'lucide-react';
 import { FLOOR_THEMES } from '../simulation/Doorways';
 
@@ -289,101 +290,105 @@ export const LeftSidebar = ({
           })}
         </div>
 
-        {/* ─── SECTION 2: BUILDING FLOORS ─── */}
-        <div className="flex flex-col" style={{ gap: '4px' }}>
-          <div className="flex items-center justify-between" style={{ padding: '0 8px', marginBottom: '6px' }}>
-            <span
-              style={{
-                fontSize: '10.5px',
-                fontWeight: 700,
-                color: '#94a3b8',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-              }}
-            >
-              BUILDING FLOORS
-            </span>
+        {/* ─── SECTION 2: BUILDING FLOORS (3-Column Layout Matching Image) ─── */}
+        <div className="flex flex-col" style={{ gap: '10px' }}>
+          <div className="flex items-center justify-between" style={{ padding: '0 4px' }}>
+            <div className="flex items-center" style={{ gap: '7px' }}>
+              <Layers style={{ width: '16px', height: '16px', color: '#64748b' }} />
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                BUILDING FLOORS
+              </span>
+            </div>
+
             <button
               onClick={() => onSelectFloor('ALL')}
-              className="cursor-pointer transition-all"
+              className="flex items-center cursor-pointer transition-colors"
               style={{
-                fontSize: '11px',
+                fontSize: '11.5px',
                 fontWeight: 700,
-                color: activeFloorView === 'ALL' ? '#ffffff' : '#2563eb',
-                background: activeFloorView === 'ALL' ? '#2563eb' : '#ffffff',
-                border: '1px solid #bfdbfe',
-                padding: '2px 10px',
-                borderRadius: '999px',
+                color: '#2563eb',
+                gap: '2px',
+                background: 'transparent',
+                border: 'none',
+                padding: '2px 4px',
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#1d4ed8'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#2563eb'; }}
             >
-              Show All
+              <span>Show All</span>
+              <ChevronRight style={{ width: '14px', height: '14px', strokeWidth: 2.5 }} />
             </button>
           </div>
 
-          {/* Floor Rows (10th down to 1st) */}
-          <div className="flex flex-col" style={{ gap: '2px' }}>
+          {/* 3-Column Grid of Floor Cards (L10 down to L1) */}
+          <div
+            className="grid grid-cols-3"
+            style={{
+              gap: '8px',
+            }}
+          >
             {floorsList.map((fl) => {
-              const info = getFloorInfo(fl);
               const isSelected = activeFloorView === String(fl);
 
               return (
                 <button
                   key={fl}
                   onClick={() => onSelectFloor(String(fl))}
-                  className="w-full flex items-center justify-between text-left cursor-pointer transition-all focus:outline-none"
+                  className="flex items-center justify-center cursor-pointer transition-all focus:outline-none"
                   style={{
                     height: '42px',
-                    padding: '0 10px',
-                    borderRadius: '11px',
-                    background: isSelected ? '#eff6ff' : 'transparent',
-                    border: isSelected ? '1px solid #bfdbfe' : '1px solid transparent',
+                    borderRadius: '12px',
+                    background: isSelected ? '#eff6ff' : '#ffffff',
+                    border: isSelected ? '1.5px solid #3b82f6' : '1px solid #eef2f6',
+                    boxShadow: isSelected
+                      ? '0 2px 6px -1px rgba(37, 99, 235, 0.2)'
+                      : '0 1px 2px rgba(0, 0, 0, 0.03)',
+                    color: isSelected ? '#2563eb' : '#334155',
+                    gap: '7px',
+                    padding: '0 8px',
                   }}
                   onMouseEnter={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                    if (!isSelected) {
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                    if (!isSelected) {
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.borderColor = '#eef2f6';
+                    }
                   }}
+                  title={`View Floor L${fl} (${floorSubtitles[fl] || 'Level ' + fl})`}
                 >
-                  <div className="flex items-center" style={{ gap: '10px' }}>
-                    {/* Circular Level Badge */}
-                    <div
-                      className="flex items-center justify-center shrink-0"
-                      style={{
-                        width: '28px',
-                        height: '28px',
-                        borderRadius: '50%',
-                        background: '#f0fdf4',
-                        border: '1px solid #dcfce7',
-                        color: '#16a34a',
-                        fontSize: '10.5px',
-                        fontWeight: 800,
-                        fontFamily: 'monospace',
-                      }}
-                    >
-                      L{fl}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: isSelected ? '#2563eb' : '#0f172a', lineHeight: 1.1 }}>
-                        {getOrdinalName(fl)}
-                      </div>
-                      <div style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: 500 }}>
-                        {floorSubtitles[fl] || 'Workspace'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Occupants Count (Green) */}
-                  <div
+                  <Building2
                     style={{
-                      fontSize: '11.5px',
-                      fontWeight: 800,
-                      color: '#16a34a',
-                      fontFamily: 'monospace',
+                      width: '15px',
+                      height: '15px',
+                      color: isSelected ? '#2563eb' : '#475569',
+                      strokeWidth: 2,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: isSelected ? 800 : 700,
+                      color: isSelected ? '#2563eb' : '#1e293b',
+                      lineHeight: 1,
+                      letterSpacing: '-0.01em',
                     }}
                   >
-                    {info.occupants}
-                  </div>
+                    L{fl}
+                  </span>
                 </button>
               );
             })}
