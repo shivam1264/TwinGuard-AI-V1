@@ -286,6 +286,77 @@ export function App() {
     }
   };
 
+  // Apply Emergency Scenario from Scenario Studio (AI Module Phase 1)
+  const handleApplyScenario = (newScenario) => {
+    AIEngine.setScenario(newScenario);
+    setActiveScenario(newScenario);
+
+    const updatedRooms = AIEngine.applyScenarioToRooms(INITIAL_ROOMS);
+    setRooms(updatedRooms);
+
+    const updatedExits = AIEngine.applyScenarioToExits(INITIAL_EXITS);
+    setExits(updatedExits);
+
+    if (newScenario.hazard?.roomId) {
+      setSystemStatus('ALARM');
+      if (sceneManagerRef.current) {
+        sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+      }
+    }
+
+    if (sceneManagerRef.current) {
+      sceneManagerRef.current.syncOccupants(updatedRooms);
+    }
+
+    const nowTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const isBlocked = newScenario.structuralFailures?.blockedExits?.length > 0;
+    const scenarioIncident = {
+      id: `inc_${Date.now()}`,
+      time: nowTime,
+      title: `Scenario Configured: ${newScenario.name}`,
+      subtitle: isBlocked
+        ? `Threat: Level ${newScenario.hazard?.floor} | ${newScenario.structuralFailures.blockedExits.join(', ')} COMPROMISED`
+        : `Threat: Level ${newScenario.hazard?.floor} (${newScenario.hazard?.type}) | Normal Exit Readiness`,
+      severity: isBlocked ? 'High' : 'Medium',
+      floor: newScenario.hazard?.floor || 1,
+      roomId: newScenario.hazard?.roomId
+    };
+
+    setIncidents((prev) => [scenarioIncident, ...prev]);
+  };
+
+  const handleApplyStrategyToSimulation = (selectedStrategy) => {
+    AIEngine.setActiveStrategy(selectedStrategy);
+
+    if (sceneManagerRef.current) {
+      const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
+      if (result) {
+        setExits(result.exitStats);
+        setBottlenecks(result.bottlenecks || []);
+      }
+      setIsSimulating(true);
+      setSystemStatus('EVACUATING');
+    }
+
+    const stratIncident = {
+      id: `strat_${Date.now()}`,
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }),
+      title: `AI Strategy Activated: ${selectedStrategy.shortName || selectedStrategy.name}`,
+      subtitle: `${selectedStrategy.category} • Headless rollouts deployed to 3D Twin`,
+      severity: 'Info'
+    };
+    setIncidents((prev) => [stratIncident, ...prev]);
+  };
+
   // Start Evacuation Simulation
   const handleStartEvacuation = () => {
     if (!sceneManagerRef.current) return;
