@@ -516,8 +516,8 @@ assert(emergencyMgr.targetGate.id === 'exit_east', 'Hazard at Floor 7 East Stair
 emergencyMgr.dispatch(null, [{ x: 0, y: 0.2, z: 20, floor: 1, roomId: 'f1_r8' }]);
 assert(emergencyMgr.targetGate.id === 'exit_south', 'Hazard at Main Entrance directs units to Ground Main Gate (exit_south)');
 
-// 9.C: Exact 30-Second Arrival Timeline Invariant
-console.log('\n  -> 30-Second Arrival Timeline Invariant:');
+// 9.C: Exact 30-Second Arrival Timeline & Alarm Invariant
+console.log('\n  -> 30-Second Arrival Timeline & Alarm Invariant:');
 emergencyMgr.dispatch('exit_west');
 
 // t = 0s: Dispatch initiated
@@ -525,6 +525,13 @@ emergencyMgr.update(0, 0, true);
 let emStatus0 = emergencyMgr.getStatus();
 assert(emStatus0.status === 'EN_ROUTE' && emStatus0.isArrived === false && emStatus0.etaSeconds === 30,
   `At t=0s: Status EN_ROUTE, ETA = ${emStatus0.etaSeconds}s, Arrived = false`);
+assert(emStatus0.isSirenActive === true, 'Emergency siren alarm is active by default upon dispatch');
+
+// Test Siren Mute & Unmute
+emergencyMgr.muteSiren();
+assert(emergencyMgr.getStatus().isSirenActive === false, 'Siren alarm is silenced when user toggles mute');
+emergencyMgr.toggleSirenAudio();
+assert(emergencyMgr.getStatus().isSirenActive === true, 'Siren alarm resumes when user toggles unmute');
 
 // t = 15s: Midpoint en-route traversal
 emergencyMgr.update(15, 15, true);
@@ -539,6 +546,22 @@ assert(emStatus30.status === 'ON_SCENE' && emStatus30.isArrived === true && emSt
   `At t=30s: Status ON_SCENE, Progress = 100%, Staged on perimeter`);
 assert(emergencyMgr.perimeterGroup.visible === true, 'On-scene medical triage, hazard perimeter, and command cots deployed at t=30s');
 assert(Math.abs(emergencyMgr.fireEngine.position.x - (-44.0)) < 0.1, `Fire Engine staged at West Gate x=${emergencyMgr.fireEngine.position.x}`);
+
+// 9.D: Frame Delta Real-Time Progression (Smooth 60fps)
+console.log('\n  -> Autonomous Frame-by-Frame Real-Time Update:');
+const autoMgr = new EmergencyVehiclesManager(emergencyScene);
+autoMgr.dispatch('exit_east');
+assert(autoMgr.getStatus().status === 'EN_ROUTE', 'Autonomous units dispatched to East Gate');
+// Step forward 10 seconds in 60fps increments (600 frames of 1/60s)
+for (let f = 0; f < 600; f++) {
+  autoMgr.update(1 / 60, 1.0);
+}
+assert(Math.abs(autoMgr.getStatus().elapsedSeconds - 10) <= 1, `After 10s of frame updates, elapsed = ${autoMgr.getStatus().elapsedSeconds}s`);
+// Step forward 20 more seconds to reach 30s
+for (let f = 0; f < 1200; f++) {
+  autoMgr.update(1 / 60, 1.0);
+}
+assert(autoMgr.getStatus().isArrived === true, 'Autonomous units arrive on-scene at exactly 30s via delta stepping');
 
 console.log('\n=======================================================');
 console.log(`🎯 VERIFICATION COMPLETE: ${passedTests}/${totalTests} TESTS PASSED!`);

@@ -116,6 +116,7 @@ export function App() {
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
+  const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => {
     if (AIEngine && AIEngine.getActiveScenario) {
       return AIEngine.getActiveScenario();
@@ -193,12 +194,18 @@ export function App() {
     }
   }, [isLeftCollapsed, isRightCollapsed]);
 
-  // Track camera rotation for real-time Compass Rose updates
+  // Track camera rotation for real-time Compass Rose updates & Emergency Telemetry
   useEffect(() => {
     const interval = setInterval(() => {
       if (sceneManagerRef.current && sceneManagerRef.current.getCameraYaw) {
         const yaw = sceneManagerRef.current.getCameraYaw();
         setCameraYaw(Math.round(yaw));
+      }
+      if (sceneManagerRef.current && sceneManagerRef.current.getEmergencyStatus) {
+        const em = sceneManagerRef.current.getEmergencyStatus();
+        if (em) {
+          setEmergencyStatus(em);
+        }
       }
     }, 80);
     return () => clearInterval(interval);
@@ -390,6 +397,7 @@ export function App() {
     setBottlenecks([]);
     setIsSimulating(false);
     setSystemStatus('STANDBY');
+    setEmergencyStatus(null);
     setIncidents(INITIAL_INCIDENTS);
     setStats({
       total: calculateTotal(INITIAL_ROOMS),
@@ -515,6 +523,7 @@ export function App() {
           onSetCameraPreset={handleSetCameraPreset}
           isSimulating={isSimulating}
           elapsedSeconds={stats.elapsedSeconds}
+          emergencyStatus={emergencyStatus}
         />
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}

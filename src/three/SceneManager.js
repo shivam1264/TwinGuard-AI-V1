@@ -877,6 +877,10 @@ export class SceneManager {
     // Spawn visual fire particles with room reference for proper positioning
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
 
+const fireY = (room.center.y || 0) + 0.2;
+    // Spawn visual fire particles with room reference for proper positioning
+    this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
+
     // Inject interactive fire source into hazard state with room center for grid radius
     const injectOptions = {
       originRoomCenterX: room.center.x,
@@ -903,7 +907,20 @@ export class SceneManager {
       this.onFireSpread(roomId);
     }
 
-    // If simulation is running, immediately re-optimize routes for new fire
+    // Automatically trigger Emergency Support Vehicles to the nearest exit gate
+    if (this.emergencyManager) {
+      const activeFires = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach((f, rId) => {
+          if (f.basePos) activeFires.push({ ...f.basePos, roomId: rId, floor: f.floor });
+        });
+      }
+      if (activeFires.length === 0) {
+        activeFires.push({ x: room.center.x, y: fireY, z: room.center.z, roomId, floor: room.floor });
+      }
+      this.emergencyManager.dispatch(null, activeFires);
+    }
+
     if (this.isSimulating) {
       const fireLocations = [];
       this.fireSystem.activeFires.forEach((f, rId) => {
@@ -1002,7 +1019,7 @@ export class SceneManager {
       this.updateExitHoloBadges(optimizationResult.exitStats);
     }
 
-    if (this.emergencyManager) {
+    if (this.emergencyManager && !this.emergencyManager.isActive) {
       this.emergencyManager.dispatch(null, fireLocations);
     }
 
@@ -1102,7 +1119,8 @@ export class SceneManager {
     }
 
     if (this.emergencyManager) {
-      this.emergencyManager.update(delta, this.elapsedSeconds, this.isSimulating);
+      const speed = this.isSimulating ? (this.simSpeed || 1.0) : 1.0;
+      this.emergencyManager.update(delta, speed);
     }
 
     if (this.agentCrowd) {

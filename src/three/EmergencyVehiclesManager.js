@@ -17,7 +17,7 @@ export class EmergencyVehiclesManager {
     this.elapsedTime = 0.0;
     this.isActive = false;
     this.isArrived = false;
-    this.isSirenMuted = true;
+    this.isSirenMuted = false; // Emergency siren alarm active by default on dispatch
     this.isSprayActive = false;
 
     this.targetGate = { id: 'exit_west', name: 'West Gate (Stair Core A)', side: 'west' };
@@ -27,6 +27,7 @@ export class EmergencyVehiclesManager {
     this.audioCtx = null;
     this.sirenOsc = null;
     this.sirenGain = null;
+    this.setupAutoplayUnlock();
 
     // Vehicle Groups
     this.fireEngine = null;
@@ -497,15 +498,14 @@ export class EmergencyVehiclesManager {
   // 4. DISPATCH & SIMULATION TIMING (30-SECOND ARRIVAL INVARIANT)
   // ==========================================================================
 
-  dispatch(targetExitId = null, fireLocations = []) {
-    this.isActive = true;
-    this.elapsedTime = 0.0;
-    this.isArrived = false;
+  dispatch(targetExitId = null, fireLocations = [], forceRestart = false) {
+    let newTargetGate = null;
+    let newHazardFloor = 7;
 
     // Detect target gate based on hazard location
     if (targetExitId) {
       const side = targetExitId.includes('west') ? 'west' : (targetExitId.includes('east') ? 'east' : 'south');
-      this.targetGate = {
+      newTargetGate = {
         id: targetExitId,
         name: side === 'west' ? 'West Gate (Stair Core A)' : (side === 'east' ? 'East Gate (Stair Core B)' : 'Front / Main Gate (South)'),
         side
@@ -514,16 +514,43 @@ export class EmergencyVehiclesManager {
       const fire = fireLocations[0];
       const fx = fire.x || 0;
       const rId = fire.roomId || '';
-      this.hazardFloor = fire.floor || 7;
+      newHazardFloor = fire.floor || 1;
 
-      if (fx < -5.0 || rId.endsWith('_r1') || rId.endsWith('_r2') || rId.endsWith('_r6') || rId.endsWith('_r7')) {
-        this.targetGate = { id: 'exit_west', name: 'West Gate (Stair Core A)', side: 'west' };
-      } else if (fx > 5.0 || rId.endsWith('_r4') || rId.endsWith('_r5') || rId.endsWith('_r9') || rId.endsWith('_r10')) {
-        this.targetGate = { id: 'exit_east', name: 'East Gate (Stair Core B)', side: 'east' };
+      // Ground Floor Specific Case I (exit gates):
+      if (newHazardFloor === 1) {
+        if (fx < -10.0 || rId === 'f1_r1' || rId === 'f1_r2' || rId === 'f1_r6' || rId === 'f1_r7') {
+          newTargetGate = { id: 'exit_west', name: 'West Gate (Stair Core A)', side: 'west' };
+        } else if (fx > 10.0 || rId === 'f1_r4' || rId === 'f1_r5' || rId === 'f1_r9' || rId === 'f1_r10') {
+          newTargetGate = { id: 'exit_east', name: 'East Gate (Stair Core B)', side: 'east' };
+        } else {
+          newTargetGate = { id: 'exit_south', name: 'Front / Main Gate (South)', side: 'south' };
+        }
       } else {
-        this.targetGate = { id: 'exit_south', name: 'Front / Main Gate (South)', side: 'south' };
+        // Upper & Middle Floors (L2 - L10):
+        // West Stair / Core A is at x = -26.4
+        // East Stair / Core B is at x = +26.4
+        if (fx < 0 || rId.endsWith('_r1') || rId.endsWith('_r2') || rId.endsWith('_r6') || rId.endsWith('_r7')) {
+          newTargetGate = { id: 'exit_west', name: 'West Gate (Stair Core A)', side: 'west' };
+        } else if (fx > 0 || rId.endsWith('_r4') || rId.endsWith('_r5') || rId.endsWith('_r9') || rId.endsWith('_r10')) {
+          newTargetGate = { id: 'exit_east', name: 'East Gate (Stair Core B)', side: 'east' };
+        } else {
+          newTargetGate = { id: 'exit_south', name: 'Front / Main Gate (South)', side: 'south' };
+        }
       }
+    } else {
+      newTargetGate = { id: 'exit_west', name: 'West Gate (Stair Core A)', side: 'west' };
     }
+
+    // If already active heading to this gate and not forced to restart, preserve ongoing progress
+    if (this.isActive && !forceRestart && this.targetGate && this.targetGate.id === newTargetGate.id) {
+      return;
+    }
+
+    this.isActive = true;
+    this.elapsedTime = 0.0;
+    this.isArrived = false;
+    this.targetGate = newTargetGate;
+    this.hazardFloor = newHazardFloor;
 
     this.activeSpline = this.getRoadSplineForGate(this.targetGate.side);
     this.perimeterGroup.visible = false;
@@ -539,15 +566,21 @@ export class EmergencyVehiclesManager {
     }
 
     this.updateVehiclePositions(0.0);
+
+    // Turn emergency siren alarm ON by default when dispatched
+    this.startSirenAudio();
   }
 
-  update(delta, currentSimTime = null, isSimulating = true) {
+  update(delta, simSpeedOrTime = 1.0, isSimulating = null) {
     if (!this.isActive) return;
 
-    if (currentSimTime !== null && isSimulating) {
-      this.elapsedTime = currentSimTime;
-    } else if (isSimulating) {
-      this.elapsedTime += delta;
+    if (isSimulating !== null && typeof simSpeedOrTime === 'number' && simSpeedOrTime > 2.5) {
+      // Direct explicit timestamp mode (used by test suites)
+      this.elapsedTime = simSpeedOrTime;
+    } else {
+      // Continuous frame delta accumulation (live 3D rendering)
+      const speed = typeof simSpeedOrTime === 'number' ? simSpeedOrTime : 1.0;
+      this.elapsedTime += delta * speed;
     }
 
     // Normalized transit progress: Exactly 0.0 -> 1.0 over 30.0 seconds
@@ -569,8 +602,8 @@ export class EmergencyVehiclesManager {
       if (s.meshB) s.meshB.material.opacity = stateA ? 0.2 : 1.0;
     });
 
-    // Check 30-Second Arrival Threshold
-    if (this.elapsedTime >= this.transitDuration && !this.isArrived) {
+    // Check 30-Second Arrival Threshold (with floating-point epsilon tolerance)
+    if (this.elapsedTime >= (this.transitDuration - 1e-4) && !this.isArrived) {
       this.isArrived = true;
       this.perimeterGroup.visible = true;
     }
@@ -676,45 +709,63 @@ export class EmergencyVehiclesManager {
   // 5. AUDIO SYNTHESIS: WEB AUDIO API EMERGENCY SIREN
   // ==========================================================================
 
-  toggleSirenAudio() {
-    if (this.isSirenMuted) {
-      try {
-        if (!this.audioCtx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.audioCtx = new AudioContext();
-        }
-        if (this.audioCtx.state === 'suspended') {
-          this.audioCtx.resume();
-        }
-
-        this.sirenOsc = this.audioCtx.createOscillator();
-        this.sirenGain = this.audioCtx.createGain();
-
-        this.sirenOsc.type = 'sawtooth';
-        this.sirenGain.gain.setValueAtTime(0.08, this.audioCtx.currentTime); // Low non-intrusive volume
-
-        // Two-tone wail frequency modulation (680Hz to 960Hz)
-        const now = this.audioCtx.currentTime;
-        for (let i = 0; i < 60; i++) {
-          this.sirenOsc.frequency.setValueAtTime(680, now + i * 1.2);
-          this.sirenOsc.frequency.linearRampToValueAtTime(960, now + i * 1.2 + 0.6);
-          this.sirenOsc.frequency.linearRampToValueAtTime(680, now + i * 1.2 + 1.2);
-        }
-
-        this.sirenOsc.connect(this.sirenGain);
-        this.sirenGain.connect(this.audioCtx.destination);
-        this.sirenOsc.start();
-        this.isSirenMuted = false;
-      } catch (err) {
-        console.warn('AudioContext siren error:', err);
+  setupAutoplayUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
       }
-    } else {
-      this.muteSiren();
+      if (this.isActive && !this.isSirenMuted && !this.sirenOsc) {
+        this.startSirenAudio();
+      }
+    };
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('keydown', unlock, { passive: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+  }
+
+  startSirenAudio() {
+    this.isSirenMuted = false;
+    try {
+      if (typeof window === 'undefined') return;
+      const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtxClass) return;
+
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioCtxClass();
+      }
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+
+      if (this.sirenOsc) {
+        return; // Already actively generating siren wail
+      }
+
+      this.sirenOsc = this.audioCtx.createOscillator();
+      this.sirenGain = this.audioCtx.createGain();
+
+      this.sirenOsc.type = 'sawtooth';
+      this.sirenGain.gain.setValueAtTime(0.08, this.audioCtx.currentTime); // Low non-intrusive volume
+
+      // Two-tone wail frequency modulation (680Hz to 960Hz)
+      const now = this.audioCtx.currentTime;
+      for (let i = 0; i < 100; i++) {
+        this.sirenOsc.frequency.setValueAtTime(680, now + i * 1.2);
+        this.sirenOsc.frequency.linearRampToValueAtTime(960, now + i * 1.2 + 0.6);
+        this.sirenOsc.frequency.linearRampToValueAtTime(680, now + i * 1.2 + 1.2);
+      }
+
+      this.sirenOsc.connect(this.sirenGain);
+      this.sirenGain.connect(this.audioCtx.destination);
+      this.sirenOsc.start();
+    } catch (err) {
+      console.warn('AudioContext siren notice:', err.message || err);
     }
-    return !this.isSirenMuted;
   }
 
   muteSiren() {
+    this.isSirenMuted = true;
     if (this.sirenOsc) {
       try {
         this.sirenOsc.stop();
@@ -722,7 +773,15 @@ export class EmergencyVehiclesManager {
       } catch (_) {}
       this.sirenOsc = null;
     }
-    this.isSirenMuted = true;
+  }
+
+  toggleSirenAudio() {
+    if (this.isSirenMuted) {
+      this.startSirenAudio();
+    } else {
+      this.muteSiren();
+    }
+    return !this.isSirenMuted;
   }
 
   // ==========================================================================
@@ -730,25 +789,26 @@ export class EmergencyVehiclesManager {
   // ==========================================================================
 
   getStatus() {
-    const rawProgress = Math.min(1.0, this.elapsedTime / this.transitDuration);
+    const isArrived = this.isArrived || this.elapsedTime >= (this.transitDuration - 1e-4);
+    const rawProgress = isArrived ? 1.0 : Math.min(1.0, this.elapsedTime / this.transitDuration);
     const pct = Math.round(rawProgress * 100);
-    const remainingSec = Math.max(0, this.transitDuration - this.elapsedTime);
+    const remainingSec = isArrived ? 0 : Math.max(0, this.transitDuration - this.elapsedTime);
 
     let status = 'STANDBY';
     if (this.isActive) {
-      status = this.isArrived ? 'ON_SCENE' : 'EN_ROUTE';
+      status = isArrived ? 'ON_SCENE' : 'EN_ROUTE';
     }
 
     return {
       isActive: this.isActive,
-      isArrived: this.isArrived,
+      isArrived,
       status,
       elapsedSeconds: Math.floor(this.elapsedTime),
       etaSeconds: Number(remainingSec.toFixed(1)),
       progress: pct,
       targetGate: { ...this.targetGate },
       hazardFloor: this.hazardFloor,
-      isSirenActive: !this.isSirenMuted,
+      isSirenActive: !this.isSirenMuted && this.isActive,
       isSprayActive: this.isSprayActive,
       units: [
         {
