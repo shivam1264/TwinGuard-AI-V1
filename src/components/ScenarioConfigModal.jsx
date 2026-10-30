@@ -22,8 +22,8 @@ import {
 import { FLOOR_THEMES, ROOM_TEMPLATES } from '../simulation/Doorways';
 
 // Signal / Bar icon matching the reference mockup
-const SignalBars = ({ color = '#ef4444', className = 'w-3.5 h-3.5' }) => (
-  <svg viewBox="0 0 16 16" fill={color} className={className}>
+const SignalBars = ({ color = '#ef4444' }) => (
+  <svg viewBox="0 0 16 16" fill={color} style={{ width: '13px', height: '13px', flexShrink: 0 }}>
     <rect x="1" y="9" width="2.5" height="5" rx="0.75" />
     <rect x="5.5" y="6" width="2.5" height="8" rx="0.75" />
     <rect x="10" y="3" width="2.5" height="11" rx="0.75" />
@@ -31,61 +31,61 @@ const SignalBars = ({ color = '#ef4444', className = 'w-3.5 h-3.5' }) => (
 );
 
 // Green Exit Door icon matching the reference mockup
-const ExitDoorIcon = ({ className = 'w-3.5 h-3.5' }) => (
+const ExitDoorIcon = () => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#059669"
     strokeWidth="2.2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '14px', height: '14px', flexShrink: 0 }}
   >
     <path d="M13 4h3a2 2 0 0 1 2 2v14" />
     <path d="M2 20h20" />
     <path d="M13 20V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16" />
-    <circle cx="6" cy="12" r="1" fill="currentColor" />
+    <circle cx="6" cy="12" r="1" fill="#059669" />
   </svg>
 );
 
 // Purple Staircase zig-zag icon matching the reference Card 2
-const StaircaseIcon = ({ className = 'w-6 h-6' }) => (
+const StaircaseIcon = () => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke="#9333ea"
     strokeWidth="2.8"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '22px', height: '22px' }}
   >
     <path d="M5 19h3.5v-3.5h3.5v-3.5h3.5v-3.5H19" />
   </svg>
 );
 
 // Emerald Crescent Moon icon matching the reference Card 4
-const CrescentMoonIcon = ({ className = 'w-6 h-6' }) => (
+const CrescentMoonIcon = () => (
   <svg
     viewBox="0 0 24 24"
     fill="#047857"
     stroke="#047857"
     strokeWidth="1.5"
-    className={className}
+    style={{ width: '22px', height: '22px' }}
   >
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
   </svg>
 );
 
-// Exit / Door Navigation Tab Icon
-const TabExitIcon = ({ className = 'w-4 h-4' }) => (
+// Door with arrow icon for navigation tab
+const TabDoorIcon = ({ color = '#475569' }) => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
-    stroke="currentColor"
+    stroke={color}
     strokeWidth="2.2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '15px', height: '15px', flexShrink: 0 }}
   >
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     <polyline points="16 17 21 12 16 7" />
@@ -93,7 +93,7 @@ const TabExitIcon = ({ className = 'w-4 h-4' }) => (
   </svg>
 );
 
-// Pixel-perfect metadata mapping for each preset scenario card
+// Pixel-perfect metadata definitions
 const PRESET_DEFINITIONS = [
   {
     key: 'STANDARD_OFFICE_FIRE',
@@ -101,17 +101,22 @@ const PRESET_DEFINITIONS = [
     category: 'COMMERCIAL BASELINE',
     title: 'Standard Office Fire (Level 4)',
     description: 'Electrical fire in Level 4. All cores and exits operational.',
-    iconWrapBg: 'bg-[#fee2e2]/60 text-[#ef4444]',
-    renderIcon: () => <Flame className="w-6 h-6 text-[#ef4444] fill-[#ef4444]/20" />,
+    iconBg: '#fee2e2',
+    iconColor: '#ef4444',
+    renderIcon: () => <Flame style={{ width: '24px', height: '24px', color: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)' }} />,
     severityBadge: {
       text: 'Level 4 (High)',
-      bg: 'bg-[#fef2f2] text-[#ef4444] border-[#fecaca]',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
       barColor: '#ef4444'
     },
     exitBadge: {
       text: 'All Exits Open',
-      bg: 'bg-[#ecfdf5] text-[#10b981] border-[#a7f3d0]',
-      renderIcon: () => <ExitDoorIcon className="w-3.5 h-3.5 text-[#10b981]" />
+      bg: '#ecfdf5',
+      color: '#059669',
+      border: '1px solid #a7f3d0',
+      renderIcon: () => <ExitDoorIcon />
     }
   },
   {
@@ -120,17 +125,22 @@ const PRESET_DEFINITIONS = [
     category: 'STRUCTURAL COMPROMISE',
     title: 'Stairwell A Blocked (Smoke Ingress)',
     description: 'Fire breaches Stairwell A. Evacuees must divert to Core B.',
-    iconWrapBg: 'bg-[#f3e8ff] text-[#9333ea]',
-    renderIcon: () => <StaircaseIcon className="w-6 h-6 text-[#9333ea]" />,
+    iconBg: '#f3e8ff',
+    iconColor: '#9333ea',
+    renderIcon: () => <StaircaseIcon />,
     severityBadge: {
       text: 'Level 5 (Catastrophic)',
-      bg: 'bg-[#fef2f2] text-[#ef4444] border-[#fecaca]',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
       barColor: '#ef4444'
     },
     exitBadge: {
       text: 'Stairwell A Blocked',
-      bg: 'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]',
-      renderIcon: () => <Ban className="w-3.5 h-3.5 text-[#ea580c] stroke-[2.2]" />
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
     }
   },
   {
@@ -139,17 +149,22 @@ const PRESET_DEFINITIONS = [
     category: 'OVERCROWDED EVENT',
     title: 'Executive Summit (High Density L10 & L1)',
     description: 'Annual summit in Penthouse (L10) and Lobby (L1). Elevated crush risk.',
-    iconWrapBg: 'bg-[#eff6ff] text-[#2563eb]',
-    renderIcon: () => <Users className="w-6 h-6 text-[#2563eb]" />,
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    renderIcon: () => <Users style={{ width: '24px', height: '24px', color: '#2563eb' }} />,
     severityBadge: {
       text: 'Level 8 (Medium)',
-      bg: 'bg-[#fffbeb] text-[#f59e0b] border-[#fef3c7]',
-      barColor: '#f59e0b'
+      bg: '#fffbeb',
+      color: '#d97706',
+      border: '1px solid #fef3c7',
+      barColor: '#d97706'
     },
     exitBadge: {
       text: 'All Exits Open',
-      bg: 'bg-[#ecfdf5] text-[#10b981] border-[#a7f3d0]',
-      renderIcon: () => <ExitDoorIcon className="w-3.5 h-3.5 text-[#10b981]" />
+      bg: '#ecfdf5',
+      color: '#059669',
+      border: '1px solid #a7f3d0',
+      renderIcon: () => <ExitDoorIcon />
     }
   },
   {
@@ -158,17 +173,22 @@ const PRESET_DEFINITIONS = [
     category: 'OFF-PEAK HOURS',
     title: 'Night Shift (Low Density, Delayed Reaction)',
     description: 'Overnight facilities and maintenance. Sparse population, longer delay.',
-    iconWrapBg: 'bg-[#ecfdf5] text-[#047857]',
-    renderIcon: () => <CrescentMoonIcon className="w-6 h-6" />,
+    iconBg: '#ecfdf5',
+    iconColor: '#047857',
+    renderIcon: () => <CrescentMoonIcon />,
     severityBadge: {
       text: 'Level 3 (Medium)',
-      bg: 'bg-[#fffbeb] text-[#f59e0b] border-[#fef3c7]',
-      barColor: '#f59e0b'
+      bg: '#fffbeb',
+      color: '#d97706',
+      border: '1px solid #fef3c7',
+      barColor: '#d97706'
     },
     exitBadge: {
       text: 'All Exits Open',
-      bg: 'bg-[#ecfdf5] text-[#10b981] border-[#a7f3d0]',
-      renderIcon: () => <ExitDoorIcon className="w-3.5 h-3.5 text-[#10b981]" />
+      bg: '#ecfdf5',
+      color: '#059669',
+      border: '1px solid #a7f3d0',
+      renderIcon: () => <ExitDoorIcon />
     }
   }
 ];
@@ -190,7 +210,6 @@ export const ScenarioConfigModal = ({
     scenarioState.id || 'STANDARD_OFFICE_FIRE'
   );
 
-  // Handle preset selection
   const handleSelectPreset = (presetKey) => {
     const preset =
       PRESET_SCENARIOS[presetKey] ||
@@ -206,7 +225,6 @@ export const ScenarioConfigModal = ({
     }
   };
 
-  // Toggle exit blocked state
   const handleToggleExitBlocked = (exitId) => {
     setScenarioState((prev) => {
       const currentBlocked = prev.structuralFailures?.blockedExits || [];
@@ -225,7 +243,6 @@ export const ScenarioConfigModal = ({
     });
   };
 
-  // Update Demographic distribution
   const handleDemographicChange = (type, value) => {
     const num = Math.max(0, Math.min(100, parseInt(value, 10) || 0));
     setScenarioState((prev) => {
@@ -245,7 +262,6 @@ export const ScenarioConfigModal = ({
     });
   };
 
-  // Export scenario JSON
   const handleExportJSON = () => {
     const dataStr =
       'data:text/json;charset=utf-8,' +
@@ -262,105 +278,229 @@ export const ScenarioConfigModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center select-none"
+      style={{
+        background: 'rgba(15, 23, 42, 0.65)',
+        backdropFilter: 'blur(6px)',
+        padding: '16px'
+      }}
+    >
       <div
-        className="bg-white border border-slate-200/90 rounded-[22px] w-full max-w-[940px] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
-        style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+        className="flex flex-col shadow-2xl overflow-hidden"
+        style={{
+          width: '920px',
+          maxWidth: '96vw',
+          maxHeight: '92vh',
+          background: '#ffffff',
+          borderRadius: '24px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.3)',
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+        }}
       >
-        {/* Header */}
-        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 bg-white">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#1d4ed8] via-[#2563eb] to-[#3b82f6] flex items-center justify-center text-white shadow-md shadow-blue-500/25 shrink-0">
-              <Sparkles className="w-5 h-5 text-white" />
+        {/* ── 1. HEADER ── */}
+        <div
+          style={{
+            padding: '18px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid #f1f5f9',
+            background: '#ffffff'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                boxShadow: '0 4px 14px rgba(37, 99, 235, 0.35)',
+                flexShrink: 0
+              }}
+            >
+              <Sparkles style={{ width: '22px', height: '22px', color: '#ffffff' }} />
             </div>
             <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">
-                  Emergency Scenario <span className="text-[#2563eb]">Configuration Studio</span>
-                </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#eff6ff] border border-[#dbeafe] text-[#2563eb] text-[10px] font-bold tracking-wider uppercase">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  Emergency Scenario <span style={{ color: '#2563eb' }}>Configuration Studio</span>
+                </span>
+                <span
+                  style={{
+                    background: '#eff6ff',
+                    border: '1px solid #dbeafe',
+                    color: '#2563eb',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    lineHeight: '1.4'
+                  }}
+                >
                   AI MODULE • PHASE 1
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-1">
+              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '4px' }}>
                 Choose a pre-configured benchmark scenario to run analysis.
-              </p>
+              </div>
             </div>
           </div>
+
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors"
+            className="cursor-pointer transition-colors"
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '12px',
+              background: '#f1f5f9',
+              color: '#64748b',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
           >
-            <X className="w-4 h-4 stroke-[2.5]" />
+            <X style={{ width: '18px', height: '18px', strokeWidth: 2.5 }} />
           </button>
         </div>
 
-        {/* Tab Navigation Bar (Exact match to reference mockup) */}
-        <div className="flex items-center px-6 py-3 border-b border-slate-100 bg-white text-xs font-semibold overflow-x-auto">
+        {/* ── 2. TAB NAVIGATION BAR (Clean with ample whitespace and exact styling) ── */}
+        <div
+          style={{
+            padding: '12px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            borderBottom: '1px solid #f1f5f9',
+            background: '#ffffff',
+            gap: '8px'
+          }}
+        >
           {/* Tab 1: Pre-Configured Scenarios */}
           <button
             onClick={() => setActiveTab('PRESETS')}
-            className={`px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'PRESETS'
-                ? 'bg-gradient-to-r from-[#1d4ed8] via-[#2563eb] to-[#3b82f6] text-white font-bold shadow-md shadow-blue-500/25'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+            className="cursor-pointer transition-all"
+            style={{
+              padding: '9px 18px',
+              borderRadius: '12px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: 700,
+              background: activeTab === 'PRESETS'
+                ? 'linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: activeTab === 'PRESETS' ? '#ffffff' : '#475569',
+              boxShadow: activeTab === 'PRESETS' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none'
+            }}
           >
-            <LayoutGrid className="w-4 h-4 text-white" />
+            <LayoutGrid style={{ width: '15px', height: '15px', color: activeTab === 'PRESETS' ? '#ffffff' : '#64748b' }} />
             <span>Pre-Configured Scenarios</span>
           </button>
 
-          <div className="h-5 w-[1px] bg-slate-200 mx-3 shrink-0" />
+          <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 6px', flexShrink: 0 }} />
 
           {/* Tab 2: Hazard & Room Placement */}
           <button
             onClick={() => setActiveTab('HAZARD')}
-            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'HAZARD'
-                ? 'bg-gradient-to-r from-[#1d4ed8] via-[#2563eb] to-[#3b82f6] text-white font-bold shadow-md shadow-blue-500/25'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+            className="cursor-pointer transition-all"
+            style={{
+              padding: '9px 16px',
+              borderRadius: '12px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: activeTab === 'HAZARD' ? 700 : 600,
+              background: activeTab === 'HAZARD'
+                ? 'linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: activeTab === 'HAZARD' ? '#ffffff' : '#475569',
+              boxShadow: activeTab === 'HAZARD' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none'
+            }}
           >
-            <Flame className={`w-4 h-4 ${activeTab === 'HAZARD' ? 'text-white' : 'text-[#ef4444]'}`} />
+            <Flame style={{ width: '15px', height: '15px', color: activeTab === 'HAZARD' ? '#ffffff' : '#ef4444' }} />
             <span>Hazard & Room Placement</span>
           </button>
 
-          <div className="h-5 w-[1px] bg-slate-200 mx-3 shrink-0" />
+          <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 6px', flexShrink: 0 }} />
 
           {/* Tab 3: Exit & Structural Blockages */}
           <button
             onClick={() => setActiveTab('EXITS')}
-            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'EXITS'
-                ? 'bg-gradient-to-r from-[#1d4ed8] via-[#2563eb] to-[#3b82f6] text-white font-bold shadow-md shadow-blue-500/25'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+            className="cursor-pointer transition-all"
+            style={{
+              padding: '9px 16px',
+              borderRadius: '12px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: activeTab === 'EXITS' ? 700 : 600,
+              background: activeTab === 'EXITS'
+                ? 'linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: activeTab === 'EXITS' ? '#ffffff' : '#475569',
+              boxShadow: activeTab === 'EXITS' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none'
+            }}
           >
-            <TabExitIcon className={`w-4 h-4 ${activeTab === 'EXITS' ? 'text-white' : 'text-slate-600'}`} />
+            <TabDoorIcon color={activeTab === 'EXITS' ? '#ffffff' : '#475569'} />
             <span>Exit & Structural Blockages</span>
           </button>
 
-          <div className="h-5 w-[1px] bg-slate-200 mx-3 shrink-0" />
+          <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 6px', flexShrink: 0 }} />
 
           {/* Tab 4: Crowd Demographics & Mobility */}
           <button
             onClick={() => setActiveTab('DEMOGRAPHICS')}
-            className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 shrink-0 ${
-              activeTab === 'DEMOGRAPHICS'
-                ? 'bg-gradient-to-r from-[#1d4ed8] via-[#2563eb] to-[#3b82f6] text-white font-bold shadow-md shadow-blue-500/25'
-                : 'text-slate-700 hover:text-slate-900 hover:bg-slate-50'
-            }`}
+            className="cursor-pointer transition-all"
+            style={{
+              padding: '9px 16px',
+              borderRadius: '12px',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: activeTab === 'DEMOGRAPHICS' ? 700 : 600,
+              background: activeTab === 'DEMOGRAPHICS'
+                ? 'linear-gradient(90deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: activeTab === 'DEMOGRAPHICS' ? '#ffffff' : '#475569',
+              boxShadow: activeTab === 'DEMOGRAPHICS' ? '0 2px 8px rgba(37, 99, 235, 0.3)' : 'none'
+            }}
           >
-            <Users className={`w-4 h-4 ${activeTab === 'DEMOGRAPHICS' ? 'text-white' : 'text-slate-600'}`} />
+            <Users style={{ width: '15px', height: '15px', color: activeTab === 'DEMOGRAPHICS' ? '#ffffff' : '#475569' }} />
             <span>Crowd Demographics & Mobility</span>
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 bg-white">
-          {/* TAB 1: PRESETS (Pixel-perfect 2x2 Grid) */}
+        {/* ── 3. BODY CONTENT ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#ffffff' }}>
+          {/* TAB 1: PRESETS (2x2 Grid Exact to Mockup) */}
           {activeTab === 'PRESETS' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '16px'
+              }}
+            >
               {PRESET_DEFINITIONS.map((def) => {
                 const isSelected =
                   selectedPreset === def.key ||
@@ -370,51 +510,127 @@ export const ScenarioConfigModal = ({
                   <div
                     key={def.key}
                     onClick={() => handleSelectPreset(def.key)}
-                    className={`rounded-2xl p-4 transition-all cursor-pointer relative bg-white flex flex-col justify-between min-h-[145px] ${
-                      isSelected
-                        ? 'border-2 border-[#2563eb] shadow-md shadow-blue-500/10'
-                        : 'border border-slate-200/80 hover:border-slate-300'
-                    }`}
+                    className="cursor-pointer transition-all relative"
+                    style={{
+                      borderRadius: '18px',
+                      padding: '18px 20px',
+                      background: '#ffffff',
+                      border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                      boxShadow: isSelected ? '0 4px 16px rgba(37, 99, 235, 0.1)' : '0 1px 3px rgba(0,0,0,0.02)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      minHeight: '144px'
+                    }}
                   >
-                    {/* Top Row: Squircle Icon + Text + Selected Checkmark Badge */}
-                    <div className="flex items-start gap-3.5">
+                    {/* Top Row: Squircle Icon + Text Content + Selected Badge */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
                       <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${def.iconWrapBg}`}
+                        style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '16px',
+                          background: def.iconBg,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
                       >
                         {def.renderIcon()}
                       </div>
 
-                      <div className="flex-1 pr-6">
-                        <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase block">
+                      <div style={{ flex: 1, paddingRight: isSelected ? '28px' : '0' }}>
+                        <div
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            color: '#94a3b8'
+                          }}
+                        >
                           {def.category}
-                        </span>
-                        <h3 className="text-[14.5px] font-bold text-slate-900 mt-0.5 leading-snug">
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '14.5px',
+                            fontWeight: 800,
+                            color: '#0f172a',
+                            marginTop: '2px',
+                            lineHeight: 1.2
+                          }}
+                        >
                           {def.title}
-                        </h3>
-                        <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '11.5px',
+                            color: '#64748b',
+                            lineHeight: '1.4',
+                            marginTop: '4px'
+                          }}
+                        >
                           {def.description}
-                        </p>
+                        </div>
                       </div>
 
-                      {/* Selected Checkmark Badge */}
+                      {/* Selected Checkmark Badge (top right) */}
                       {isSelected && (
-                        <div className="absolute top-4 right-4 w-6 h-6 rounded-full bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
-                          <Check className="w-3.5 h-3.5 stroke-[3] text-white" />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            top: '16px',
+                            right: '16px',
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '50%',
+                            background: '#2563eb',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)'
+                          }}
+                        >
+                          <Check style={{ width: '14px', height: '14px', strokeWidth: 3 }} />
                         </div>
                       )}
                     </div>
 
                     {/* Bottom Row: Severity Tag + Exit Status Tag */}
-                    <div className="mt-3.5 pt-3 flex items-center gap-2">
+                    <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-semibold ${def.severityBadge.bg}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: def.severityBadge.bg,
+                          color: def.severityBadge.color,
+                          border: def.severityBadge.border
+                        }}
                       >
-                        <SignalBars color={def.severityBadge.barColor} className="w-3.5 h-3.5" />
+                        <SignalBars color={def.severityBadge.barColor} />
                         <span>{def.severityBadge.text}</span>
                       </div>
 
                       <div
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-semibold ${def.exitBadge.bg}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 12px',
+                          borderRadius: '999px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          background: def.exitBadge.bg,
+                          color: def.exitBadge.color,
+                          border: def.exitBadge.border
+                        }}
                       >
                         {def.exitBadge.renderIcon()}
                         <span>{def.exitBadge.text}</span>
@@ -428,11 +644,10 @@ export const ScenarioConfigModal = ({
 
           {/* TAB 2: HAZARD CONFIGURATION */}
           {activeTab === 'HAZARD' && (
-            <div className="space-y-5 bg-white">
-              {/* Room & Floor Target */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '6px' }}>
                     Target Floor (1 to 10)
                   </label>
                   <select
@@ -448,7 +663,16 @@ export const ScenarioConfigModal = ({
                         }
                       }));
                     }}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((fl) => (
                       <option key={fl} value={fl}>
@@ -459,7 +683,7 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '6px' }}>
                     Target Room / Chamber
                   </label>
                   <select
@@ -471,7 +695,16 @@ export const ScenarioConfigModal = ({
                         hazard: { ...prev.hazard, roomId: rId }
                       }));
                     }}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#0f172a'
+                    }}
                   >
                     {ROOM_TEMPLATES.map((tmpl) => {
                       const targetFloor = scenarioState.hazard?.floor || 4;
@@ -487,12 +720,12 @@ export const ScenarioConfigModal = ({
               </div>
 
               {/* Hazard Type & Severity */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '6px' }}>
                     Emergency Threat Type
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     {Object.entries(HAZARD_TYPES).map(([hKey, hVal]) => {
                       const isSel = scenarioState.hazard?.type === hKey;
                       return (
@@ -504,13 +737,21 @@ export const ScenarioConfigModal = ({
                               hazard: { ...prev.hazard, type: hKey }
                             }))
                           }
-                          className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center gap-2 ${
-                            isSel
-                              ? 'border-blue-600 bg-blue-50/50 text-blue-900 shadow-xs'
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '12px',
+                            border: isSel ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                            background: isSel ? '#eff6ff' : '#ffffff',
+                            color: isSel ? '#1d4ed8' : '#334155',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            cursor: 'pointer'
+                          }}
                         >
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: hVal.color }} />
+                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: hVal.color }} />
                           <span className="truncate">{hVal.label}</span>
                         </button>
                       );
@@ -519,10 +760,10 @@ export const ScenarioConfigModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '6px' }}>
                     Hazard Severity Rating
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     {Object.entries(SEVERITY_LEVELS).map(([sKey, sVal]) => {
                       const isSel = scenarioState.hazard?.severity === sKey;
                       return (
@@ -539,14 +780,22 @@ export const ScenarioConfigModal = ({
                               }
                             }))
                           }
-                          className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center justify-between ${
-                            isSel
-                              ? 'border-red-600 bg-red-50/50 text-red-900 shadow-xs'
-                              : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '12px',
+                            border: isSel ? '2px solid #ef4444' : '1px solid #e2e8f0',
+                            background: isSel ? '#fef2f2' : '#ffffff',
+                            color: isSel ? '#b91c1c' : '#334155',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            cursor: 'pointer'
+                          }}
                         >
                           <span>{sKey}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{sVal.temp}°C</span>
+                          <span style={{ fontSize: '10px', color: '#94a3b8', fontFamily: 'monospace' }}>{sVal.temp}°C</span>
                         </button>
                       );
                     })}
@@ -555,13 +804,15 @@ export const ScenarioConfigModal = ({
               </div>
 
               {/* Dynamic Heat & Smoke Spread Radius Slider */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold">
-                  <span className="text-slate-700 flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-red-500" />
+              <div style={{ padding: '16px', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                  <span style={{ color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Flame style={{ width: '15px', height: '15px', color: '#ef4444' }} />
                     Thermal Dispersion & Unwalkable Hazard Radius:
                   </span>
-                  <span className="text-blue-600 font-mono">{scenarioState.hazard?.smokeSpreadRadius || 7} meters</span>
+                  <span style={{ color: '#2563eb', fontFamily: 'monospace', fontWeight: 800 }}>
+                    {scenarioState.hazard?.smokeSpreadRadius || 7} meters
+                  </span>
                 </div>
                 <input
                   type="range"
@@ -575,9 +826,9 @@ export const ScenarioConfigModal = ({
                       hazard: { ...prev.hazard, smokeSpreadRadius: parseFloat(e.target.value) }
                     }))
                   }
-                  className="w-full accent-blue-600 cursor-pointer"
+                  style={{ width: '100%', marginTop: '10px', cursor: 'pointer', accentColor: '#2563eb' }}
                 />
-                <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8', fontWeight: 600, marginTop: '4px' }}>
                   <span>3.0m (Room Interior Only)</span>
                   <span>7.0m (Corridor Breach)</span>
                   <span>12.0m (Full Wing Ingress)</span>
@@ -588,12 +839,12 @@ export const ScenarioConfigModal = ({
 
           {/* TAB 3: STRUCTURAL FAILURES & EXITS */}
           {activeTab === 'EXITS' && (
-            <div className="space-y-4">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 Emergency Stairwell Core Operability
               </span>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
                 {[
                   { id: 'exit_west', name: 'Stairwell A (West Core)', desc: 'Serves Levels 1–10 West Wing' },
                   { id: 'exit_east', name: 'Stairwell B (East Core)', desc: 'Serves Levels 1–10 East Wing' },
@@ -604,34 +855,52 @@ export const ScenarioConfigModal = ({
                   return (
                     <div
                       key={core.id}
-                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
-                        isBlocked
-                          ? 'border-red-500 bg-red-50/40'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '16px',
+                        border: isBlocked ? '1px solid #ef4444' : '1px solid #e2e8f0',
+                        background: isBlocked ? '#fef2f2' : '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between'
+                      }}
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <Milestone className={`w-5 h-5 ${isBlocked ? 'text-red-500' : 'text-emerald-500'}`} />
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <Milestone style={{ width: '18px', height: '18px', color: isBlocked ? '#ef4444' : '#10b981' }} />
                           <span
-                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                              isBlocked ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                            }`}
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              padding: '2px 8px',
+                              borderRadius: '999px',
+                              background: isBlocked ? '#fee2e2' : '#d1fae5',
+                              color: isBlocked ? '#b91c1c' : '#047857',
+                              border: isBlocked ? '1px solid #fecaca' : '1px solid #a7f3d0'
+                            }}
                           >
                             {isBlocked ? 'BLOCKED' : 'OPERATIONAL'}
                           </span>
                         </div>
-                        <div className="text-sm font-bold text-slate-900">{core.name}</div>
-                        <div className="text-xs text-slate-500 mt-1">{core.desc}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{core.name}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{core.desc}</div>
                       </div>
 
                       <button
                         onClick={() => handleToggleExitBlocked(core.id)}
-                        className={`mt-4 w-full py-2 rounded-xl text-xs font-bold transition-all ${
-                          isBlocked
-                            ? 'bg-red-600 text-white hover:bg-red-700 shadow-sm shadow-red-500/20'
-                            : 'bg-slate-100 text-slate-700 hover:bg-red-50 hover:text-red-600'
-                        }`}
+                        className="cursor-pointer transition-colors"
+                        style={{
+                          marginTop: '16px',
+                          width: '100%',
+                          padding: '8px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          border: 'none',
+                          background: isBlocked ? '#dc2626' : '#f1f5f9',
+                          color: isBlocked ? '#ffffff' : '#334155'
+                        }}
                       >
                         {isBlocked ? 'Unblock Stairwell' : 'Simulate Blockage'}
                       </button>
@@ -641,18 +910,18 @@ export const ScenarioConfigModal = ({
               </div>
 
               {/* Equipment Failure Toggles */}
-              <div className="pt-2 border-t border-slate-100 space-y-2.5">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+              <div style={{ paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '10px' }}>
                   Equipment & Facility Failures
                 </span>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3.5 rounded-xl border border-slate-200 flex items-center justify-between bg-slate-50">
-                    <div className="flex items-center gap-2.5">
-                      <ArrowUpDown className="w-4 h-4 text-blue-600" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <ArrowUpDown style={{ width: '16px', height: '16px', color: '#2563eb' }} />
                       <div>
-                        <div className="text-xs font-bold text-slate-800">Elevator Lockdown Mode</div>
-                        <div className="text-[10px] text-slate-500">Cars ground immediately per fire code</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Elevator Lockdown Mode</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>Cars ground immediately per fire code</div>
                       </div>
                     </div>
                     <input
@@ -664,16 +933,16 @@ export const ScenarioConfigModal = ({
                           structuralFailures: { ...prev.structuralFailures, elevatorLocked: e.target.checked }
                         }))
                       }
-                      className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      style={{ width: '16px', height: '16px', accentColor: '#2563eb', cursor: 'pointer' }}
                     />
                   </div>
 
-                  <div className="p-3.5 rounded-xl border border-slate-200 flex items-center justify-between bg-slate-50">
-                    <div className="flex items-center gap-2.5">
-                      <Zap className="w-4 h-4 text-amber-500" />
+                  <div style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Zap style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
                       <div>
-                        <div className="text-xs font-bold text-slate-800">HVAC Damper Compromised</div>
-                        <div className="text-[10px] text-slate-500">Accelerates vertical smoke drift</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>HVAC Damper Compromised</div>
+                        <div style={{ fontSize: '10px', color: '#64748b' }}>Accelerates vertical smoke drift</div>
                       </div>
                     </div>
                     <input
@@ -685,7 +954,7 @@ export const ScenarioConfigModal = ({
                           structuralFailures: { ...prev.structuralFailures, hvacCompromised: e.target.checked }
                         }))
                       }
-                      className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      style={{ width: '16px', height: '16px', accentColor: '#2563eb', cursor: 'pointer' }}
                     />
                   </div>
                 </div>
@@ -695,24 +964,23 @@ export const ScenarioConfigModal = ({
 
           {/* TAB 4: DEMOGRAPHICS & MOBILITY */}
           {activeTab === 'DEMOGRAPHICS' && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   Heterogeneous Human Population Distribution
                 </span>
-                <span className="text-xs text-slate-400 font-medium">Total Must Equal 100%</span>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Total Must Equal 100%</span>
               </div>
 
-              {/* Mobility Sliders */}
-              <div className="space-y-4">
-                {/* Standard Staff */}
-                <div className="p-4 rounded-2xl bg-blue-50/40 border border-blue-200/60 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+              {/* Sliders */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ padding: '14px 16px', borderRadius: '14px', background: '#eff6ff', border: '1px solid #dbeafe' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#1e3a8a' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb' }} />
                       Standard Agile Staff (1.20 - 1.45 m/s)
                     </span>
-                    <span className="font-mono text-blue-700 text-sm font-bold">
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '14px' }}>
                       {Math.round((scenarioState.demographics?.standardRatio ?? 0.8) * 100)}%
                     </span>
                   </div>
@@ -722,21 +990,17 @@ export const ScenarioConfigModal = ({
                     max="100"
                     value={Math.round((scenarioState.demographics?.standardRatio ?? 0.8) * 100)}
                     onChange={(e) => handleDemographicChange('standard', e.target.value)}
-                    className="w-full accent-blue-600 cursor-pointer"
+                    style={{ width: '100%', marginTop: '8px', cursor: 'pointer', accentColor: '#2563eb' }}
                   />
-                  <div className="text-[10px] text-slate-500">
-                    Normal unimpeded cadence, standard corridor & stair flight transit speed.
-                  </div>
                 </div>
 
-                {/* Slow / Senior */}
-                <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/60 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <div style={{ padding: '14px 16px', borderRadius: '14px', background: '#fffbeb', border: '1px solid #fef3c7' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#92400e' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b' }} />
                       Slow Cadence / Senior (0.75 - 0.95 m/s)
                     </span>
-                    <span className="font-mono text-amber-700 text-sm font-bold">
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '14px' }}>
                       {Math.round((scenarioState.demographics?.slowRatio ?? 0.15) * 100)}%
                     </span>
                   </div>
@@ -746,21 +1010,17 @@ export const ScenarioConfigModal = ({
                     max="50"
                     value={Math.round((scenarioState.demographics?.slowRatio ?? 0.15) * 100)}
                     onChange={(e) => handleDemographicChange('slow', e.target.value)}
-                    className="w-full accent-amber-500 cursor-pointer"
+                    style={{ width: '100%', marginTop: '8px', cursor: 'pointer', accentColor: '#f59e0b' }}
                   />
-                  <div className="text-[10px] text-slate-500">
-                    Reduced walking velocity. Causes natural trailing queues on narrow stair flights.
-                  </div>
                 </div>
 
-                {/* Assisted / Wheelchair */}
-                <div className="p-4 rounded-2xl bg-purple-50/40 border border-purple-200/60 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                    <span className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
+                <div style={{ padding: '14px 16px', borderRadius: '14px', background: '#faf5ff', border: '1px solid #f3e8ff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#6b21a8' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#9333ea' }} />
                       Assisted / Reduced Mobility (0.45 - 0.65 m/s)
                     </span>
-                    <span className="font-mono text-purple-700 text-sm font-bold">
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '14px' }}>
                       {Math.round((scenarioState.demographics?.assistedRatio ?? 0.05) * 100)}%
                     </span>
                   </div>
@@ -770,28 +1030,25 @@ export const ScenarioConfigModal = ({
                     max="30"
                     value={Math.round((scenarioState.demographics?.assistedRatio ?? 0.05) * 100)}
                     onChange={(e) => handleDemographicChange('assisted', e.target.value)}
-                    className="w-full accent-purple-600 cursor-pointer"
+                    style={{ width: '100%', marginTop: '8px', cursor: 'pointer', accentColor: '#9333ea' }}
                   />
-                  <div className="text-[10px] text-slate-500">
-                    Requires assistance. Critical factor in doorway queue formation and bottleneck arching.
-                  </div>
                 </div>
               </div>
 
               {/* Reaction Hesitation Range */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                  <span className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-slate-500" />
-                    Human Reaction & Pre-Evacuation Hesitation Delay:
+              <div style={{ padding: '16px', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock style={{ width: '15px', height: '15px', color: '#64748b' }} />
+                    Reaction & Hesitation Delay:
                   </span>
-                  <span className="font-mono text-blue-600">
+                  <span style={{ color: '#2563eb', fontFamily: 'monospace', fontWeight: 800 }}>
                     {scenarioState.demographics?.reactionDelayMin || 2.0}s – {scenarioState.demographics?.reactionDelayMax || 8.0}s
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginTop: '10px' }}>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-1">MIN DELAY (Quick Response)</label>
+                    <label style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '4px' }}>MIN DELAY</label>
                     <input
                       type="number"
                       step="0.5"
@@ -804,11 +1061,11 @@ export const ScenarioConfigModal = ({
                           demographics: { ...prev.demographics, reactionDelayMin: parseFloat(e.target.value) || 1.0 }
                         }))
                       }
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                      style={{ width: '100%', padding: '6px 10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-slate-400 font-bold block mb-1">MAX DELAY (Hesitant / Unaware)</label>
+                    <label style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '4px' }}>MAX DELAY</label>
                     <input
                       type="number"
                       step="0.5"
@@ -821,7 +1078,7 @@ export const ScenarioConfigModal = ({
                           demographics: { ...prev.demographics, reactionDelayMax: parseFloat(e.target.value) || 5.0 }
                         }))
                       }
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                      style={{ width: '100%', padding: '6px 10px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}
                     />
                   </div>
                 </div>
@@ -830,20 +1087,55 @@ export const ScenarioConfigModal = ({
           )}
         </div>
 
-        {/* Footer Actions (Matching Reference Mockup) */}
-        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-between">
+        {/* ── 4. FOOTER (Exact Match to Mockup) ── */}
+        <div
+          style={{
+            padding: '16px 24px',
+            borderTop: '1px solid #f1f5f9',
+            background: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
           <button
             onClick={handleExportJSON}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center gap-2 transition-colors shadow-xs"
+            className="cursor-pointer transition-colors"
+            style={{
+              padding: '9px 16px',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0',
+              background: '#ffffff',
+              color: '#334155',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
           >
-            <FileText className="w-4 h-4 text-slate-600" />
+            <FileText style={{ width: '15px', height: '15px', color: '#64748b' }} />
             <span>Export JSON</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
               onClick={onClose}
-              className="px-6 py-2.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 text-xs font-bold transition-colors"
+              className="cursor-pointer transition-colors"
+              style={{
+                padding: '9px 20px',
+                borderRadius: '12px',
+                border: 'none',
+                background: '#f1f5f9',
+                color: '#475569',
+                fontSize: '12px',
+                fontWeight: 700
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#f1f5f9'; }}
             >
               Cancel
             </button>
@@ -853,9 +1145,24 @@ export const ScenarioConfigModal = ({
                 onApplyScenario(scenarioState);
                 onClose();
               }}
-              className="px-6 py-2.5 rounded-xl bg-[#2563eb] hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/25 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+              className="cursor-pointer transition-all"
+              style={{
+                padding: '9px 22px',
+                borderRadius: '12px',
+                border: 'none',
+                background: '#2563eb',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 3px 10px rgba(37, 99, 235, 0.35)'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#1d4ed8'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#2563eb'; }}
             >
-              <Check className="w-4 h-4 stroke-[3] text-white" />
+              <Check style={{ width: '15px', height: '15px', strokeWidth: 3, color: '#ffffff' }} />
               <span>Apply Scenario</span>
             </button>
           </div>
