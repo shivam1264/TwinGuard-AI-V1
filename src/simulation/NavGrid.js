@@ -91,6 +91,8 @@ export class NavGrid {
     this.markBoxBlocked(3.5, 29.0, 22.2, 23.5);    // South Outer Wall Right (South Exit C open at center)
 
     // 2. Central Corridor Walls (Running along X axis)
+    // Elevator Bank Core (North of corridor, x: 0.0 to 6.4, z: -2.7 to -0.95)
+    this.markBoxBlocked(0.0, 6.4, -2.7, -0.95);
     // North corridor wall at z = -2.6
     this.markBoxBlocked(-25.5, 25.5, -3.0, -2.2);
     // South corridor wall at z = 2.6

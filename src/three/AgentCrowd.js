@@ -139,7 +139,7 @@ export class AgentCrowd {
         const spot = spots[i % spots.length];
         const x = spot.x;
         const z = spot.z;
-        const y = floorBaseY + 0.04;
+        const y = floorBaseY + 0.175; // Finished Floor Level (FFL) flush with top of slab
 
         this.createAgent({
           id: `agent_${idCounter++}`,
@@ -177,13 +177,13 @@ export class AgentCrowd {
     // 1. Soft Elliptical Ground Ambient Shadow
     const shadow = new THREE.Mesh(this.shadowGeo, this.shadowMat);
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = 0.015;
+    shadow.position.y = 0.005; // 5mm above finished floor level
     agentGroup.add(shadow);
 
     // 2. Articulated Legs (Pelvis -> Thigh -> Knee Pivot -> Calf -> Contoured Shoe)
     // Left Leg
     const leftHipPivot = new THREE.Group();
-    leftHipPivot.position.set(-0.11, 0.86, 0);
+    leftHipPivot.position.set(-0.11, 0.7375, 0); // Shoe soles flush with ground level (0.7375 - 0.36 - 0.34 - 0.0375 = 0.000)
 
     const leftThighMesh = new THREE.Mesh(this.thighGeo, pantsMat);
     leftThighMesh.position.y = -0.18;
@@ -208,7 +208,7 @@ export class AgentCrowd {
 
     // Right Leg
     const rightHipPivot = new THREE.Group();
-    rightHipPivot.position.set(0.11, 0.86, 0);
+    rightHipPivot.position.set(0.11, 0.7375, 0);
 
     const rightThighMesh = new THREE.Mesh(this.thighGeo, pantsMat);
     rightThighMesh.position.y = -0.18;
@@ -233,7 +233,7 @@ export class AgentCrowd {
 
     // 3. Tapered Torso (Pelvis, Waist, Chest, Collar, ID Badge)
     const torsoGroup = new THREE.Group();
-    torsoGroup.position.set(0, 0.86, 0);
+    torsoGroup.position.set(0, 0.7375, 0);
 
     const pelvis = new THREE.Mesh(this.pelvisGeo, pantsMat);
     pelvis.position.y = 0.07;
@@ -260,7 +260,7 @@ export class AgentCrowd {
     // 4. Articulated Arms (Shoulder Pivot -> Upper Arm -> Elbow Pivot -> Forearm -> Hand)
     // Left Arm
     const leftArmPivot = new THREE.Group();
-    leftArmPivot.position.set(-0.23, 1.40, 0);
+    leftArmPivot.position.set(-0.23, 1.2775, 0);
 
     const leftShoulder = new THREE.Mesh(this.shoulderGeo, shirtMat);
     leftArmPivot.add(leftShoulder);
@@ -285,7 +285,7 @@ export class AgentCrowd {
 
     // Right Arm
     const rightArmPivot = new THREE.Group();
-    rightArmPivot.position.set(0.23, 1.40, 0);
+    rightArmPivot.position.set(0.23, 1.2775, 0);
 
     const rightShoulder = new THREE.Mesh(this.shoulderGeo, shirtMat);
     rightArmPivot.add(rightShoulder);
@@ -310,7 +310,7 @@ export class AgentCrowd {
 
     // 5. Anatomical Head, Neck, Nose, Ears & Hairstyle
     const headGroup = new THREE.Group();
-    headGroup.position.set(0, 1.48, 0);
+    headGroup.position.set(0, 1.3575, 0);
 
     const neck = new THREE.Mesh(this.neckGeo, skinMat);
     neck.position.y = 0.04;
@@ -363,7 +363,7 @@ export class AgentCrowd {
 
     // 7. Authentic Seated Posture (Articulated knees 90 deg down, thighs flat, hands on desk)
     if (data.isSeated) {
-      // Pelvis sits on chair (0.44 m seat height)
+      // Pelvis sits comfortably on chair cushion (0.44 m seat height above floor)
       torsoGroup.position.y = 0.44;
       leftHipPivot.position.y = 0.44;
       rightHipPivot.position.y = 0.44;
@@ -376,16 +376,16 @@ export class AgentCrowd {
       leftKneePivot.rotation.x = Math.PI / 2;
       rightKneePivot.rotation.x = Math.PI / 2;
 
-      // Lower arms approach desk keyboard plane
-      leftArmPivot.position.y = 0.98;
-      rightArmPivot.position.y = 0.98;
+      // Lower arms approach desk keyboard plane (0.74m desk height above floor)
+      leftArmPivot.position.y = 0.86;
+      rightArmPivot.position.y = 0.86;
       leftArmPivot.rotation.x = -0.45;
       rightArmPivot.rotation.x = -0.45;
       leftElbowPivot.rotation.x = -0.65;
       rightElbowPivot.rotation.x = -0.65;
 
       // Head inclined naturally toward computer monitor
-      headGroup.position.y = 1.05;
+      headGroup.position.y = 0.95;
       headGroup.rotation.x = 0.12;
     }
 
