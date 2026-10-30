@@ -28,6 +28,7 @@ export const LeftSidebar = ({
   hasFire = false,
   onOpenCctv,
   onOpenSystems,
+  onOpenBuildingInfo,
   onSetCameraPreset
 }) => {
   const getFloorInfo = (floorNum) => {
@@ -107,7 +108,7 @@ export const LeftSidebar = ({
         <div style={{ width: '28px', height: '1px', background: '#e2e8f0' }} />
 
         <div className="flex flex-col items-center" style={{ gap: '6px', width: '100%' }}>
-          {menuItems.slice(0, 6).map((item) => {
+          {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeMode === item.id;
             return (

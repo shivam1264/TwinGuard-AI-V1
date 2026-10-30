@@ -15,6 +15,8 @@ import { FireTriggerBubble } from './components/FireTriggerBubble';
 import { SettingsModal } from './components/SettingsModal';
 import { ScenarioConfigModal } from './components/ScenarioConfigModal';
 import { StrategyRankModal } from './components/StrategyRankModal';
+import { BuildingInfoModal } from './components/BuildingInfoModal';
+import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3, Clock } from 'lucide-react';
 
@@ -113,6 +115,7 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [activeScenario, setActiveScenario] = useState(() => AIEngine.getActiveScenario());
 
   const [bimLayers, setBimLayers] = useState({
@@ -538,6 +541,7 @@ export function App() {
         onOpenReports={() => setIsReportsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
+        onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
         serverConnected={serverConnected}
       />
 
@@ -564,6 +568,8 @@ export function App() {
               setIsCctvOpen(true);
             } else if (mode === 'SYSTEMS') {
               setIsAnalyticsOpen(true);
+            } else if (mode === 'INFO') {
+              setActiveSidebarMode('INFO');
             }
           }}
           activeFloorView={activeFloorView}
@@ -573,6 +579,7 @@ export function App() {
           hasFire={hasAnyFire}
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
+          onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
           onSetCameraPreset={handleSetCameraPreset}
         />
 
@@ -583,23 +590,49 @@ export function App() {
           <div
             ref={threeCanvasRef}
             className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
+            style={{ display: activeSidebarMode === 'INFO' ? 'none' : 'block' }}
           />
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          <ViewportOverlay
-            facadeMode={facadeMode}
-            onSetFacadeMode={handleSetFacadeMode}
-            activeFloorView={activeFloorView}
-            onSelectFloor={handleSetFloorView}
-            cameraYaw={cameraYaw}
-            onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
-            onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
-            onResetView={(preset) => handleSetCameraPreset(preset)}
-            onToggleExploded={() =>
-              handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
-            }
-            rooms={rooms}
-          />
+          {activeSidebarMode !== 'INFO' && (
+            <ViewportOverlay
+              facadeMode={facadeMode}
+              onSetFacadeMode={handleSetFacadeMode}
+              activeFloorView={activeFloorView}
+              onSelectFloor={handleSetFloorView}
+              cameraYaw={cameraYaw}
+              onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
+              onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
+              onResetView={(preset) => handleSetCameraPreset(preset)}
+              onToggleExploded={() =>
+                handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
+              }
+              rooms={rooms}
+            />
+          )}
+
+          {/* EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
+          {activeSidebarMode === 'INFO' && (
+            <div className="absolute inset-0 z-10 overflow-hidden bg-[#f8fafc]">
+              <BuildingInfoPage
+                rooms={rooms}
+                exits={exits}
+                onClose={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
+                }}
+                onSwitchTo3D={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
+                }}
+                onSelectFloor={(floorNum) => {
+                  handleSetFloorView(floorNum);
+                  setActiveSidebarMode('FLOOR_VIEW');
+                  handleSetCameraPreset(`FLOOR_${floorNum}`);
+                }}
+              />
+            </div>
+          )}
         </div>
 
 
@@ -725,6 +758,18 @@ export function App() {
       {isSettingsOpen && (
         <SettingsModal onClose={() => setIsSettingsOpen(false)} />
       )}
+
+      {/* MODAL 9: Building Information Modeling & Architectural Specs */}
+      <BuildingInfoModal
+        isOpen={isBuildingInfoOpen}
+        onClose={() => setIsBuildingInfoOpen(false)}
+        rooms={rooms}
+        exits={exits}
+        onSelectFloor={(floor) => {
+          handleSetFloorView(floor);
+          handleSetCameraPreset(`FLOOR_${floor}`);
+        }}
+      />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}
       {fireBubbleData && (

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#bae6fd"/>
+    </linearGradient>
+    <linearGradient id="towerGlassGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="50%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="concreteCore" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <linearGradient id="grassGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#15803d"/>
+    </linearGradient>
+    <radialGradient id="lawnShade" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="80%" stop-color="#16a34a"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="320" height="110" fill="url(#skyGrad)"/>
+
+  <!-- Background 10-Storey Tower Facade -->
+  <!-- Left Concrete Stair Core -->
+  <rect x="55" y="15" width="35" height="100" fill="url(#concreteCore)" rx="2"/>
+  <!-- Windows on Stair Core -->
+  <g fill="#0284c7">
+    <rect x="68" y="22" width="10" height="6" rx="1"/>
+    <rect x="68" y="32" width="10" height="6" rx="1"/>
+    <rect x="68" y="42" width="10" height="6" rx="1"/>
+    <rect x="68" y="52" width="10" height="6" rx="1"/>
+    <rect x="68" y="62" width="10" height="6" rx="1"/>
+    <rect x="68" y="72" width="10" height="6" rx="1"/>
+    <rect x="68" y="82" width="10" height="6" rx="1"/>
+    <rect x="68" y="92" width="10" height="6" rx="1"/>
+    <rect x="68" y="102" width="10" height="6" rx="1"/>
+  </g>
+
+  <!-- 10-Storey Main Glass Curtain Tower -->
+  <rect x="92" y="10" width="170" height="105" fill="url(#towerGlassGrad)" rx="2"/>
+
+  <!-- Horizontal Floor Slabs (10 levels) -->
+  <g stroke="#ffffff" stroke-width="1.5" opacity="0.85">
+    <line x1="92" y1="20" x2="262" y2="20"/>
+    <line x1="92" y1="30" x2="262" y2="30"/>
+    <line x1="92" y1="40" x2="262" y2="40"/>
+    <line x1="92" y1="50" x2="262" y2="50"/>
+    <line x1="92" y1="60" x2="262" y2="60"/>
+    <line x1="92" y1="70" x2="262" y2="70"/>
+    <line x1="92" y1="80" x2="262" y2="80"/>
+    <line x1="92" y1="90" x2="262" y2="90"/>
+    <line x1="92" y1="100" x2="262" y2="100"/>
+    <line x1="92" y1="110" x2="262" y2="110"/>
+  </g>
+
+  <!-- Vertical Mullions -->
+  <g stroke="#ffffff" stroke-width="0.8" opacity="0.6">
+    <line x1="120" y1="10" x2="120" y2="115"/>
+    <line x1="150" y1="10" x2="150" y2="115"/>
+    <line x1="180" y1="10" x2="180" y2="115"/>
+    <line x1="210" y1="10" x2="210" y2="115"/>
+    <line x1="240" y1="10" x2="240" y2="115"/>
+  </g>
+
+  <!-- Ground Plaza and Lawn (Lush Green) -->
+  <path d="M0,110 L320,110 L320,240 L0,240 Z" fill="url(#grassGrad)"/>
+
+  <!-- Paved Walkway Ring to Assembly Point -->
+  <ellipse cx="160" cy="180" rx="100" ry="46" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="3"/>
+  <ellipse cx="160" cy="180" rx="82" ry="36" fill="url(#lawnShade)"/>
+
+  <!-- Green Emergency Assembly Point Sign Board -->
+  <rect x="142" y="145" width="36" height="36" rx="6" fill="#16a34a" stroke="#ffffff" stroke-width="2"/>
+  <!-- ISO Assembly Point Graphic -->
+  <g fill="#ffffff">
+    <!-- People icon -->
+    <circle cx="160" cy="157" r="3"/>
+    <path d="M154,171 C154,164 166,164 166,171 Z"/>
+    <!-- 4 Inward Arrows -->
+    <polygon points="146,149 152,149 146,155"/>
+    <polygon points="174,149 168,149 174,155"/>
+    <polygon points="146,177 152,177 146,171"/>
+    <polygon points="174,177 168,177 174,171"/>
+  </g>
+
+  <!-- Ground Trees / Foliage -->
+  <circle cx="35" cy="115" r="14" fill="#15803d"/>
+  <circle cx="285" cy="118" r="15" fill="#15803d"/>
+  <circle cx="25" cy="160" r="16" fill="#166534"/>
+  <circle cx="295" cy="165" r="17" fill="#166534"/>
+</svg>

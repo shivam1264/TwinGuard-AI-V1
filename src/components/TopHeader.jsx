@@ -4,7 +4,6 @@ import {
   Calendar,
   ChevronDown,
   Video,
-  BarChart3,
   AlertTriangle,
   FileText,
   Settings,
@@ -24,6 +23,7 @@ export const TopHeader = ({
   onOpenScenarioStudio,
   onOpenStrategyRanker,
   onOpenSettings,
+  onOpenBuildingInfo,
   serverConnected = true
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -53,7 +53,6 @@ export const TopHeader = ({
   const navItems = [
     { id: 'SCENARIOS', label: 'AI Scenarios', icon: Sparkles, onClick: () => { onSelectTab('SCENARIOS'); if (onOpenScenarioStudio) onOpenScenarioStudio(); } },
     { id: 'STRATEGY_RANKER', label: 'Strategy Ranker', icon: Trophy, onClick: () => { onSelectTab('STRATEGY_RANKER'); if (onOpenStrategyRanker) onOpenStrategyRanker(); } },
-    { id: 'ANALYTICS', label: 'Analytics', icon: BarChart3, onClick: () => { onSelectTab('ANALYTICS'); if (onOpenAnalytics) onOpenAnalytics(); } },
     { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle, badge: incidentCount > 0 ? incidentCount : null, onClick: () => { onSelectTab('INCIDENTS'); if (onOpenIncidents) onOpenIncidents(); } },
     { id: 'REPORTS', label: 'Reports', icon: FileText, onClick: () => { onSelectTab('REPORTS'); if (onOpenReports) onOpenReports(); } },
     { id: 'SETTINGS', label: 'Settings', icon: Settings, onClick: () => { onSelectTab('SETTINGS'); if (onOpenSettings) onOpenSettings(); } },
@@ -187,7 +186,8 @@ export const TopHeader = ({
       <div className="flex items-center" style={{ gap: '12px' }}>
         {/* Facility Selector Pill */}
         <div
-          className="flex items-center cursor-pointer transition-colors"
+          onClick={onOpenBuildingInfo}
+          className="flex items-center cursor-pointer transition-colors hover:bg-slate-50"
           style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -196,7 +196,7 @@ export const TopHeader = ({
             gap: '10px',
             boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
           }}
-          title="Facility Location"
+          title="Facility Location & Building Information"
         >
           <div
             className="flex items-center justify-center shrink-0"
