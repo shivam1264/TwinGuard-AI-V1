@@ -96,6 +96,174 @@ const TabDoorIcon = ({ color = '#475569' }) => (
 // Pixel-perfect metadata definitions
 const PRESET_DEFINITIONS = [
   {
+    key: 'CASE_1_L1_FRONT_GATE',
+    altKeys: ['CASE_1_L1_FRONT_GATE'],
+    category: 'CASE 1: L1 HAZARD',
+    title: 'Case 1: L1 Fire Near Main / Front Gate',
+    description: 'Hazard active near Main/Front Gate (Exit C). Occupants strictly avoid Front Gate and escape only via West & East Gates.',
+    iconBg: '#fee2e2',
+    iconColor: '#ef4444',
+    renderIcon: () => <Flame style={{ width: '24px', height: '24px', color: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)' }} />,
+    severityBadge: {
+      text: 'Level 1 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'Front Gate Blocked',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_1_L1_EAST_GATE',
+    altKeys: ['CASE_1_L1_EAST_GATE'],
+    category: 'CASE 1: L1 HAZARD',
+    title: 'Case 1: L1 Fire Near East Gate & Stair',
+    description: 'Hazard active near East Gate & Stair B. Occupants strictly avoid East Gate and escape only via West & Front Gates.',
+    iconBg: '#fef3c7',
+    iconColor: '#d97706',
+    renderIcon: () => <Flame style={{ width: '24px', height: '24px', color: '#d97706', fill: 'rgba(217, 119, 6, 0.2)' }} />,
+    severityBadge: {
+      text: 'Level 1 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'East Gate Blocked',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_1_L1_WEST_GATE',
+    altKeys: ['CASE_1_L1_WEST_GATE'],
+    category: 'CASE 1: L1 HAZARD',
+    title: 'Case 1: L1 Fire Near West Gate & Stair',
+    description: 'Hazard active near West Gate & Stair A. Occupants strictly avoid West Gate and escape only via East & Front Gates.',
+    iconBg: '#fef3c7',
+    iconColor: '#d97706',
+    renderIcon: () => <Flame style={{ width: '24px', height: '24px', color: '#d97706', fill: 'rgba(217, 119, 6, 0.2)' }} />,
+    severityBadge: {
+      text: 'Level 1 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'West Gate Blocked',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_2_L10_EAST_STAIR',
+    altKeys: ['CASE_2_L10_EAST_STAIR'],
+    category: 'CASE 2: L10 TOP FLOOR',
+    title: 'Case 2: Top Floor (L10) - East Stair Fire',
+    description: 'Hazard near East Stair on L10. L10 occupants strictly divert to West Stair Core A; lower floors (L1-L9) unaffected.',
+    iconBg: '#f3e8ff',
+    iconColor: '#9333ea',
+    renderIcon: () => <StaircaseIcon />,
+    severityBadge: {
+      text: 'Level 10 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'L10 East Stair Blocked',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_2_L10_WEST_STAIR',
+    altKeys: ['CASE_2_L10_WEST_STAIR'],
+    category: 'CASE 2: L10 TOP FLOOR',
+    title: 'Case 2: Top Floor (L10) - West Stair Fire',
+    description: 'Hazard near West Stair on L10. L10 occupants strictly divert to East Stair Core B; lower floors (L1-L9) unaffected.',
+    iconBg: '#f3e8ff',
+    iconColor: '#9333ea',
+    renderIcon: () => <StaircaseIcon />,
+    severityBadge: {
+      text: 'Level 10 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'L10 West Stair Blocked',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_3_L7_WEST_STAIR',
+    altKeys: ['CASE_3_L7_WEST_STAIR'],
+    category: 'CASE 3: MID FLOOR EGRESS',
+    title: 'Case 3: Mid Floor (L7) - West Stair Fire & L8 Crossover',
+    description: 'Hazard near West Stair on L7. L7 avoids West Stair; L8-L10 crossover at L8 corridor to East Stair past fire to L6; L1-L6 unaffected.',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    renderIcon: () => <StaircaseIcon />,
+    severityBadge: {
+      text: 'Level 7 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'L7 West Blocked / L8 Crossover',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
+    key: 'CASE_3_L7_EAST_STAIR',
+    altKeys: ['CASE_3_L7_EAST_STAIR'],
+    category: 'CASE 3: MID FLOOR EGRESS',
+    title: 'Case 3: Mid Floor (L7) - East Stair Fire & L8 Crossover',
+    description: 'Hazard near East Stair on L7. L7 avoids East Stair; L8-L10 crossover at L8 corridor to West Stair past fire to L6; L1-L6 unaffected.',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    renderIcon: () => <StaircaseIcon />,
+    severityBadge: {
+      text: 'Level 7 (High)',
+      bg: '#fef2f2',
+      color: '#ef4444',
+      border: '1px solid #fecaca',
+      barColor: '#ef4444'
+    },
+    exitBadge: {
+      text: 'L7 East Blocked / L8 Crossover',
+      bg: '#fff7ed',
+      color: '#ea580c',
+      border: '1px solid #fed7aa',
+      renderIcon: () => <Ban style={{ width: '13px', height: '13px', color: '#ea580c', strokeWidth: 2.5 }} />
+    }
+  },
+  {
     key: 'STANDARD_OFFICE_FIRE',
     altKeys: ['STANDARD_OFFICE_FIRE'],
     category: 'COMMERCIAL BASELINE',

@@ -51,6 +51,280 @@ export const MOBILITY_PROFILES = {
 };
 
 export const PRESET_SCENARIOS = {
+  // === CASE 1: GROUND FLOOR (L1) HAZARD DYNAMICS ===
+  CASE_1_L1_FRONT_GATE: {
+    id: 'CASE_1_L1_FRONT_GATE',
+    name: 'Case 1: L1 Fire Near Main / Front Gate',
+    category: 'Ground Floor Egress',
+    description: 'Hazard active near Main/Front Gate (Exit C). Occupants strictly avoid Front Gate and escape only via West Gate (Exit A) & East Gate (Exit B).',
+    hazard: {
+      type: 'FIRE',
+      floor: 1,
+      roomId: 'f1_r8',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: ['exit_south'],
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 1, wing: 'south_lobby' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_1_L1_EAST_GATE: {
+    id: 'CASE_1_L1_EAST_GATE',
+    name: 'Case 1: L1 Fire Near East Gate & Stair',
+    category: 'Ground Floor Egress',
+    description: 'Hazard active near East Gate & Stair Core B. Occupants strictly avoid East Gate and escape only via West Gate (Exit A) & Main/Front Gate (Exit C).',
+    hazard: {
+      type: 'FIRE',
+      floor: 1,
+      roomId: 'f1_r10',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: ['exit_east'],
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 1, wing: 'east' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_1_L1_WEST_GATE: {
+    id: 'CASE_1_L1_WEST_GATE',
+    name: 'Case 1: L1 Fire Near West Gate & Stair',
+    category: 'Ground Floor Egress',
+    description: 'Hazard active near West Gate & Stair Core A. Occupants strictly avoid West Gate and escape only via East Gate (Exit B) & Main/Front Gate (Exit C).',
+    hazard: {
+      type: 'FIRE',
+      floor: 1,
+      roomId: 'f1_r6',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: ['exit_west'],
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 1, wing: 'west' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+
+  // === CASE 2: TOP FLOOR (L10) HAZARD DYNAMICS ===
+  CASE_2_L10_EAST_STAIR: {
+    id: 'CASE_2_L10_EAST_STAIR',
+    name: 'Case 2: Top Floor (L10) - East Stair Fire',
+    category: 'Top Floor (L10) Egress',
+    description: 'Hazard near East Stair on Level 10. Level 10 occupants strictly divert to West Stair Core A. Lower floors (L1-L9) remain unaffected and use both stairs.',
+    hazard: {
+      type: 'FIRE',
+      floor: 10,
+      roomId: 'f10_r5',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 10: ['exit_east'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 10, wing: 'east' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_2_L10_WEST_STAIR: {
+    id: 'CASE_2_L10_WEST_STAIR',
+    name: 'Case 2: Top Floor (L10) - West Stair Fire',
+    category: 'Top Floor (L10) Egress',
+    description: 'Hazard near West Stair on Level 10. Level 10 occupants strictly divert to East Stair Core B. Lower floors (L1-L9) remain unaffected and use both stairs.',
+    hazard: {
+      type: 'FIRE',
+      floor: 10,
+      roomId: 'f10_r1',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 10: ['exit_west'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 10, wing: 'west' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+
+  // === CASE 3: MIDDLE FLOORS (L2 - L9) HAZARD DYNAMICS ===
+  CASE_3_L7_WEST_STAIR: {
+    id: 'CASE_3_L7_WEST_STAIR',
+    name: 'Case 3: Mid Floor (L7) - West Stair Fire & L8 Crossover',
+    category: 'Middle Floors (L2-L9) Egress',
+    description: 'Hazard active near West Stair on Level 7. L7 occupants avoid West Stair and egress via East Stair. Upper floors (L8-L10) descend West Stair to L8, crossover L8 corridor to East Stair past fire to L6, then redistribute. Lower floors (L1-L6) unaffected.',
+    hazard: {
+      type: 'FIRE',
+      floor: 7,
+      roomId: 'f7_r1',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 7: ['exit_west'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 7, wing: 'west' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_3_L7_EAST_STAIR: {
+    id: 'CASE_3_L7_EAST_STAIR',
+    name: 'Case 3: Mid Floor (L7) - East Stair Fire & L8 Crossover',
+    category: 'Middle Floors (L2-L9) Egress',
+    description: 'Hazard active near East Stair on Level 7. L7 occupants avoid East Stair and egress via West Stair. Upper floors (L8-L10) descend East Stair to L8, crossover L8 corridor to West Stair past fire to L6, then redistribute. Lower floors (L1-L6) unaffected.',
+    hazard: {
+      type: 'FIRE',
+      floor: 7,
+      roomId: 'f7_r5',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 7: ['exit_east'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 7, wing: 'east' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_3_L4_WEST_STAIR: {
+    id: 'CASE_3_L4_WEST_STAIR',
+    name: 'Case 3: Mid Floor (L4) - West Stair Fire & L5 Crossover',
+    category: 'Middle Floors (L2-L9) Egress',
+    description: 'Hazard active near West Stair on Level 4. L4 occupants avoid West Stair. Upper floors (L5-L10) transfer at L5 corridor to East Stair past fire to L3, then redistribute. Lower floors (L1-L3) unaffected.',
+    hazard: {
+      type: 'FIRE',
+      floor: 4,
+      roomId: 'f4_r1',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 4: ['exit_west'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 4, wing: 'west' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+  CASE_3_L4_EAST_STAIR: {
+    id: 'CASE_3_L4_EAST_STAIR',
+    name: 'Case 3: Mid Floor (L4) - East Stair Fire & L5 Crossover',
+    category: 'Middle Floors (L2-L9) Egress',
+    description: 'Hazard active near East Stair on Level 4. L4 occupants avoid East Stair. Upper floors (L5-L10) transfer at L5 corridor to West Stair past fire to L3, then redistribute. Lower floors (L1-L3) unaffected.',
+    hazard: {
+      type: 'FIRE',
+      floor: 4,
+      roomId: 'f4_r5',
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { 4: ['exit_east'] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor: 4, wing: 'east' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  },
+
+  // === MULTI-FLOOR BASELINE PRESETS ===
   STANDARD_OFFICE_FIRE: {
     id: 'STANDARD_OFFICE_FIRE',
     name: 'Standard Office Fire (Level 4)',
@@ -170,7 +444,7 @@ export const PRESET_SCENARIOS = {
 };
 
 export class ScenarioEngine {
-  constructor(initialScenario = PRESET_SCENARIOS.STANDARD_OFFICE_FIRE) {
+  constructor(initialScenario = PRESET_SCENARIOS.CASE_1_L1_FRONT_GATE || PRESET_SCENARIOS.STANDARD_OFFICE_FIRE) {
     this.currentScenario = JSON.parse(JSON.stringify(initialScenario));
   }
 
@@ -244,7 +518,7 @@ export class ScenarioEngine {
       return {
         ...exit,
         isBlocked,
-        status: isBlocked ? 'BLOCKED / SMOKE COMPROMISED' : 'Operational',
+        status: isBlocked ? 'BLOCKED / HAZARD COMPROMISED' : 'Operational',
         color: isBlocked ? '#ef4444' : (exit.color || '#00ff88'),
         load: isBlocked ? 0 : (exit.load || 0)
       };
@@ -302,3 +576,46 @@ export class ScenarioEngine {
   }
 }
 
+/**
+ * Generalized Case 3 Scenario Factory for ANY middle floor (L2 - L9) and either stair
+ */
+export function createCase3Scenario(floor = 7, stairSide = 'west') {
+  const isWest = stairSide.toLowerCase().includes('west') || stairSide.toLowerCase().includes('a');
+  const sideStr = isWest ? 'West' : 'East';
+  const otherSideStr = isWest ? 'East' : 'West';
+  const blockedStairId = isWest ? 'exit_west' : 'exit_east';
+  const roomId = isWest ? `f${floor}_r1` : `f${floor}_r5`;
+  const crossoverFloor = Math.min(10, floor + 1);
+  const redistributeFloor = Math.max(1, floor - 1);
+
+  return {
+    id: `CASE_3_L${floor}_${isWest ? 'WEST' : 'EAST'}_STAIR`,
+    name: `Case 3: Mid Floor (L${floor}) - ${sideStr} Stair Fire & L${crossoverFloor} Crossover`,
+    category: 'Middle Floors (L2-L9) Egress',
+    description: `Hazard active near ${sideStr} Stair on Level ${floor}. L${floor} occupants avoid ${sideStr} Stair and egress via ${otherSideStr} Stair. Upper floors (L${crossoverFloor}-L10) descend ${sideStr} Stair to L${crossoverFloor}, crossover L${crossoverFloor} corridor to ${otherSideStr} Stair past fire to L${redistributeFloor}, then redistribute. Lower floors (L1-L${redistributeFloor}) unaffected.`,
+    hazard: {
+      type: 'FIRE',
+      floor,
+      roomId,
+      severity: 'HIGH',
+      tempCelsius: 88,
+      smokeSpreadRadius: 7.5,
+      diffusionRate: 1.0
+    },
+    structuralFailures: {
+      blockedExits: [],
+      floorBlockedExits: { [floor]: [blockedStairId] },
+      elevatorLocked: true,
+      hvacCompromised: false,
+      damagedCorridors: [{ floor, wing: isWest ? 'west' : 'east' }]
+    },
+    demographics: {
+      standardRatio: 0.80,
+      slowRatio: 0.15,
+      assistedRatio: 0.05,
+      reactionDelayMin: 1.5,
+      reactionDelayMax: 4.5
+    },
+    populationMultiplier: 1.0
+  };
+}

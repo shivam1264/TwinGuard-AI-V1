@@ -11,7 +11,7 @@ export const EVACUATION_STRATEGIES = {
     name: 'Strategy A: Uncontrolled Rush (Nearest Core)',
     shortName: 'Nearest Core',
     category: 'Baseline Reactive',
-    description: 'Occupants head strictly to the closest stairwell core without load balancing or traffic regulation.',
+    description: 'Occupants head strictly to the closest open stairwell or exit without traffic regulation.',
     type: 'NEAREST_CORE'
   },
   STRATEGY_B: {
@@ -19,7 +19,7 @@ export const EVACUATION_STRATEGIES = {
     name: 'Strategy B: Dynamic Core Load Balancing',
     shortName: 'Dynamic Core Balancing',
     category: 'IoT & Smart Guidance',
-    description: 'Dynamic digital signage diverts floor occupants evenly between West Core A and East Core B to prevent stampedes.',
+    description: 'Dynamic digital signage diverts occupants evenly between available safe exits to prevent stampedes.',
     type: 'LOAD_BALANCED'
   },
   STRATEGY_C: {
@@ -43,9 +43,53 @@ export class MultiStrategyRanker {
 
   // Fast-forward headless simulation of a single strategy in pure memory (< 30ms)
   simulateStrategy(strategyConfig, scenario, baseRooms, baseExits) {
-    const blockedExitIds = scenario.structuralFailures?.blockedExits || [];
+    const blockedExitIds = [...(scenario.structuralFailures?.blockedExits || [])];
     const hazardFloor = scenario.hazard?.floor || 4;
     const hazardRadius = scenario.hazard?.smokeSpreadRadius || 7.0;
+    const hazardRoomId = scenario.hazard?.roomId;
+
+    // Case I - Dynamic Gate Hazard Detection for Ground Floor (L1)
+    if (hazardFloor === 1 || (hazardRoomId && hazardRoomId.startsWith('f1_'))) {
+      if (hazardRoomId === 'f1_r8' || hazardRoomId === 'f1_r3' || scenario.id === 'CASE_1_L1_FRONT_GATE') {
+        if (!blockedExitIds.includes('exit_south')) blockedExitIds.push('exit_south');
+      } else if (hazardRoomId === 'f1_r5' || hazardRoomId === 'f1_r10' || scenario.id === 'CASE_1_L1_EAST_GATE') {
+        if (!blockedExitIds.includes('exit_east')) blockedExitIds.push('exit_east');
+      } else if (hazardRoomId === 'f1_r1' || hazardRoomId === 'f1_r6' || scenario.id === 'CASE_1_L1_WEST_GATE') {
+        if (!blockedExitIds.includes('exit_west')) blockedExitIds.push('exit_west');
+      }
+    }
+
+    // Case II - Floor 10 localized hazard detection
+    const isL10Hazard = hazardFloor === 10 || (hazardRoomId && hazardRoomId.startsWith('f10_')) ||
+      scenario.id === 'CASE_2_L10_EAST_STAIR' || scenario.id === 'CASE_2_L10_WEST_STAIR';
+    const l10BlockedStair = (hazardRoomId === 'f10_r5' || hazardRoomId === 'f10_r10' || scenario.id === 'CASE_2_L10_EAST_STAIR')
+      ? 'exit_east'
+      : ((hazardRoomId === 'f10_r1' || hazardRoomId === 'f10_r6' || scenario.id === 'CASE_2_L10_WEST_STAIR') ? 'exit_west' : null);
+
+    // Case III - Middle floor (L2 - L9) localized hazard detection
+    const isMidFloorHazard = (hazardFloor >= 2 && hazardFloor <= 9) ||
+      (hazardRoomId && /^f[2-9]_r/.test(hazardRoomId)) ||
+      (scenario.id && scenario.id.startsWith('CASE_3_'));
+
+    let midHazardFloor = hazardFloor;
+    if (hazardRoomId && /^f([2-9])_r/.test(hazardRoomId)) {
+      midHazardFloor = parseInt(hazardRoomId.match(/^f([2-9])_r/)[1], 10);
+    }
+
+    let midBlockedStair = null;
+    if (isMidFloorHazard) {
+      if (scenario.structuralFailures?.floorBlockedExits?.[midHazardFloor]) {
+        midBlockedStair = scenario.structuralFailures.floorBlockedExits[midHazardFloor][0];
+      } else if (hazardRoomId && (hazardRoomId.endsWith('_r5') || hazardRoomId.endsWith('_r10'))) {
+        midBlockedStair = 'exit_east';
+      } else if (hazardRoomId && (hazardRoomId.endsWith('_r1') || hazardRoomId.endsWith('_r6'))) {
+        midBlockedStair = 'exit_west';
+      } else if (scenario.id && scenario.id.includes('WEST')) {
+        midBlockedStair = 'exit_west';
+      } else if (scenario.id && scenario.id.includes('EAST')) {
+        midBlockedStair = 'exit_east';
+      }
+    }
 
     // Build operational exits
     const exits = baseExits.map((e) => ({
@@ -113,37 +157,79 @@ export class MultiStrategyRanker {
     agents.forEach((agent, idx) => {
       let chosenExit = null;
 
-      if (strategyConfig.type === 'NEAREST_CORE') {
-        // Strategy A: Uncontrolled nearest exit rush
-        const candidateExits = (agent.floor === 1 ? validOperational : [coreA, coreB].filter(Boolean));
-        const usableList = candidateExits.length > 0 ? candidateExits : validOperational;
-        let minDist = Infinity;
-        usableList.forEach((ex) => {
-          const d = Math.hypot(agent.x - ex.x, agent.z - ex.z);
-          if (d < minDist) {
-            minDist = d;
-            chosenExit = ex;
-          }
-        });
-        if (!chosenExit) chosenExit = usableList[0] || exits[0];
-      } else if (strategyConfig.type === 'LOAD_BALANCED') {
-        // Strategy B: Dynamic load balanced core assignment
-        if (agent.floor === 1 && exitC) {
-          chosenExit = exitC;
-        } else if (coreA && coreB) {
-          // Balance evenly between Core A and Core B based on current assigned load
-          chosenExit = coreA.load <= coreB.load ? coreA : coreB;
+      // Available exits:
+      // Ground floor (L1) can only choose from valid unblocked exits
+      // Upper floors must use vertical stair cores (Core A or Core B)
+      const usableUpper = [coreA, coreB].filter(Boolean);
+      const upperFallback = usableUpper.length > 0 ? usableUpper : validOperational;
+
+      if (agent.floor === 1) {
+        // Floor 1 Occupants: strictly avoid blocked gate, use other available gates
+        if (strategyConfig.type === 'NEAREST_CORE') {
+          let minDist = Infinity;
+          validOperational.forEach((ex) => {
+            const d = Math.hypot(agent.x - ex.x, agent.z - ex.z);
+            if (d < minDist) {
+              minDist = d;
+              chosenExit = ex;
+            }
+          });
+        } else if (strategyConfig.type === 'LOAD_BALANCED') {
+          // Dynamic load balancing across all available open Ground Floor gates
+          let bestScore = Infinity;
+          validOperational.forEach((ex) => {
+            const dist = Math.hypot(agent.x - ex.x, agent.z - ex.z);
+            const loadRatio = ex.load / Math.max(1, ex.capacity);
+            const score = dist + Math.pow(loadRatio, 2.4) * 45;
+            if (score < bestScore) {
+              bestScore = score;
+              chosenExit = ex;
+            }
+          });
         } else {
-          chosenExit = coreA || coreB || validOperational[0] || exits[0];
+          // Phased / zone
+          const pickIdx = idx % validOperational.length;
+          chosenExit = validOperational[pickIdx] || validOperational[0];
         }
-      } else if (strategyConfig.type === 'PHASED_ZONE') {
-        // Strategy C: Phased evacuation (balanced cores with priority routing)
-        if (agent.floor === 1 && exitC) {
-          chosenExit = exitC;
-        } else if (coreA && coreB) {
-          chosenExit = (agent.floor % 2 === 0) ? coreA : coreB;
+      } else if (agent.floor === 10 && isL10Hazard && l10BlockedStair) {
+        // Case II: Level 10 occupants strictly avoid the compromised stair!
+        if (l10BlockedStair === 'exit_east') {
+          // Must use West Core A
+          chosenExit = coreA || upperFallback[0];
         } else {
-          chosenExit = validOperational[0] || exits[0];
+          // Must use East Core B
+          chosenExit = coreB || upperFallback[0];
+        }
+      } else if (isMidFloorHazard && midBlockedStair && agent.floor === midHazardFloor) {
+        // Case III: Middle Fire Floor occupants strictly avoid the compromised stair on this floor!
+        if (midBlockedStair === 'exit_east') {
+          chosenExit = coreA || upperFallback[0];
+        } else {
+          chosenExit = coreB || upperFallback[0];
+        }
+      } else {
+        // Floors 2 to 9 (and L10 when unaffected): distributed normally across both stairwells
+        if (strategyConfig.type === 'NEAREST_CORE') {
+          let minDist = Infinity;
+          upperFallback.forEach((ex) => {
+            const d = Math.hypot(agent.x - ex.x, agent.z - ex.z);
+            if (d < minDist) {
+              minDist = d;
+              chosenExit = ex;
+            }
+          });
+        } else if (strategyConfig.type === 'LOAD_BALANCED') {
+          if (coreA && coreB) {
+            chosenExit = coreA.load <= coreB.load ? coreA : coreB;
+          } else {
+            chosenExit = coreA || coreB || upperFallback[0];
+          }
+        } else {
+          if (coreA && coreB) {
+            chosenExit = (agent.floor % 2 === 0) ? coreA : coreB;
+          } else {
+            chosenExit = upperFallback[0];
+          }
         }
       }
 
@@ -158,8 +244,14 @@ export class MultiStrategyRanker {
       const stairFlights = Math.max(0, agent.floor - 1);
       const dStairs = stairFlights * 14.5; // Switchback descent distance
       const dPlaza = 12.0; // Distance to muster zone
+      let extraCrossoverDist = 0;
 
-      agent.totalDistance = Math.max(15, dInside + 2.4 + dCorridor + dStairs + dPlaza);
+      // Case III: Upper floor occupants on the compromised stair must crossover at floor (midHazardFloor + 1)
+      if (isMidFloorHazard && midBlockedStair && agent.floor > midHazardFloor && chosenExit.id === midBlockedStair) {
+        extraCrossoverDist = 52.8; // Central corridor length between West and East cores (26.4 * 2)
+      }
+
+      agent.totalDistance = Math.max(15, dInside + 2.4 + dCorridor + dStairs + dPlaza + extraCrossoverDist);
       agent.speed = agent.speed || 3.2;
     });
 
@@ -301,9 +393,9 @@ export class MultiStrategyRanker {
 
         xaiDiagnostics = {
           bottleneckAlert: 'Doorway D-104 (width 0.9m) regulated at 1.25 persons/sec (within safe 1.3 p/s envelope). Fluid laminar discharge achieved.',
-          rerouteRationale: 'Corridor C-101 bypassed: AI dynamic signage rerouted 40% of Level 4 crowd away from 82% smoke concentration at T+45s toward East Core B.',
-          resourcePlacement: 'Intelligent Guidance: Dynamic wayfinding displays & marshals at Junction J-12 balanced crowd 50/50 across West and East cores.',
-          performanceVerdict: 'Clearance time drops by 34%; zero stampede choke observed under Helbing crowd force simulation.'
+          rerouteRationale: 'Corridor C-101 bypassed: AI dynamic signage rerouted crowd away from compromised zone toward clear exits.',
+          resourcePlacement: 'Intelligent Guidance: Dynamic wayfinding displays & marshals balanced crowd safely across operational exits.',
+          performanceVerdict: 'Clearance time optimized; zero stampede choke observed under Helbing crowd force simulation.'
         };
       } else if (res.type === 'PHASED_ZONE') {
         strengths.push('Zero stairwell crush / stampede hazard (Lowest peak density)');
@@ -320,9 +412,9 @@ export class MultiStrategyRanker {
         };
 
         xaiDiagnostics = {
-          bottleneckAlert: 'Doorway D-104 reserved exclusively for Level 4 high-priority evacuees. Zero contention or backpressure occurred.',
-          rerouteRationale: 'Corridor C-101 staged: Upper levels held in place for 45s, allowing fire-zone occupants to evacuate corridor with zero interference.',
-          resourcePlacement: 'Resource Staging: Safety marshals deployed to Door 102 and Stairwell Core B to sequence floor-by-floor entry.',
+          bottleneckAlert: 'Ground floor and fire zone evacuees given exclusive priority. Zero contention or backpressure occurred.',
+          rerouteRationale: 'Corridor staged: Upper levels held in place temporarily, allowing ground and hazard-zone occupants to evacuate with zero interference.',
+          resourcePlacement: 'Resource Staging: Safety marshals deployed to operational exits to sequence entry.',
           performanceVerdict: 'Lowest casualty risk for high-threat zones; secondary floors safely staged in smoke-sealed areas.'
         };
       } else {
@@ -330,7 +422,7 @@ export class MultiStrategyRanker {
         strengths.push('Requires zero emergency infrastructure or communication');
         vulnerabilities.push('Severe stairwell core overcrowding and stampede hazard');
         vulnerabilities.push('Elevated toxic exposure during stairwell queueing');
-        vulnerabilities.push('Massive bottleneck at West Exit while East Core sits underutilized');
+        vulnerabilities.push('Uneven load distribution across exits');
 
         radarMetrics = {
           clearanceSpeed: Math.min(45, Math.round(normTime * 100)),
@@ -341,10 +433,10 @@ export class MultiStrategyRanker {
         };
 
         xaiDiagnostics = {
-          bottleneckAlert: 'Doorway D-104 (width 0.9m) exceeded maximum discharge rate (peak flow 2.1 persons/sec vs safe capacity 1.3 persons/sec). Severe arching jammed 18 occupants.',
-          rerouteRationale: 'Corridor C-101 unmanaged: 48 occupants traversed high-density smoke plume (76% concentration at T+35s) due to lack of dynamic diversion.',
-          resourcePlacement: 'Uncoordinated / Zero Guidance: 72% crowd converged greedily on West Exit A, while East Core B sat underutilized at 28% load.',
-          performanceVerdict: 'High Risk: Massive bottleneck at Main West Exit, Stairwell East sits empty, 48% higher smoke exposure.'
+          bottleneckAlert: 'Exits experienced uneven rush surges; unmanaged flow led to localized queueing.',
+          rerouteRationale: 'Occupants rushed blindly to the closest gate without considering traffic volume.',
+          resourcePlacement: 'Uncoordinated / Zero Guidance: High load on one gate while another sat underutilized.',
+          performanceVerdict: 'High Risk: Bottleneck formed at primary exit, higher smoke exposure.'
         };
       }
 
@@ -381,4 +473,3 @@ export class MultiStrategyRanker {
 }
 
 export const StrategyRanker = new MultiStrategyRanker();
-

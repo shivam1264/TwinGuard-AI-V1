@@ -10,14 +10,13 @@ import {
 // ============================================================================
 // PROFESSIONAL CAMPUS ROAD NETWORK REBUILD (EXACT 3-CLASS HIERARCHY)
 // ============================================================================
-// Replaces procedural road demos with a believable, master-planned institutional
-// circulation system:
-// - Class A Primary Spine (Width = 8.5m, dark charcoal asphalt, subtle centerline)
-// - Class B Secondary Roads (Width = 6.0m, connecting districts & parking)
-// - Class C Service / Emergency Access (Width = 5.0m, discrete operations)
-// - 2 Controlled Roundabouts (Central Distribution 40m + West Campus 28m)
-// - Low-profile neutral concrete curbs (NO cartoon white outlines!)
-// - Smooth transitions, generous radii, and full GIS metadata
+// Built directly from the Master Plan Reference:
+// - Class A Primary Arterials (12.0m & 11.0m width)
+// - Class B Secondary Roads (8.0m & 7.5m width)
+// - Class C Service Roads (6.0m width)
+// - 5 Roundabouts (Entrance Circus, West Ring, East Ring, NW Circus, NE Circus)
+// - Hero Forecourt Drop-off Apron
+// - Zebra crosswalks & architectural street lights
 
 export class RoadNetwork {
   constructor(sharedMaterials) {
@@ -62,9 +61,7 @@ export class RoadNetwork {
     const curbGeometries = [];
     const streetLightPositions = [];
 
-    // ------------------------------------------------------------------------
-    // 1. CLASS A — PRIMARY CAMPUS ARTERIALS (Width = 8.5m)
-    // ------------------------------------------------------------------------
+    // 1. CLASS A — PRIMARY CAMPUS ARTERIALS (12m & 11m width)
     PRIMARY_CAMPUS_ROADS.forEach(roadDef => {
       const primaryMesh = this.createSplineRoadMesh(
         roadDef.points,
@@ -75,25 +72,20 @@ export class RoadNetwork {
         roadDef.roadClass,
         curbGeometries,
         streetLightPositions,
-        34
+        36
       );
       this.subgroups.primary.add(primaryMesh);
     });
 
-    // ------------------------------------------------------------------------
-    // 2. CONTROLLED ROUNDABOUT JUNCTIONS (Central 40m + West 28m)
-    // ------------------------------------------------------------------------
+    // 2. 5 CONTROLLED ROUNDABOUT JUNCTIONS
     this.buildRoundabouts(curbGeometries);
 
-    // ------------------------------------------------------------------------
     // 3. HERO BUILDING FORECOURT ARRIVAL APRON
-    // ------------------------------------------------------------------------
     this.buildHeroForecourt(curbGeometries);
 
-    // ------------------------------------------------------------------------
-    // 4. CLASS B — SECONDARY CAMPUS ROADS (Width = 6.0m)
-    // ------------------------------------------------------------------------
+    // 4. CLASS B — SECONDARY CAMPUS ROADS (8m & 7.5m width)
     SECONDARY_CAMPUS_ROADS.forEach(roadDef => {
+      const isLoop = roadDef.roadId === 'ROAD-SECONDARY-CORE-RING';
       const secMesh = this.createSplineRoadMesh(
         roadDef.points,
         roadDef.width,
@@ -103,14 +95,13 @@ export class RoadNetwork {
         roadDef.roadClass,
         curbGeometries,
         null,
-        45
+        45,
+        isLoop
       );
       this.subgroups.secondary.add(secMesh);
     });
 
-    // ------------------------------------------------------------------------
-    // 5. CLASS C — SERVICE & EMERGENCY ACCESS ROADS (Width = 5.0m)
-    // ------------------------------------------------------------------------
+    // 5. CLASS C — SERVICE & EMERGENCY ACCESS ROADS
     SERVICE_EMERGENCY_ROADS.forEach(roadDef => {
       const servMesh = this.createSplineRoadMesh(
         roadDef.points,
@@ -127,9 +118,7 @@ export class RoadNetwork {
       this.subgroups.service.add(servMesh);
     });
 
-    // ------------------------------------------------------------------------
-    // 6. MERGE ALL ROAD CURBS (High performance, low-profile concrete)
-    // ------------------------------------------------------------------------
+    // 6. MERGE ALL ROAD CURBS
     if (curbGeometries.length > 0) {
       const mergedCurbs = BufferGeometryUtils.mergeGeometries(curbGeometries);
       const curbMesh = new THREE.Mesh(mergedCurbs, this.materials.curbMat);
@@ -138,18 +127,13 @@ export class RoadNetwork {
       this.subgroups.curbs.add(curbMesh);
     }
 
-    // ------------------------------------------------------------------------
     // 7. PEDESTRIAN ZEBRA CROSSWALKS
-    // ------------------------------------------------------------------------
     this.buildCrosswalks();
 
-    // ------------------------------------------------------------------------
     // 8. ARCHITECTURAL LED STREET LIGHTING
-    // ------------------------------------------------------------------------
     this.buildStreetLights(streetLightPositions);
   }
 
-  // Generates smooth CatmullRom spline road ribbons with low-profile curbs
   createSplineRoadMesh(
     points,
     width,
@@ -159,10 +143,11 @@ export class RoadNetwork {
     roadClass,
     curbCollector,
     lightCollector,
-    lightSpacing = 35
+    lightSpacing = 35,
+    closed = false
   ) {
     const v3Points = points.map(p => new THREE.Vector3(p.x, p.y || 0.02, p.z));
-    const curve = new THREE.CatmullRomCurve3(v3Points, false, 'centripetal', 0.5);
+    const curve = new THREE.CatmullRomCurve3(v3Points, closed, 'centripetal', 0.5);
 
     const length = curve.getLength();
     const segments = Math.max(36, Math.ceil(length / 2.5));
@@ -177,8 +162,7 @@ export class RoadNetwork {
     const curbNormals = [];
 
     const halfW = width * 0.5;
-    // Low-profile subtle concrete curb (0.26m wide, 0.04m above road surface)
-    const curbW = 0.26;
+    const curbW = 0.28;
     const roadY = 0.038;
     const curbTopY = 0.078;
 
@@ -194,7 +178,6 @@ export class RoadNetwork {
       if (i > 0) accumulatedDist += pt.distanceTo(prevPos);
       prevPos = pt.clone();
 
-      // Road Surface Vertices
       const roadL = pt.clone().addScaledVector(normal, halfW);
       roadL.y = roadY;
       const roadR = pt.clone().addScaledVector(normal, -halfW);
@@ -209,12 +192,10 @@ export class RoadNetwork {
 
       if (i < segments) {
         const row = i * 2;
-        // Upward CCW winding (+Y normal)
         roadIndices.push(row, row + 2, row + 1);
         roadIndices.push(row + 1, row + 2, row + 3);
       }
 
-      // Low-Profile Neutral Concrete Curbs
       if (curbCollector) {
         const cL_in = pt.clone().addScaledVector(normal, halfW);
         const cL_out = pt.clone().addScaledVector(normal, halfW + curbW);
@@ -234,17 +215,14 @@ export class RoadNetwork {
           const cRow = i * 4;
           const cNext = (i + 1) * 4;
 
-          // Left Curb (CCW upward)
           curbIndices.push(cRow, cNext, cRow + 1);
           curbIndices.push(cRow + 1, cNext, cNext + 1);
 
-          // Right Curb (CCW upward)
           curbIndices.push(cRow + 2, cRow + 3, cNext + 2);
           curbIndices.push(cRow + 3, cNext + 3, cNext + 2);
         }
       }
 
-      // Street light placement
       if (lightCollector && i % Math.max(8, Math.round(lightSpacing / 2.5)) === 0 && i > 0 && i < segments) {
         const side = (i % 2 === 0) ? 1 : -1;
         const polePos = pt.clone().addScaledVector(normal, side * (halfW + curbW + 0.9));
@@ -264,13 +242,7 @@ export class RoadNetwork {
 
     const roadMesh = new THREE.Mesh(roadGeo, material);
     roadMesh.receiveShadow = true;
-    roadMesh.userData = {
-      roadId,
-      roadClass,
-      name,
-      width,
-      isEmergencyAccessible: true
-    };
+    roadMesh.userData = { roadId, roadClass, name, width, isEmergencyAccessible: true };
 
     if (curbCollector && curbVerts.length > 0) {
       const cGeo = new THREE.BufferGeometry();
@@ -283,7 +255,6 @@ export class RoadNetwork {
     return roadMesh;
   }
 
-  // Builds properly proportioned roundabouts (Central 40m Circus + West 28m Circus)
   buildRoundabouts(curbCollector) {
     CAMPUS_ROUNDABOUTS.forEach(rb => {
       const center = rb.center;
@@ -293,16 +264,16 @@ export class RoadNetwork {
       const roadY = 0.04;
       const curbY = 0.078;
 
-      // 1. Circulating Asphalt Road Ring
+      // 1. Circulating Road Ring
       const ringGeo = new THREE.RingGeometry(ir, or, 64);
       ringGeo.rotateX(-Math.PI / 2);
       ringGeo.translate(center.x, roadY, center.z);
       const ringMesh = new THREE.Mesh(ringGeo, this.materials.plainAsphaltMat);
       ringMesh.receiveShadow = true;
-      ringMesh.userData = { id: rb.id, type: 'ROUNDABOUT', name: rb.name, outerDiameter: rb.outerDiameter };
+      ringMesh.userData = { id: rb.id, type: 'ROUNDABOUT', name: rb.name };
       this.subgroups.roundabouts.add(ringMesh);
 
-      // 2. Outer Concrete Curb Ring
+      // 2. Outer Concrete Curb
       const outerCurb = new THREE.RingGeometry(or, or + 0.28, 64);
       outerCurb.rotateX(-Math.PI / 2);
       outerCurb.translate(center.x, curbY, center.z);
@@ -310,7 +281,7 @@ export class RoadNetwork {
       outerCurbMesh.receiveShadow = true;
       this.subgroups.roundabouts.add(outerCurbMesh);
 
-      // 3. Inner Island Concrete Curb Ring
+      // 3. Inner Island Curb
       const innerCurb = new THREE.RingGeometry(isr - 0.28, ir, 64);
       innerCurb.rotateX(-Math.PI / 2);
       innerCurb.translate(center.x, curbY, center.z);
@@ -318,7 +289,7 @@ export class RoadNetwork {
       innerCurbMesh.receiveShadow = true;
       this.subgroups.roundabouts.add(innerCurbMesh);
 
-      // 4. Central Landscaped Island (Manicured Green Lawn)
+      // 4. Central Landscaped Island
       const islandGeo = new THREE.CircleGeometry(isr - 0.28, 64);
       islandGeo.rotateX(-Math.PI / 2);
       islandGeo.translate(center.x, curbY - 0.005, center.z);
@@ -328,51 +299,64 @@ export class RoadNetwork {
 
       // Centerpiece Feature
       if (rb.hasCenterpiece) {
-        if (rb.id === 'ROUNDABOUT-CENTRAL-001') {
-          // Central Circus Feature: Circular stone planter + specimen tree
-          const planterGeo = new THREE.CylinderGeometry(4.2, 4.2, 0.45, 32);
-          const planterMesh = new THREE.Mesh(planterGeo, this.materials.curbMat);
-          planterMesh.position.set(center.x, 0.22, center.z);
-          planterMesh.castShadow = true;
-          this.subgroups.roundabouts.add(planterMesh);
+        if (rb.feature === 'FOUNTAIN') {
+          // Entrance Circus Fountain Monument
+          const fountainRimGeo = new THREE.CylinderGeometry(4.5, 4.8, 0.45, 32);
+          const fountainRim = new THREE.Mesh(fountainRimGeo, this.materials.curbMat);
+          fountainRim.position.set(center.x, 0.25, center.z);
+          fountainRim.castShadow = true;
+          this.subgroups.roundabouts.add(fountainRim);
 
-          const mulchGeo = new THREE.CircleGeometry(4.0, 32);
-          mulchGeo.rotateX(-Math.PI / 2);
-          mulchGeo.translate(center.x, 0.45, center.z);
-          const mulchMesh = new THREE.Mesh(mulchGeo, this.materials.mulchMat);
-          this.subgroups.roundabouts.add(mulchMesh);
-        } else {
-          // West Circus: Civic obelisk monument
+          const waterGeo = new THREE.CircleGeometry(4.3, 32);
+          waterGeo.rotateX(-Math.PI / 2);
+          waterGeo.translate(center.x, 0.46, center.z);
+          const waterMesh = new THREE.Mesh(waterGeo, this.materials.waterMat);
+          this.subgroups.roundabouts.add(waterMesh);
+
+          const spire = new THREE.CylinderGeometry(0.5, 0.8, 4.0, 8);
+          const spireMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+          const spireMesh = new THREE.Mesh(spire, spireMat);
+          spireMesh.position.set(center.x, 2.3, center.z);
+          spireMesh.castShadow = true;
+          this.subgroups.roundabouts.add(spireMesh);
+        } else if (rb.feature === 'OBELISK') {
           const pillarGeo = new THREE.CylinderGeometry(0.7, 1.1, 5.5, 8);
-          const pillarMat = new THREE.MeshStandardMaterial({
-            color: 0x334155,
-            roughness: 0.35,
-            metalness: 0.8
-          });
+          const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.35 });
           const pillar = new THREE.Mesh(pillarGeo, pillarMat);
           pillar.position.set(center.x, 2.75, center.z);
           pillar.castShadow = true;
           this.subgroups.roundabouts.add(pillar);
+        } else {
+          const planterGeo = new THREE.CylinderGeometry(3.2, 3.2, 0.4, 32);
+          const planterMesh = new THREE.Mesh(planterGeo, this.materials.curbMat);
+          planterMesh.position.set(center.x, 0.2, center.z);
+          planterMesh.castShadow = true;
+          this.subgroups.roundabouts.add(planterMesh);
+
+          const mulchGeo = new THREE.CircleGeometry(3.0, 32);
+          mulchGeo.rotateX(-Math.PI / 2);
+          mulchGeo.translate(center.x, 0.4, center.z);
+          const mulchMesh = new THREE.Mesh(mulchGeo, this.materials.mulchMat);
+          this.subgroups.roundabouts.add(mulchMesh);
         }
       }
     });
   }
 
-  // Hero Building Forecourt Arrival Apron (connecting Central Circus to Hero Portico)
   buildHeroForecourt(curbCollector) {
-    // Broad stone paved arrival forecourt (Width 44m, Depth 36m, Z = 46.0)
-    const apronGeo = new THREE.PlaneGeometry(44.0, 36.0);
+    // Grand stone arrival forecourt apron (Width 44m, Depth 34m, Z = 35.0)
+    const apronGeo = new THREE.PlaneGeometry(44.0, 34.0);
     apronGeo.rotateX(-Math.PI / 2);
-    apronGeo.translate(0, 0.035, 46.0);
+    apronGeo.translate(0, 0.035, 35.0);
     const apronMesh = new THREE.Mesh(apronGeo, this.materials.plazaStoneMat);
     apronMesh.receiveShadow = true;
     this.subgroups.forecourt.add(apronMesh);
 
-    // Lateral stone curbs
-    const curbW = new THREE.BoxGeometry(0.35, 0.08, 36.0);
-    curbW.translate(-22.0, 0.065, 46.0);
-    const curbE = new THREE.BoxGeometry(0.35, 0.08, 36.0);
-    curbE.translate(22.0, 0.065, 46.0);
+    // Lateral curbs
+    const curbW = new THREE.BoxGeometry(0.35, 0.08, 34.0);
+    curbW.translate(-22.0, 0.065, 35.0);
+    const curbE = new THREE.BoxGeometry(0.35, 0.08, 34.0);
+    curbE.translate(22.0, 0.065, 35.0);
 
     const mergedApronCurbs = BufferGeometryUtils.mergeGeometries([curbW, curbE]);
     const apronCurbsMesh = new THREE.Mesh(mergedApronCurbs, this.materials.curbMat);
@@ -382,18 +366,20 @@ export class RoadNetwork {
 
   buildCrosswalks() {
     const crosswalkLocations = [
-      { x: -10, z: 275, angle: 0, width: 8.5, length: 4.5 },
-      { x: 0, z: 65, angle: 0, width: 9.0, length: 4.5 },
-      { x: -35, z: 78, angle: 0.32, width: 7.5, length: 4.0 },
-      { x: -136, z: 35, angle: 1.57, width: 7.5, length: 4.0 },
-      { x: 20, z: 85, angle: 1.57, width: 7.0, length: 4.0 },
-      { x: 75, z: 80, angle: -0.2, width: 6.5, length: 4.0 }
+      { x: 0, z: 220, angle: 0, width: 12.0, length: 4.5 },
+      { x: 0, z: 104, angle: 0, width: 12.0, length: 4.5 },
+      { x: 0, z: 68, angle: 0, width: 10.0, length: 4.0 },
+      { x: -16, z: 86, angle: 1.57, width: 9.0, length: 4.0 },
+      { x: 16, z: 86, angle: 1.57, width: 9.0, length: 4.0 },
+      { x: -162, z: 75, angle: 0, width: 9.0, length: 4.0 },
+      { x: 162, z: 75, angle: 0, width: 9.0, length: 4.0 },
+      { x: 0, z: -102, angle: 0, width: 8.0, length: 4.0 }
     ];
 
     const zebraGeometries = [];
     const stripeCount = 7;
-    const stripeW = 0.5;
-    const stripeSpacing = 0.9;
+    const stripeW = 0.55;
+    const stripeSpacing = 1.0;
 
     crosswalkLocations.forEach(loc => {
       const rotY = loc.angle || 0;

@@ -9,19 +9,28 @@ import {
   PRIMARY_CAMPUS_ROADS,
   SECONDARY_CAMPUS_ROADS,
   SERVICE_EMERGENCY_ROADS,
-  CAMPUS_ROUNDABOUTS
+  CAMPUS_ROUNDABOUTS,
+  FUTURE_BUILDING_PLOTS,
+  PARKING_FACILITIES
 } from './CampusLayout.js';
 
 // ============================================================================
 // CAMPUS LANDSCAPE, LAWNS, LAKE, SPORTS & ARBORICULTURE
 // ============================================================================
-// Professional institutional landscape integrated with the refined 3-class road network:
-// - Generous tree setbacks from road carriageways (no trees inside roads)
-// - The Great Lawn / Central Quad with directional mowing stripes
-// - Hero Building architectural stone terrace, boxwood hedges & mulch beds
-// - Eco-Lake with center island, shoreline path & flowering blossom trees
-// - West Sports Complex: 400m tartan track + soccer pitch + hardcourts
-// - Subtle neutral concrete curbs matching road edges
+// Built directly from the Master Plan Reference & Tree Species Catalog:
+// 12 Realistic Tree Categories (Instanced Mesh for high performance):
+// 1. Avenue Tree (Large, 8-12m) - Main roads, central axis, entrance
+// 2. Flowering Tree (Pink, 6-12m) - Plazas, central park, lake area
+// 3. Ornamental Tree (Yellow, 5-8m) - Lawns, pathways, courtyards
+// 4. Shade Tree (Medium-Large, 10-15m) - Parking edges, walking paths
+// 5. Palm Tree (6-10m) - Entrance gate, central circus, water body sides
+// 6. Columnar Tree (8-12m) - Formal landscaping, building entrances/facades
+// 7. Small Landscape Tree (4-6m) - Courtyards, near walkways, small spaces
+// 8. Flowering Tree (Red/Orange, 5-9m) - Feature zones, gateways, intersections
+// 9. Jacaranda-like Tree (Purple, 6-10m) - Academic zones, specialty avenues
+// 10. Light Canopy Tree (5-8m) - Pedestrian paths, open lawns
+// 11. Shrub Tree Multi-stem (2-4m) - Along paths, around buildings, beds
+// 12. Conifer Tree Evergreen (8-14m) - Boundary landscape, service roads
 
 export class LandscapeManager {
   constructor(sharedMaterials) {
@@ -73,7 +82,6 @@ export class LandscapeManager {
     return BufferGeometryUtils.mergeGeometries([cN, cS, cW, cE]);
   }
 
-  // 1. Broad Master Campus Terrain Base (Vibrant Institutional Green)
   buildTerrain() {
     const b = CAMPUS_BOUNDS;
     const w = b.width;
@@ -89,7 +97,6 @@ export class LandscapeManager {
     this.subgroups.ground.add(terrainMesh);
   }
 
-  // 2. South-East Lake & Landscape Open Space
   buildCampusLake() {
     const lake = CAMPUS_LAKE;
     const cx = lake.center.x;
@@ -100,7 +107,7 @@ export class LandscapeManager {
     const lakeGroup = new THREE.Group();
     lakeGroup.name = 'CAMPUS-LAKE';
 
-    // A. Excavated Lake Embankment Stone Curb
+    // Excavated Lake Embankment Stone Curb
     const rimGeo = new THREE.RingGeometry(w * 0.48, w * 0.52, 64);
     rimGeo.scale(1.0, d / w, 1.0);
     const rimMesh = new THREE.Mesh(rimGeo, this.materials.curbMat);
@@ -109,7 +116,7 @@ export class LandscapeManager {
     rimMesh.receiveShadow = true;
     lakeGroup.add(rimMesh);
 
-    // B. Serene Reflective Lake Water Surface
+    // Reflective Water Surface
     const waterGeo = new THREE.CircleGeometry(w * 0.49, 64);
     waterGeo.scale(1.0, d / w, 1.0);
     const waterMesh = new THREE.Mesh(waterGeo, this.materials.waterMat);
@@ -118,7 +125,7 @@ export class LandscapeManager {
     waterMesh.receiveShadow = true;
     lakeGroup.add(waterMesh);
 
-    // C. Center Natural Island with Manicured Lawn
+    // Center Island
     const isR = lake.islandRadius;
     const islandGeo = new THREE.CircleGeometry(isR, 32);
     const islandMesh = new THREE.Mesh(islandGeo, this.materials.courtyardTurfMat);
@@ -133,144 +140,149 @@ export class LandscapeManager {
     isCurbMesh.position.set(cx, 0.072, cz);
     lakeGroup.add(isCurbMesh);
 
-    // D. Outer Shoreline Walking Trail Ribbon
+    // Center Fountain Monument on Island
+    const fountainSpire = new THREE.CylinderGeometry(0.5, 0.8, 3.5, 8);
+    const fMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    const fMesh = new THREE.Mesh(fountainSpire, fMat);
+    fMesh.position.set(cx, 1.8, cz);
+    fMesh.castShadow = true;
+    lakeGroup.add(fMesh);
+
+    // Shoreline Walking Trail
     const trailRingGeo = new THREE.RingGeometry(w * 0.52, w * 0.56, 64);
     trailRingGeo.scale(1.0, d / w, 1.0);
     const trailRing = new THREE.Mesh(trailRingGeo, this.materials.paverMat);
     trailRing.rotation.x = -Math.PI / 2;
-    trailRing.position.set(cx, 0.038, cz);
+    trailRing.position.set(cx, 0.045, cz);
     trailRing.receiveShadow = true;
     lakeGroup.add(trailRing);
 
     this.subgroups.lake.add(lakeGroup);
   }
 
-  // 3. West Sports & Recreation Complex
   buildSportsComplex() {
     const sc = SPORTS_COMPLEX;
+    const tcX = sc.center.x;
+    const tcZ = sc.center.z;
+    const tL = sc.trackSize.length;
+    const tW = sc.trackSize.width;
+    const pL = sc.pitchSize.length;
+    const pW = sc.pitchSize.width;
+
     const sportsGroup = new THREE.Group();
     sportsGroup.name = 'SPORTS-COMPLEX';
 
-    const tL = sc.trackSize.length;
-    const tW = sc.trackSize.width;
-    const tcX = sc.center.x;
-    const tcZ = sc.center.z;
-
-    // Red Tartan Track Base
-    const trackBaseGeo = new THREE.BoxGeometry(tL, 0.06, tW);
-    trackBaseGeo.translate(tcX, 0.03, tcZ);
-    const trackMesh = new THREE.Mesh(trackBaseGeo, this.materials.tartanTrackMat);
+    // 1. Tartan Running Track Bed (Red Clay composite)
+    const trackBedGeo = new THREE.PlaneGeometry(tL, tW);
+    trackBedGeo.rotateX(-Math.PI / 2);
+    trackBedGeo.translate(tcX, 0.038, tcZ);
+    const trackMesh = new THREE.Mesh(trackBedGeo, this.materials.tartanTrackMat);
     trackMesh.receiveShadow = true;
     sportsGroup.add(trackMesh);
 
-    // Track Perimeter Border Curb
-    const trackCurbGeo = this.createBorderCurb(tL, tW, 0.35, 0.08);
-    trackCurbGeo.translate(tcX, 0.03, tcZ);
-    const trackCurb = new THREE.Mesh(trackCurbGeo, this.materials.curbMat);
-    trackCurb.castShadow = true;
-    trackCurb.receiveShadow = true;
-    sportsGroup.add(trackCurb);
-
-    // Inner Green Athletic / Soccer Pitch
-    const pL = sc.pitchSize.length;
-    const pW = sc.pitchSize.width;
+    // Inner Green Pitch / Football Field
     const pitchGeo = new THREE.PlaneGeometry(pL, pW);
     pitchGeo.rotateX(-Math.PI / 2);
-    pitchGeo.translate(tcX, 0.062, tcZ);
+    pitchGeo.translate(tcX, 0.042, tcZ);
     const pitchMesh = new THREE.Mesh(pitchGeo, this.materials.courtyardTurfMat);
     pitchMesh.receiveShadow = true;
     sportsGroup.add(pitchMesh);
 
-    // Pitch White Lines
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
-    const pitchLines = [];
+    // Field White Boundary Markings
+    const pitchLineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const lineThickness = 0.22;
+    const lines = [];
 
-    const bLines = [
-      { w: pL, d: 0.25, x: tcX, z: tcZ - pW * 0.5 },
-      { w: pL, d: 0.25, x: tcX, z: tcZ + pW * 0.5 },
-      { w: 0.25, d: pW, x: tcX - pL * 0.5, z: tcZ },
-      { w: 0.25, d: pW, x: tcX + pL * 0.5, z: tcZ },
-      { w: 0.25, d: pW, x: tcX, z: tcZ },
-      { w: 12, d: 0.25, x: tcX - pL * 0.5 + 6, z: tcZ - 10 },
-      { w: 12, d: 0.25, x: tcX - pL * 0.5 + 6, z: tcZ + 10 },
-      { w: 0.25, d: 20, x: tcX - pL * 0.5 + 12, z: tcZ },
-      { w: 12, d: 0.25, x: tcX + pL * 0.5 - 6, z: tcZ - 10 },
-      { w: 12, d: 0.25, x: tcX + pL * 0.5 - 6, z: tcZ + 10 },
-      { w: 0.25, d: 20, x: tcX + pL * 0.5 - 12, z: tcZ }
-    ];
+    const lN = new THREE.PlaneGeometry(pL, lineThickness);
+    lN.rotateX(-Math.PI / 2);
+    lN.translate(tcX, 0.044, tcZ - pW * 0.5);
+    lines.push(lN);
 
-    bLines.forEach(bl => {
-      const g = new THREE.PlaneGeometry(bl.w, bl.d);
-      g.rotateX(-Math.PI / 2);
-      g.translate(bl.x, 0.065, bl.z);
-      pitchLines.push(g);
-    });
+    const lS = new THREE.PlaneGeometry(pL, lineThickness);
+    lS.rotateX(-Math.PI / 2);
+    lS.translate(tcX, 0.044, tcZ + pW * 0.5);
+    lines.push(lS);
 
-    if (pitchLines.length > 0) {
-      const mergedLines = BufferGeometryUtils.mergeGeometries(pitchLines);
-      const linesMesh = new THREE.Mesh(mergedLines, lineMat);
-      sportsGroup.add(linesMesh);
-    }
+    const lW = new THREE.PlaneGeometry(lineThickness, pW);
+    lW.rotateX(-Math.PI / 2);
+    lW.translate(tcX - pL * 0.5, 0.044, tcZ);
+    lines.push(lW);
 
-    // Hardcourt Sports Area
+    const lE = new THREE.PlaneGeometry(lineThickness, pW);
+    lE.rotateX(-Math.PI / 2);
+    lE.translate(tcX + pL * 0.5, 0.044, tcZ);
+    lines.push(lE);
+
+    const lMid = new THREE.PlaneGeometry(lineThickness, pW);
+    lMid.rotateX(-Math.PI / 2);
+    lMid.translate(tcX, 0.044, tcZ);
+    lines.push(lMid);
+
+    const mergedPitchLines = BufferGeometryUtils.mergeGeometries(lines);
+    const linesMesh = new THREE.Mesh(mergedPitchLines, pitchLineMat);
+    sportsGroup.add(linesMesh);
+
+    // Track Curb Border
+    const tCurb = this.createBorderCurb(tL, tW, 0.35, 0.06);
+    tCurb.translate(tcX, 0.038, tcZ);
+    const tCurbMesh = new THREE.Mesh(tCurb, this.materials.curbMat);
+    tCurbMesh.receiveShadow = true;
+    sportsGroup.add(tCurbMesh);
+
+    // 2. Multi-Sport Hardcourts (Blue/Green acrylic courts south of track)
     const ccX = sc.courtsCenter.x;
     const ccZ = sc.courtsCenter.z;
     const cW = sc.courtsSize.width;
     const cD = sc.courtsSize.depth;
 
+    // Basketball / Tennis Surface Base
     const courtBaseGeo = new THREE.PlaneGeometry(cW, cD);
     courtBaseGeo.rotateX(-Math.PI / 2);
-    courtBaseGeo.translate(ccX, 0.03, ccZ);
-    const courtBase = new THREE.Mesh(courtBaseGeo, this.materials.courtGreenMat);
+    courtBaseGeo.translate(ccX, 0.038, ccZ);
+    const courtBase = new THREE.Mesh(courtBaseGeo, this.materials.courtBlueMat);
     courtBase.receiveShadow = true;
     sportsGroup.add(courtBase);
 
-    const pad1Geo = new THREE.PlaneGeometry(cW * 0.44, cD * 0.8);
-    pad1Geo.rotateX(-Math.PI / 2);
-    pad1Geo.translate(ccX - cW * 0.24, 0.033, ccZ);
-    const pad1 = new THREE.Mesh(pad1Geo, this.materials.courtBlueMat);
-    pad1.receiveShadow = true;
-    sportsGroup.add(pad1);
+    // Dual inner court playing surfaces
+    const c1Geo = new THREE.PlaneGeometry(cW * 0.44, cD * 0.82);
+    c1Geo.rotateX(-Math.PI / 2);
+    c1Geo.translate(ccX - cW * 0.24, 0.042, ccZ);
+    const c1Mesh = new THREE.Mesh(c1Geo, this.materials.courtGreenMat);
+    sportsGroup.add(c1Mesh);
 
-    const pad2Geo = new THREE.PlaneGeometry(cW * 0.44, cD * 0.8);
-    pad2Geo.rotateX(-Math.PI / 2);
-    pad2Geo.translate(ccX + cW * 0.24, 0.033, ccZ);
-    const pad2 = new THREE.Mesh(pad2Geo, this.materials.courtBlueMat);
-    pad2.receiveShadow = true;
-    sportsGroup.add(pad2);
+    const c2Geo = new THREE.PlaneGeometry(cW * 0.44, cD * 0.82);
+    c2Geo.rotateX(-Math.PI / 2);
+    c2Geo.translate(ccX + cW * 0.24, 0.042, ccZ);
+    const c2Mesh = new THREE.Mesh(c2Geo, this.materials.courtGreenMat);
+    sportsGroup.add(c2Mesh);
 
-    const courtCurbGeo = this.createBorderCurb(cW, cD, 0.30, 0.08);
-    courtCurbGeo.translate(ccX, 0.03, ccZ);
-    const courtCurb = new THREE.Mesh(courtCurbGeo, this.materials.curbMat);
-    courtCurb.castShadow = true;
-    courtCurb.receiveShadow = true;
-    sportsGroup.add(courtCurb);
+    const cCurb = this.createBorderCurb(cW, cD, 0.3, 0.06);
+    cCurb.translate(ccX, 0.038, ccZ);
+    const cCurbMesh = new THREE.Mesh(cCurb, this.materials.curbMat);
+    sportsGroup.add(cCurbMesh);
 
     this.subgroups.sports.add(sportsGroup);
   }
 
-  // 4. District Lawns, The Great Lawn & Hero Building Terrace
   buildDistrictGroundZones() {
     const zoneGeos = [];
     const curbGeos = [];
 
-    // Defined Campus Lawns (from CAMPUS_LAWNS)
     CAMPUS_LAWNS.forEach(lawn => {
-      const lawnGeo = new THREE.PlaneGeometry(lawn.width, lawn.depth);
-      lawnGeo.rotateX(-Math.PI / 2);
-      lawnGeo.translate(lawn.center.x, 0.016, lawn.center.z);
-      zoneGeos.push(lawnGeo);
+      const g = new THREE.PlaneGeometry(lawn.width, lawn.depth);
+      g.rotateX(-Math.PI / 2);
+      g.translate(lawn.center.x, 0.022, lawn.center.z);
+      zoneGeos.push(g);
 
-      const curbGeo = this.createBorderCurb(lawn.width, lawn.depth, lawn.curbWidth || 0.30, lawn.curbHeight || 0.08);
-      curbGeo.translate(lawn.center.x, 0.016, lawn.center.z);
-      curbGeos.push(curbGeo);
+      const curb = this.createBorderCurb(lawn.width, lawn.depth, 0.28, 0.05);
+      curb.translate(lawn.center.x, 0.022, lawn.center.z);
+      curbGeos.push(curb);
     });
 
     if (zoneGeos.length > 0) {
       const mergedLawn = BufferGeometryUtils.mergeGeometries(zoneGeos);
       const lawnMesh = new THREE.Mesh(mergedLawn, this.materials.courtyardTurfMat);
       lawnMesh.receiveShadow = true;
-      lawnMesh.userData = { id: 'CAMPUS-MASTER-LAWNS', type: 'CAMPUS_LAWN_SYSTEM' };
       this.subgroups.lawns.add(lawnMesh);
     }
 
@@ -282,7 +294,6 @@ export class LandscapeManager {
       this.subgroups.lawns.add(curbMesh);
     }
 
-    // Hero Building Architectural Foundation Terrace
     this.buildHeroBuildingTerrace();
   }
 
@@ -298,7 +309,6 @@ export class LandscapeManager {
     terraceMesh.receiveShadow = true;
     terraceGroup.add(terraceMesh);
 
-    // Stone step curb around terrace perimeter
     const tCurbGeo = this.createBorderCurb(62.0, 50.0, 0.35, 0.06);
     tCurbGeo.translate(0, 0.024, 0);
     const tCurbMesh = new THREE.Mesh(tCurbGeo, this.materials.curbMat);
@@ -333,70 +343,27 @@ export class LandscapeManager {
     hedgeMesh.receiveShadow = true;
     terraceGroup.add(hedgeMesh);
 
-    // Garden Mulch Planting Beds
-    const mulchMat = this.materials.mulchMat;
-    const mulchBeds = [];
-
-    const mN = new THREE.PlaneGeometry(63.0, 1.4);
-    mN.rotateX(-Math.PI / 2);
-    mN.translate(0, 0.026, -26.3);
-    mulchBeds.push(mN);
-
-    const mSL = new THREE.PlaneGeometry(23.0, 1.4);
-    mSL.rotateX(-Math.PI / 2);
-    mSL.translate(-18.0, 0.026, 26.3);
-    const mSR = new THREE.PlaneGeometry(23.0, 1.4);
-    mSR.rotateX(-Math.PI / 2);
-    mSR.translate(18.0, 0.026, 26.3);
-    mulchBeds.push(mSL, mSR);
-
-    const mW = new THREE.PlaneGeometry(1.4, 51.0);
-    mW.rotateX(-Math.PI / 2);
-    mW.translate(-32.3, 0.026, 0);
-    mulchBeds.push(mW);
-
-    const mE = new THREE.PlaneGeometry(1.4, 51.0);
-    mE.rotateX(-Math.PI / 2);
-    mE.translate(32.3, 0.026, 0);
-    mulchBeds.push(mE);
-
-    const mergedMulch = BufferGeometryUtils.mergeGeometries(mulchBeds);
-    const mulchMesh = new THREE.Mesh(mergedMulch, mulchMat);
-    mulchMesh.receiveShadow = true;
-    terraceGroup.add(mulchMesh);
-
     this.subgroups.buildingTerraces.add(terraceGroup);
   }
 
-  // 5. Realistic Campus Boundary & Southern Regional Highway
   buildCampusBoundary() {
     const b = CAMPUS_BOUNDS;
-    // Campus Perimeter Landscape Green Belt & Boundary Posts
-    // Eliminates hard enclosing prison walls so campus flows seamlessly into the regional terrain
     const pillarGeos = [];
-    const pillarMat = new THREE.MeshStandardMaterial({
-      color: 0x64748b,
-      roughness: 0.6,
-      metalness: 0.2
-    });
+    const pillarMat = this.materials.curbMat;
 
-    // Elegant architectural boundary demarcation pillars spaced every 60m along perimeter
+    const addPillar = (x, z) => {
+      const p = new THREE.BoxGeometry(0.9, 1.6, 0.9);
+      p.translate(x, 0.8, z);
+      pillarGeos.push(p);
+    };
+
     for (let x = b.minX; x <= b.maxX; x += 60) {
-      if (Math.abs(x - (-10)) < 35) continue; // Leave entrance portal open
-      // North & South perimeter pillars
-      const pN = new THREE.BoxGeometry(0.8, 1.4, 0.8);
-      pN.translate(x, 0.7, b.minZ);
-      const pS = new THREE.BoxGeometry(0.8, 1.4, 0.8);
-      pS.translate(x, 0.7, b.maxZ);
-      pillarGeos.push(pN, pS);
+      addPillar(x, b.minZ);
+      if (Math.abs(x) > 30) addPillar(x, b.maxZ);
     }
-
     for (let z = b.minZ; z <= b.maxZ; z += 60) {
-      const pW = new THREE.BoxGeometry(0.8, 1.4, 0.8);
-      pW.translate(b.minX, 0.7, z);
-      const pE = new THREE.BoxGeometry(0.8, 1.4, 0.8);
-      pE.translate(b.maxX, 0.7, z);
-      pillarGeos.push(pW, pE);
+      addPillar(b.minX, z);
+      addPillar(b.maxX, z);
     }
 
     if (pillarGeos.length > 0) {
@@ -408,49 +375,139 @@ export class LandscapeManager {
     }
   }
 
-  // 6. Master Arboriculture System (With strict road carriageway clearances)
+  // ============================================================================
+  // INSTANCED 12-SPECIES ARBORICULTURE LIBRARY
+  // ============================================================================
   buildInstancedForest() {
     const allTrees = this.generateTreeDistribution();
 
-    const treesType1 = allTrees.filter(t => t.type === 1);
-    const treesType2 = allTrees.filter(t => t.type === 2);
-    const treesType3 = allTrees.filter(t => t.type === 3);
-    const treesType4 = allTrees.filter(t => t.type === 4);
+    // 12 Distinct Botanical Species matching user reference:
+    const speciesConfig = [
+      // 1. Avenue Tree (Large, 8-12m)
+      {
+        id: 1,
+        trunkGeo: new THREE.CylinderGeometry(0.24, 0.38, 3.4, 8),
+        crownGeo: this.createAvenueCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.deciduousCrownMat,
+        trunkY: 1.7, crownY: 4.6
+      },
+      // 2. Flowering Tree Pink (Cherry / Rosea, 6-12m)
+      {
+        id: 2,
+        trunkGeo: new THREE.CylinderGeometry(0.18, 0.28, 2.8, 8),
+        crownGeo: this.createPinkFloweringCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.blossomCrownMat,
+        trunkY: 1.4, crownY: 3.8
+      },
+      // 3. Ornamental Tree Yellow (Amaltas / Golden Trumpet, 5-8m)
+      {
+        id: 3,
+        trunkGeo: new THREE.CylinderGeometry(0.16, 0.25, 2.4, 8),
+        crownGeo: this.createOrnamentalYellowCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.yellowCrownMat,
+        trunkY: 1.2, crownY: 3.2
+      },
+      // 4. Shade Tree (Medium-Large, 10-15m)
+      {
+        id: 4,
+        trunkGeo: new THREE.CylinderGeometry(0.28, 0.44, 3.8, 8),
+        crownGeo: this.createShadeCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.shadeCrownMat,
+        trunkY: 1.9, crownY: 5.2
+      },
+      // 5. Palm Tree (Tropical Royal Palm, 6-10m)
+      {
+        id: 5,
+        trunkGeo: new THREE.CylinderGeometry(0.16, 0.24, 4.8, 8),
+        crownGeo: this.createPalmCrownGeometry(),
+        trunkMat: this.materials.palmTrunkMat,
+        crownMat: this.materials.palmFrondMat,
+        trunkY: 2.4, crownY: 4.9
+      },
+      // 6. Columnar Tree (Italian Cypress / Columnar Poplar, 8-12m)
+      {
+        id: 6,
+        trunkGeo: new THREE.CylinderGeometry(0.14, 0.22, 1.8, 8),
+        crownGeo: this.createColumnarCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.columnarCrownMat,
+        trunkY: 0.9, crownY: 4.8
+      },
+      // 7. Small Landscape Tree (Courtyard olive/deciduous, 4-6m)
+      {
+        id: 7,
+        trunkGeo: new THREE.CylinderGeometry(0.14, 0.22, 2.0, 7),
+        crownGeo: this.createSmallTreeCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.ornamentalCrownMat,
+        trunkY: 1.0, crownY: 2.7
+      },
+      // 8. Flowering Tree Red/Orange (Gulmohar / Flamboyant, 5-9m)
+      {
+        id: 8,
+        trunkGeo: new THREE.CylinderGeometry(0.18, 0.28, 2.6, 8),
+        crownGeo: this.createRedFloweringCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.redCrownMat,
+        trunkY: 1.3, crownY: 3.6
+      },
+      // 9. Jacaranda-like Tree Purple (Lavender purple, 6-10m)
+      {
+        id: 9,
+        trunkGeo: new THREE.CylinderGeometry(0.18, 0.26, 2.8, 8),
+        crownGeo: this.createJacarandaCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.jacarandaCrownMat,
+        trunkY: 1.4, crownY: 3.8
+      },
+      // 10. Light Canopy Tree (Birch / Acacia airy, 5-8m)
+      {
+        id: 10,
+        trunkGeo: new THREE.CylinderGeometry(0.14, 0.22, 2.5, 7),
+        crownGeo: this.createLightCanopyCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.lightCanopyMat,
+        trunkY: 1.25, crownY: 3.4
+      },
+      // 11. Shrub Tree Multi-stem (Flowering hedge bush, 2-4m)
+      {
+        id: 11,
+        trunkGeo: new THREE.CylinderGeometry(0.10, 0.16, 0.8, 6),
+        crownGeo: this.createShrubBushCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.shrubBushMat,
+        trunkY: 0.4, crownY: 1.4
+      },
+      // 12. Conifer Tree Evergreen (Pine / Spruce, 8-14m)
+      {
+        id: 12,
+        trunkGeo: new THREE.CylinderGeometry(0.20, 0.32, 2.8, 8),
+        crownGeo: this.createConiferCrownGeometry(),
+        trunkMat: this.materials.trunkMat,
+        crownMat: this.materials.coniferCrownMat,
+        trunkY: 1.4, crownY: 5.0
+      }
+    ];
 
-    this.createInstancedSpecies(
-      treesType1,
-      new THREE.CylinderGeometry(0.22, 0.35, 3.2, 8),
-      this.createDeciduousCrownGeometry(),
-      this.materials.trunkMat,
-      this.materials.deciduousCrownMat
-    );
-
-    this.createInstancedSpecies(
-      treesType2,
-      new THREE.CylinderGeometry(0.18, 0.3, 3.0, 8),
-      this.createConiferCrownGeometry(),
-      this.materials.trunkMat,
-      this.materials.coniferCrownMat
-    );
-
-    this.createInstancedSpecies(
-      treesType3,
-      new THREE.CylinderGeometry(0.16, 0.24, 2.5, 8),
-      this.createOrnamentalCrownGeometry(),
-      this.materials.trunkMat,
-      this.materials.ornamentalCrownMat
-    );
-
-    this.createInstancedSpecies(
-      treesType4,
-      new THREE.CylinderGeometry(0.18, 0.26, 2.6, 8),
-      this.createBlossomCrownGeometry(),
-      this.materials.trunkMat,
-      this.materials.blossomCrownMat
-    );
+    speciesConfig.forEach(sp => {
+      const list = allTrees.filter(t => t.type === sp.id);
+      this.createInstancedSpecies(
+        list,
+        sp.trunkGeo,
+        sp.crownGeo,
+        sp.trunkMat,
+        sp.crownMat,
+        sp.trunkY,
+        sp.crownY
+      );
+    });
   }
 
-  createInstancedSpecies(treeList, trunkBaseGeo, crownBaseGeo, trunkMat, crownMat) {
+  createInstancedSpecies(treeList, trunkBaseGeo, crownBaseGeo, trunkMat, crownMat, trunkY = 1.6, crownY = 3.6) {
     if (!treeList || treeList.length === 0) return;
 
     const count = treeList.length;
@@ -468,13 +525,13 @@ export class LandscapeManager {
       const t = treeList[i];
       const scale = t.scale || 1.0;
 
-      dummy.position.set(t.x, 1.6 * scale, t.z);
+      dummy.position.set(t.x, trunkY * scale, t.z);
       dummy.rotation.set(0, t.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
       trunkInst.setMatrixAt(i, dummy.matrix);
 
-      dummy.position.set(t.x, 3.6 * scale, t.z);
+      dummy.position.set(t.x, crownY * scale, t.z);
       dummy.rotation.set(0, t.rotY, 0);
       dummy.scale.set(scale, scale, scale);
       dummy.updateMatrix();
@@ -488,39 +545,146 @@ export class LandscapeManager {
     this.subgroups.trees.add(crownInst);
   }
 
-  createDeciduousCrownGeometry() {
-    const s1 = new THREE.SphereGeometry(2.5, 10, 8);
-    s1.scale(1.2, 0.85, 1.2);
-    const s2 = new THREE.SphereGeometry(1.7, 8, 8);
-    s2.translate(0.6, 1.2, -0.4);
+  // --------------------------------------------------------------------------
+  // PROCEDURAL CROWN GEOMETRIES FOR 12 SPECIES
+  // --------------------------------------------------------------------------
+  // 1. Avenue Tree: Broad organic multi-canopy
+  createAvenueCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(2.6, 9, 8);
+    s1.scale(1.25, 0.82, 1.25);
+    const s2 = new THREE.SphereGeometry(1.9, 8, 7);
+    s2.scale(1.1, 0.85, 1.1);
+    s2.translate(0.9, 1.2, -0.6);
+    const s3 = new THREE.SphereGeometry(1.7, 8, 7);
+    s3.scale(1.0, 0.8, 1.0);
+    s3.translate(-0.8, 1.0, 0.7);
+    return BufferGeometryUtils.mergeGeometries([s1, s2, s3]);
+  }
+
+  // 2. Flowering Pink: Spreading umbrella canopy
+  createPinkFloweringCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(2.3, 9, 8);
+    s1.scale(1.35, 0.75, 1.35);
+    const s2 = new THREE.SphereGeometry(1.6, 8, 7);
+    s2.translate(0.6, 0.8, -0.5);
+    const s3 = new THREE.SphereGeometry(1.5, 8, 7);
+    s3.translate(-0.7, 0.7, 0.6);
+    return BufferGeometryUtils.mergeGeometries([s1, s2, s3]);
+  }
+
+  // 3. Ornamental Yellow: Symmetrical rounded dome
+  createOrnamentalYellowCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(1.9, 8, 8);
+    s1.scale(1.2, 0.95, 1.2);
+    const s2 = new THREE.SphereGeometry(1.3, 7, 7);
+    s2.translate(0.3, 0.9, 0.2);
     return BufferGeometryUtils.mergeGeometries([s1, s2]);
   }
 
+  // 4. Large Shade Tree: Expansive tall dense crown
+  createShadeCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(3.0, 10, 8);
+    s1.scale(1.3, 0.95, 1.3);
+    const s2 = new THREE.SphereGeometry(2.2, 8, 7);
+    s2.translate(0, 1.5, 0);
+    const s3 = new THREE.SphereGeometry(1.8, 8, 7);
+    s3.translate(1.2, 0.5, 0.8);
+    return BufferGeometryUtils.mergeGeometries([s1, s2, s3]);
+  }
+
+  // 5. Palm Tree: Radial outward-arching fan fronds
+  createPalmCrownGeometry() {
+    const fronds = [];
+    for (let i = 0; i < 9; i++) {
+      const ang = (i / 9) * Math.PI * 2;
+      const f = new THREE.ConeGeometry(0.55, 3.2, 5);
+      f.rotateX(Math.PI / 2.7);
+      f.rotateY(ang);
+      f.translate(Math.sin(ang) * 1.3, 0.2, Math.cos(ang) * 1.3);
+      fronds.push(f);
+    }
+    const centerNut = new THREE.SphereGeometry(0.65, 6, 6);
+    centerNut.translate(0, 0.3, 0);
+    fronds.push(centerNut);
+    return BufferGeometryUtils.mergeGeometries(fronds);
+  }
+
+  // 6. Columnar Tree: Tall slender vertical oval
+  createColumnarCrownGeometry() {
+    const colGeo = new THREE.ConeGeometry(1.2, 7.5, 8);
+    colGeo.scale(1.0, 1.0, 0.85);
+    const baseSphere = new THREE.SphereGeometry(1.2, 8, 8);
+    baseSphere.scale(1.0, 1.8, 0.85);
+    baseSphere.translate(0, 2.0, 0);
+    return BufferGeometryUtils.mergeGeometries([colGeo, baseSphere]);
+  }
+
+  // 7. Small Landscape Tree: Compact rounded canopy
+  createSmallTreeCrownGeometry() {
+    const s = new THREE.SphereGeometry(1.5, 8, 7);
+    s.scale(1.2, 0.9, 1.2);
+    return s;
+  }
+
+  // 8. Flowering Red/Orange: Broad horizontal spreading crown
+  createRedFloweringCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(2.2, 9, 8);
+    s1.scale(1.4, 0.72, 1.4);
+    const s2 = new THREE.SphereGeometry(1.5, 8, 7);
+    s2.translate(0.7, 0.7, 0.5);
+    return BufferGeometryUtils.mergeGeometries([s1, s2]);
+  }
+
+  // 9. Jacaranda-like Tree: Tiered rounded purple puffs
+  createJacarandaCrownGeometry() {
+    const s1 = new THREE.SphereGeometry(2.2, 9, 8);
+    s1.scale(1.3, 0.8, 1.3);
+    const s2 = new THREE.SphereGeometry(1.6, 8, 7);
+    s2.translate(-0.6, 0.9, -0.4);
+    const s3 = new THREE.SphereGeometry(1.4, 8, 7);
+    s3.translate(0.7, 0.8, 0.6);
+    return BufferGeometryUtils.mergeGeometries([s1, s2, s3]);
+  }
+
+  // 10. Light Canopy Tree: Airy flattened layered foliage
+  createLightCanopyCrownGeometry() {
+    const l1 = new THREE.SphereGeometry(2.0, 7, 6);
+    l1.scale(1.4, 0.6, 1.4);
+    const l2 = new THREE.SphereGeometry(1.6, 7, 6);
+    l2.scale(1.2, 0.55, 1.2);
+    l2.translate(0.5, 0.9, 0.4);
+    return BufferGeometryUtils.mergeGeometries([l1, l2]);
+  }
+
+  // 11. Shrub Tree Multi-stem: Low ground cluster
+  createShrubBushCrownGeometry() {
+    const b1 = new THREE.SphereGeometry(1.1, 7, 6);
+    b1.scale(1.3, 0.9, 1.3);
+    const b2 = new THREE.SphereGeometry(0.9, 6, 5);
+    b2.translate(0.6, -0.1, 0.4);
+    const b3 = new THREE.SphereGeometry(0.85, 6, 5);
+    b3.translate(-0.5, -0.1, -0.4);
+    return BufferGeometryUtils.mergeGeometries([b1, b2, b3]);
+  }
+
+  // 12. Conifer Tree Evergreen: 3-Tiered tapered cones
   createConiferCrownGeometry() {
-    const c1 = new THREE.ConeGeometry(1.7, 4.4, 8);
-    c1.translate(0, 0.9, 0);
-    const c2 = new THREE.ConeGeometry(1.3, 3.4, 8);
-    c2.translate(0, 2.4, 0);
-    return BufferGeometryUtils.mergeGeometries([c1, c2]);
+    const c1 = new THREE.ConeGeometry(2.0, 4.5, 8);
+    c1.translate(0, 0.8, 0);
+    const c2 = new THREE.ConeGeometry(1.6, 3.8, 8);
+    c2.translate(0, 2.5, 0);
+    const c3 = new THREE.ConeGeometry(1.1, 2.8, 8);
+    c3.translate(0, 4.2, 0);
+    return BufferGeometryUtils.mergeGeometries([c1, c2, c3]);
   }
 
-  createOrnamentalCrownGeometry() {
-    const s = new THREE.SphereGeometry(1.9, 8, 8);
-    s.scale(1.25, 0.95, 1.15);
-    return s;
-  }
-
-  createBlossomCrownGeometry() {
-    const s = new THREE.SphereGeometry(2.1, 8, 8);
-    s.scale(1.3, 0.9, 1.3);
-    return s;
-  }
-
-  // Master tree distribution with strict road carriageway setbacks
+  // ============================================================================
+  // PROGRAMMATIC LANDSCAPE DISTRIBUTION (NON-RANDOM CAMPUS ARCHITECTURE)
+  // ============================================================================
   generateTreeDistribution() {
     const trees = [];
 
-    // Helper: distance from point (px, pz) to line segment (ax, az) - (bx, bz)
+    // Road distance helper
     const distToSegment = (px, pz, ax, az, bx, bz) => {
       const dx = bx - ax;
       const dz = bz - az;
@@ -531,14 +695,13 @@ export class LandscapeManager {
       return Math.hypot(px - (ax + t * dx), pz - (az + t * dz));
     };
 
-    // Collect all road segments with their buffer clearance requirements
     const roadClearances = [];
     PRIMARY_CAMPUS_ROADS.forEach(r => {
       for (let i = 0; i < r.points.length - 1; i++) {
         roadClearances.push({
           a: r.points[i],
           b: r.points[i + 1],
-          reqDist: (r.width * 0.5) + 3.0 // 4.25m + 3.0m = 7.25m clearance
+          reqDist: (r.width * 0.5) + 2.2
         });
       }
     });
@@ -547,7 +710,7 @@ export class LandscapeManager {
         roadClearances.push({
           a: r.points[i],
           b: r.points[i + 1],
-          reqDist: (r.width * 0.5) + 2.5 // 3.0m + 2.5m = 5.5m clearance
+          reqDist: (r.width * 0.5) + 1.8
         });
       }
     });
@@ -556,41 +719,44 @@ export class LandscapeManager {
         roadClearances.push({
           a: r.points[i],
           b: r.points[i + 1],
-          reqDist: (r.width * 0.5) + 2.0 // 2.5m + 2.0m = 4.5m clearance
+          reqDist: (r.width * 0.5) + 1.6
         });
       }
     });
 
-    const addTree = (x, z, type, scaleMin = 0.9, scaleMax = 1.3) => {
-      // 1. Hero Building Footprint & Forecourt
-      if (x > -32 && x < 32 && z > -26 && z < 26) return;
-      if (x > -6 && x < 6 && z >= 26 && z <= 65) return;
+    const addTree = (x, z, type, scaleMin = 0.85, scaleMax = 1.25) => {
+      // 1. Hero Building & Forecourt open visual corridor
+      if (x > -34 && x < 34 && z > -26 && z < 26) return;
+      if (x > -7 && x < 7 && z >= 26 && z <= 52) return;
 
-      // 2. Roundabouts
-      // Central Circus at (0, 85), outerRadius = 20m
-      const dCent = Math.hypot(x - 0, z - 85);
-      if (dCent < 22.5 && dCent > 2.0) return; // leave space for center island tree only
+      // 2. Supporting Building Footprint Clearances
+      for (const plot of FUTURE_BUILDING_PLOTS) {
+        const halfW = (plot.size.width * 0.5) + 4.5;
+        const halfD = (plot.size.depth * 0.5) + 4.5;
+        if (x >= plot.center.x - halfW && x <= plot.center.x + halfW &&
+            z >= plot.center.z - halfD && z <= plot.center.z + halfD) {
+          return;
+        }
+      }
 
-      // West Circus at (-150, 35), outerRadius = 14m
-      const dWest = Math.hypot(x - (-150), z - 35);
-      if (dWest < 16.5) return;
+      // 3. Roundabout Carriageway Clearances
+      for (const rb of CAMPUS_ROUNDABOUTS) {
+        const dRb = Math.hypot(x - rb.center.x, z - rb.center.z);
+        if (dRb < rb.outerRadius + 2.0 && dRb > 2.2) return;
+      }
 
-      // 3. Central Plaza at (-70, -10), radius = 32m
-      const dPlaza = Math.hypot(x - (-70), z - (-10));
-      if (dPlaza < 34.0) return;
+      // 4. Lake Water Basin Clearance (95, 145)
+      const dxL = (x - 95) / 47;
+      const dzL = (z - 145) / 33;
+      if (dxL * dxL + dzL * dzL < 0.88) return;
 
-      // 4. Eco-Lake water basin
-      const dxL = (x - 125) / 44;
-      const dzL = (z - 185) / 28;
-      if (dxL * dxL + dzL * dzL < 0.82) return;
+      // 5. Sports Complex Running Track & Courts (-225, -15)
+      if (x > -278 && x < -172 && z > -48 && z < 62) return;
 
-      // 5. Sports Track at (-235, 50)
-      if (x > -285 && x < -185 && z > 20 && z < 80) return;
-
-      // 6. Strict Road Carriageway Clearances
+      // 6. Road Carriageway Clearances
       for (const rc of roadClearances) {
         if (distToSegment(x, z, rc.a.x, rc.a.z, rc.b.x, rc.b.z) < rc.reqDist) {
-          return; // Too close to road carriageway!
+          return;
         }
       }
 
@@ -600,102 +766,217 @@ export class LandscapeManager {
     };
 
     // ------------------------------------------------------------------------
-    // GROUP 1: SOUTHERN GATEWAY SPINE CANOPY TREES (Framing, 3m+ setback)
+    // ZONE A: CEREMONIAL ENTRANCE AVENUE & AXIS (South Gate to Circus)
     // ------------------------------------------------------------------------
-    for (let z = 135; z <= 280; z += 18) {
-      addTree(-18, z, 1, 1.1, 1.35); // West flanking row
-      addTree(12, z, 1, 1.1, 1.35);  // East flanking row
-    }
-
-    // ------------------------------------------------------------------------
-    // GROUP 2: THE GREAT LAWN PERIMETER FRAMING GROVES (70% open lawn)
-    // ------------------------------------------------------------------------
-    for (let z = -55; z <= 40; z += 14) {
-      addTree(-124 + (Math.random() - 0.5) * 6, z, (z % 28 === 0 ? 2 : 1), 1.05, 1.35);
-      if (Math.random() > 0.45) {
-        addTree(-114 + (Math.random() - 0.5) * 4, z + 6, 3, 0.9, 1.15);
+    // Formal rhythmic pairs of Type 1 (Large Avenue Trees) along 12m boulevard
+    for (let z = 110; z <= 230; z += 15) {
+      addTree(-16, z, 1, 1.05, 1.25);
+      addTree(16, z, 1, 1.05, 1.25);
+      // Secondary understory flowering bushes
+      if (z % 30 === 0) {
+        addTree(-19, z + 6, 11, 0.9, 1.1);
+        addTree(19, z + 6, 11, 0.9, 1.1);
       }
     }
-    for (let x = -120; x <= -40; x += 16) {
-      addTree(x, -58 + (Math.random() - 0.5) * 6, (x % 32 === 0 ? 2 : 1), 1.05, 1.35);
+
+    // Gate Monument Entry Palm Grouping (Type 5) & Red Flowering Accents (Type 8)
+    addTree(-24, 252, 5, 1.1, 1.25);
+    addTree(-18, 254, 5, 1.0, 1.15);
+    addTree(18, 254, 5, 1.0, 1.15);
+    addTree(24, 252, 5, 1.1, 1.25);
+    addTree(-28, 250, 8, 1.0, 1.2);
+    addTree(28, 250, 8, 1.0, 1.2);
+
+    // Central Circus Island at (0, 86): Specimen Tree + Floral Beds
+    trees.push({ x: 0, z: 86, type: 8, scale: 1.35, rotY: 0.6 }); // Red Flamboyant Specimen
+    trees.push({ x: -2.8, z: 85, type: 5, scale: 1.1, rotY: 1.2 }); // Palm
+    trees.push({ x: 2.8, z: 87, type: 5, scale: 1.1, rotY: 2.8 });  // Palm
+    trees.push({ x: 0, z: 89, type: 11, scale: 0.9, rotY: 0 });     // Shrub
+    trees.push({ x: 0, z: 83, type: 11, scale: 0.9, rotY: 1.5 });   // Shrub
+
+    // ------------------------------------------------------------------------
+    // ZONE B: HERO BUILDING FORECOURT & CIVIC CORE (0, 0)
+    // ------------------------------------------------------------------------
+    // Symmetrical Columnar framing (Type 6) along arrival promenade
+    for (let z = 54; z >= 32; z -= 11) {
+      addTree(-18, z, 6, 1.0, 1.2);
+      addTree(18, z, 6, 1.0, 1.2);
+      addTree(-21, z, 11, 0.8, 1.0); // Hedge shrub
+      addTree(21, z, 11, 0.8, 1.0);
     }
-    for (let x = -120; x <= -45; x += 16) {
-      addTree(x, 46 + (Math.random() - 0.5) * 4, (x % 32 === 0 ? 4 : 1), 1.0, 1.3);
+    // Corner accent pines/columnars at terrace perimeter
+    addTree(-36, 28, 6, 1.1, 1.25);
+    addTree(36, 28, 6, 1.1, 1.25);
+    addTree(-36, -28, 6, 1.1, 1.25);
+    addTree(36, -28, 6, 1.1, 1.25);
+
+    // Central Core Circular Ring Road Lawn (Radius ~45m around Hero Building)
+    for (let ang = 0; ang < Math.PI * 2; ang += 0.32) {
+      const rx = Math.cos(ang) * 44;
+      const rz = Math.sin(ang) * 44;
+      // Skip southern entrance axis corridor
+      if (rz > 15 && Math.abs(rx) < 22) continue;
+      const sp = (Math.random() > 0.5) ? 7 : (Math.random() > 0.5 ? 3 : 10);
+      addTree(rx, rz, sp, 0.9, 1.15);
     }
 
     // ------------------------------------------------------------------------
-    // GROUP 3: CENTRAL CIRCUS FEATURE & HERO BUILDING ACCENTS
+    // ZONE C: CENTRAL LAKE & ISLAND WATERFRONT (Zone 12 at 95, 145)
     // ------------------------------------------------------------------------
-    // Central Circus Island Centerpiece Specimen Tree
-    trees.push({ x: 0, z: 85, type: 4, scale: 1.5, rotY: 0.8 });
-    trees.push({ x: -3.5, z: 83.5, type: 3, scale: 1.1, rotY: 2.1 });
-    trees.push({ x: 3.5, z: 86.5, type: 3, scale: 1.1, rotY: 1.4 });
+    // Center Island Grouping: Pink Flowering Specimen (Type 2) + Palms (Type 5)
+    trees.push({ x: 95, z: 145, type: 2, scale: 1.4, rotY: 0.4 });
+    trees.push({ x: 92, z: 147, type: 5, scale: 1.2, rotY: 1.1 });
+    trees.push({ x: 98, z: 143, type: 5, scale: 1.15, rotY: 2.3 });
+    trees.push({ x: 95, z: 148, type: 11, scale: 0.9, rotY: 0.8 });
 
-    // Forecourt Promenade Flanking Trees
-    for (let z = 55; z >= 34; z -= 14) {
-      addTree(16, z, 3, 0.95, 1.15);
-      addTree(-16, z, 3, 0.95, 1.15);
-    }
-    // Terrace Corner Symmetrical Accent Trees
-    addTree(32, 28, 2, 1.15, 1.3);
-    addTree(-32, 28, 2, 1.15, 1.3);
-    addTree(32, -28, 2, 1.15, 1.3);
-    addTree(-32, -28, 2, 1.15, 1.3);
-
-    // ------------------------------------------------------------------------
-    // GROUP 4: ECO-LAKE & CENTER ISLAND BLOSSOMS
-    // ------------------------------------------------------------------------
-    trees.push({ x: 125, z: 185, type: 4, scale: 1.45, rotY: 0.5 });
-    trees.push({ x: 121, z: 187, type: 4, scale: 1.25, rotY: 1.2 });
-    trees.push({ x: 129, z: 183, type: 1, scale: 1.25, rotY: 2.1 });
-
-    for (let a = 0; a < Math.PI * 2; a += 0.32) {
-      const rx = 125 + Math.cos(a) * 53;
-      const rz = 185 + Math.sin(a) * 37;
-      const sp = (Math.random() > 0.4) ? 4 : 1;
-      addTree(rx, rz, sp, 0.95, 1.3);
+    // Shoreline Lakeside Promenade: Pink Flowering (Type 2), Palms (Type 5), Shade (Type 4)
+    for (let a = 0; a < Math.PI * 2; a += 0.28) {
+      const lx = 95 + Math.cos(a) * 53;
+      const lz = 145 + Math.sin(a) * 37;
+      let sp = 2; // Pink Flowering dominant
+      const rnd = Math.random();
+      if (rnd < 0.45) sp = 2;
+      else if (rnd < 0.70) sp = 5; // Palm
+      else if (rnd < 0.85) sp = 4; // Shade
+      else sp = 11; // Shrub
+      addTree(lx, lz, sp, 0.9, 1.25);
     }
 
-    // East Academic & Technology Quad Trees
-    const eastTrees = [
-      { x: 180, z: 25 }, { x: 215, z: 25 }, { x: 195, z: 50 },
-      { x: 175, z: -10 }, { x: 215, z: -10 }, { x: 195, z: -35 },
-      { x: 175, z: -60 }, { x: 205, z: -60 }, { x: 245, z: -35 },
-      { x: 155, z: -90 }, { x: 190, z: -90 }, { x: 220, z: -90 }
+    // ------------------------------------------------------------------------
+    // ZONE D: ACADEMIC & RESEARCH DISTRICT (North Quad - Buildings 2, 3, 4)
+    // ------------------------------------------------------------------------
+    // Academic Green Quad Courtyard: Jacaranda Purple (Type 9) + Yellow (Type 3)
+    for (let x = -85; x <= 85; x += 16) {
+      for (let z = -98; z >= -120; z -= 14) {
+        const sp = (Math.random() > 0.55) ? 9 : 3;
+        addTree(x + (Math.random() - 0.5) * 5, z + (Math.random() - 0.5) * 5, sp, 0.95, 1.25);
+      }
+    }
+    // Behind Academic Blocks buffer: Light canopy (Type 10) + Conifer (Type 12)
+    for (let x = -130; x <= 130; x += 22) {
+      addTree(x, -172 + (Math.random() - 0.5) * 8, 10, 0.9, 1.2);
+      addTree(x + 10, -186 + (Math.random() - 0.5) * 8, 12, 1.0, 1.35);
+    }
+
+    // ------------------------------------------------------------------------
+    // ZONE E: TECHNOLOGY & ADMINISTRATIVE DISTRICT (East Quad - Buildings 5, 6, 7)
+    // ------------------------------------------------------------------------
+    // Courtyard trees between Tech buildings: Yellow Ornamental (Type 3) & Shade (Type 4)
+    const techSpots = [
+      { x: 195, z: 25, sp: 3 }, { x: 220, z: 25, sp: 4 }, { x: 205, z: 50, sp: 7 },
+      { x: 195, z: -15, sp: 3 }, { x: 220, z: -15, sp: 4 }, { x: 205, z: -35, sp: 9 },
+      { x: 195, z: -70, sp: 8 }, { x: 220, z: -70, sp: 3 }, { x: 245, z: -40, sp: 10 },
+      { x: 280, z: -110, sp: 12 }, { x: 280, z: -30, sp: 12 }, { x: 280, z: 50, sp: 12 }
     ];
-    eastTrees.forEach(pt => addTree(pt.x, pt.z, (Math.random() > 0.5 ? 1 : 4), 0.95, 1.25));
+    techSpots.forEach(pt => addTree(pt.x, pt.z, pt.sp, 0.95, 1.25));
 
-    // North Research Zone Green Buffer
-    for (let x = -110; x <= 80; x += 18) {
-      addTree(x + (Math.random() - 0.5) * 6, -105 + (Math.random() - 0.5) * 8, 2, 0.95, 1.3);
-      if (Math.random() > 0.45) {
-        addTree(x + 10, -95 + (Math.random() - 0.5) * 6, 1, 0.9, 1.2);
-      }
+    // ------------------------------------------------------------------------
+    // ZONE F: CIVIC AUDITORIUM & SPORTS COMPLEX BUFFER (West Quad)
+    // ------------------------------------------------------------------------
+    // Western green lawn between Hero and Auditorium (-90 to -115)
+    for (let z = -50; z <= 50; z += 18) {
+      addTree(-85 + (Math.random() - 0.5) * 6, z, 7, 0.9, 1.15);
+      addTree(-102 + (Math.random() - 0.5) * 6, z, 3, 0.95, 1.2);
     }
-
-    // West Sports Complex Perimeter Trees
-    for (let z = -20; z <= 130; z += 18) {
-      addTree(-195 + (Math.random() - 0.5) * 6, z, 1, 0.9, 1.25);
-      addTree(-280 + (Math.random() - 0.5) * 8, z, 2, 0.95, 1.3);
+    // Sports buffer green corridor: Large Shade (Type 4) & Evergreen Conifer (Type 12)
+    for (let z = -45; z <= 65; z += 16) {
+      addTree(-182 + (Math.random() - 0.5) * 6, z, 4, 1.0, 1.3);
+      addTree(-270 + (Math.random() - 0.5) * 6, z, 12, 1.05, 1.35);
+      addTree(-285 + (Math.random() - 0.5) * 6, z, 12, 1.1, 1.4);
     }
 
     // ------------------------------------------------------------------------
-    // GROUP 5: CAMPUS PERIMETER WOODLAND BUFFER
+    // ZONE G: RESIDENTIAL & HOSTEL COMMONS (Zone 11)
+    // ------------------------------------------------------------------------
+    for (let x = -105; x <= -30; x += 18) {
+      addTree(x, 90 + (Math.random() - 0.5) * 6, 2, 0.95, 1.2); // Pink blossom
+      addTree(x, 168 + (Math.random() - 0.5) * 6, 10, 0.9, 1.15); // Light canopy
+    }
+
+    // ------------------------------------------------------------------------
+    // ZONE H: SURFACE PARKING LOT GREEN ISLANDS (Zones 10 & 13)
+    // ------------------------------------------------------------------------
+    // West Parking Lot 10: Medians and Perimeter (-230, 155)
+    for (let px = -270; px <= -190; px += 26) {
+      addTree(px, 100, 4, 1.0, 1.2);
+      addTree(px, 155, 4, 1.0, 1.2);
+      addTree(px, 210, 4, 1.0, 1.2);
+      addTree(px, 128, 11, 0.85, 1.0);
+      addTree(px, 182, 11, 0.85, 1.0);
+    }
+    // East Parking Lot 13: Medians and Perimeter (230, 155)
+    for (let px = 190; px <= 270; px += 26) {
+      addTree(px, 100, 4, 1.0, 1.2);
+      addTree(px, 155, 4, 1.0, 1.2);
+      addTree(px, 210, 4, 1.0, 1.2);
+      addTree(px, 128, 11, 0.85, 1.0);
+      addTree(px, 182, 11, 0.85, 1.0);
+    }
+
+    // ------------------------------------------------------------------------
+    // ZONE I: PRIMARY CIRCULATION RING ROAD AVENUE TREES (Radius ~150m)
+    // ------------------------------------------------------------------------
+    // Lining outer side of primary ring road
+    for (let ang = 0; ang < Math.PI * 2; ang += 0.10) {
+      const cosA = Math.cos(ang);
+      const sinA = Math.sin(ang);
+      const rx = cosA * 156;
+      const rz = sinA * 120;
+      if (rz > 85 && Math.abs(rx) < 45) continue;
+      const sp = (Math.random() > 0.45) ? 1 : 4;
+      addTree(rx, rz, sp, 1.0, 1.3);
+    }
+    // Lining inner side of primary ring road
+    for (let ang = 0; ang < Math.PI * 2; ang += 0.14) {
+      const cosA = Math.cos(ang);
+      const sinA = Math.sin(ang);
+      const rx = cosA * 138;
+      const rz = sinA * 106;
+      if (rz > 75 && Math.abs(rx) < 45) continue;
+      const sp = (Math.random() > 0.5) ? 3 : 10;
+      addTree(rx, rz, sp, 0.9, 1.15);
+    }
+
+    // ------------------------------------------------------------------------
+    // ZONE I-2: CENTRAL CAMPUS LAWN CLUSTERS (Breaking the open green expanses)
+    // ------------------------------------------------------------------------
+    // East Grand Central Lawn (between Hero and Tech District: x: 55 to 115, z: -55 to 55)
+    const eastLawnClusters = [
+      { x: 72, z: 25, sp: 3 }, { x: 88, z: 32, sp: 10 }, { x: 105, z: 22, sp: 2 },
+      { x: 78, z: -25, sp: 3 }, { x: 95, z: -30, sp: 10 }, { x: 110, z: -18, sp: 2 },
+      { x: 68, z: 48, sp: 7 }, { x: 84, z: 54, sp: 11 }, { x: 70, z: -48, sp: 7 }, { x: 86, z: -54, sp: 11 }
+    ];
+    eastLawnClusters.forEach(pt => addTree(pt.x, pt.z, pt.sp, 0.95, 1.25));
+
+    // West Grand Central Lawn (between Hero and Auditorium/Sports: x: -55 to -115, z: -55 to 55)
+    const westLawnClusters = [
+      { x: -72, z: 25, sp: 3 }, { x: -88, z: 32, sp: 10 }, { x: -105, z: 22, sp: 2 },
+      { x: -78, z: -25, sp: 3 }, { x: -95, z: -30, sp: 10 }, { x: -108, z: -18, sp: 2 },
+      { x: -68, z: 48, sp: 7 }, { x: -84, z: 54, sp: 11 }, { x: -70, z: -48, sp: 7 }, { x: -86, z: -54, sp: 11 }
+    ];
+    westLawnClusters.forEach(pt => addTree(pt.x, pt.z, pt.sp, 0.95, 1.25));
+
+    // North Academic Meadow Lawns (between Central Ring and Academic Blocks: x: -90 to 90, z: -60 to -85)
+    for (let x = -80; x <= 80; x += 20) {
+      if (Math.abs(x) < 14) continue; // Keep north axial view open
+      const sp = (Math.random() > 0.5) ? 9 : 3;
+      addTree(x, -68 + (Math.random() - 0.5) * 8, sp, 0.95, 1.2);
+      addTree(x + (Math.random() - 0.5) * 6, -82, 10, 0.9, 1.15);
+    }
+
+    // ------------------------------------------------------------------------
+    // ZONE J: PERIMETER WOODLAND BUFFER (Evergreen Conifers & Large Shade)
     // ------------------------------------------------------------------------
     const perimeterGroves = [
-      { cx: -280, cz: -220, count: 28, radius: 45 },
-      { cx: -260, cz: -140, count: 22, radius: 35 },
-      { cx: 280, cz: -210, count: 32, radius: 45 },
-      { cx: 290, cz: -120, count: 24, radius: 38 },
-      { cx: 290, cz: 210, count: 26, radius: 40 },
-      { cx: 310, cz: 90, count: 20, radius: 35 },
-      { cx: -290, cz: 210, count: 26, radius: 40 },
-      { cx: -310, cz: 110, count: 22, radius: 36 },
-      { cx: 0, cz: -245, count: 34, radius: 55 },
-      { cx: -180, cz: -245, count: 26, radius: 45 },
-      { cx: 160, cz: -245, count: 28, radius: 45 },
-      { cx: -140, cz: 275, count: 20, radius: 30 },
-      { cx: 160, cz: 275, count: 22, radius: 35 }
+      { cx: -290, cz: -190, count: 28, radius: 45 },
+      { cx: 290, cz: -190, count: 28, radius: 45 },
+      { cx: 0, cz: -225, count: 32, radius: 48 },
+      { cx: -305, cz: 215, count: 24, radius: 38 },
+      { cx: 305, cz: 215, count: 24, radius: 38 },
+      { cx: -155, cz: 248, count: 22, radius: 32 },
+      { cx: 155, cz: 248, count: 22, radius: 32 },
+      { cx: -320, cz: 0, count: 24, radius: 35 },
+      { cx: 320, cz: 0, count: 24, radius: 35 }
     ];
 
     perimeterGroves.forEach(grove => {
@@ -704,7 +985,8 @@ export class LandscapeManager {
         const rad = Math.random() * grove.radius;
         const gx = grove.cx + Math.cos(ang) * rad;
         const gz = grove.cz + Math.sin(ang) * rad;
-        const sp = (i % 5 === 0) ? 4 : (i % 5 === 1) ? 2 : (i % 5 === 2) ? 1 : 3;
+        // Naturalized woodland mix: 50% Conifer (12), 25% Large Shade (4), 15% Avenue (1), 10% Yellow (3)
+        const sp = (i % 4 === 0) ? 12 : (i % 4 === 1) ? 4 : (i % 4 === 2) ? 12 : (i % 8 === 3 ? 3 : 1);
         addTree(gx, gz, sp, 0.95, 1.35);
       }
     });
@@ -712,7 +994,6 @@ export class LandscapeManager {
     return trees;
   }
 
-  // 7. Architectural Campus Entrance Portals
   buildCampusEntrances() {
     CAMPUS_ENTRANCES.forEach(ent => {
       const entGroup = new THREE.Group();
@@ -728,69 +1009,32 @@ export class LandscapeManager {
 
         const pillarMat = new THREE.MeshStandardMaterial({
           color: 0x64748b,
-          roughness: 0.5,
+          roughness: 0.4,
           metalness: 0.6
         });
 
-        const colL = new THREE.BoxGeometry(1.2, 7.5, 1.2);
-        colL.translate(-ent.width * 0.5 - 1.0, 3.75, 0);
-        const colMeshL = new THREE.Mesh(colL, pillarMat);
-        colMeshL.castShadow = true;
-        entGroup.add(colMeshL);
+        const canopyGeo = new THREE.BoxGeometry(ent.width, 0.8, 8.5);
+        canopyGeo.translate(0, 6.2, 0);
+        const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+        canopy.castShadow = true;
+        entGroup.add(canopy);
 
-        const colR = new THREE.BoxGeometry(1.2, 7.5, 1.2);
-        colR.translate(ent.width * 0.5 + 1.0, 3.75, 0);
-        const colMeshR = new THREE.Mesh(colR, pillarMat);
-        colMeshR.castShadow = true;
-        entGroup.add(colMeshR);
+        const colL = new THREE.CylinderGeometry(0.35, 0.35, 6.0, 12);
+        colL.translate(-ent.width * 0.42, 3.0, 0);
+        const colR = new THREE.CylinderGeometry(0.35, 0.35, 6.0, 12);
+        colR.translate(ent.width * 0.42, 3.0, 0);
+        const cols = BufferGeometryUtils.mergeGeometries([colL, colR]);
+        const colsMesh = new THREE.Mesh(cols, pillarMat);
+        colsMesh.castShadow = true;
+        entGroup.add(colsMesh);
 
-        const roofBox = new THREE.BoxGeometry(ent.width + 6.0, 0.8, 8.0);
-        roofBox.translate(0, 7.5, 0);
-        const roofMesh = new THREE.Mesh(roofBox, canopyMat);
-        roofMesh.castShadow = true;
-        entGroup.add(roofMesh);
-
-        const kioskBox = new THREE.BoxGeometry(4.5, 3.4, 5.0);
-        kioskBox.translate(ent.width * 0.5 + 4.5, 1.7, 0);
-        const kioskMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.5 });
-        const kioskMesh = new THREE.Mesh(kioskBox, kioskMat);
-        kioskMesh.castShadow = true;
-        entGroup.add(kioskMesh);
-
-        if (ent.hasMedianIsland) {
-          const medGeo = new THREE.BoxGeometry(2.4, 0.2, 16.0);
-          medGeo.translate(0, 0.1, 0);
-          const medMesh = new THREE.Mesh(medGeo, this.materials.curbMat);
-          medMesh.castShadow = true;
-          entGroup.add(medMesh);
+        if (ent.hasSecurityKiosk) {
+          const kioskGeo = new THREE.BoxGeometry(3.4, 2.8, 4.2);
+          kioskGeo.translate(ent.width * 0.35, 1.4, 0);
+          const kiosk = new THREE.Mesh(kioskGeo, pillarMat);
+          kiosk.castShadow = true;
+          entGroup.add(kiosk);
         }
-
-        const signBox = new THREE.BoxGeometry(8.5, 2.2, 0.8);
-        signBox.translate(-ent.width * 0.5 - 6.5, 1.1, 4.0);
-        const signMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
-        const signMesh = new THREE.Mesh(signBox, signMat);
-        signMesh.castShadow = true;
-        entGroup.add(signMesh);
-
-        const badgeGeo = new THREE.PlaneGeometry(7.5, 1.2);
-        const badgeMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
-        const badgeMesh = new THREE.Mesh(badgeGeo, badgeMat);
-        badgeMesh.position.set(-ent.width * 0.5 - 6.5, 1.1, 4.42);
-        entGroup.add(badgeMesh);
-      } else {
-        const kioskBox = new THREE.BoxGeometry(3.8, 3.2, 4.0);
-        kioskBox.translate(ent.width * 0.5 + 3.0, 1.6, 0);
-        const kioskMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.4 });
-        const kioskMesh = new THREE.Mesh(kioskBox, kioskMat);
-        kioskMesh.castShadow = true;
-        entGroup.add(kioskMesh);
-
-        const armGeo = new THREE.CylinderGeometry(0.08, 0.08, ent.width * 0.7, 8);
-        armGeo.rotateZ(Math.PI / 2);
-        armGeo.translate(0, 1.1, 0);
-        const armMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
-        const armMesh = new THREE.Mesh(armGeo, armMat);
-        entGroup.add(armMesh);
       }
 
       this.subgroups.entrances.add(entGroup);
