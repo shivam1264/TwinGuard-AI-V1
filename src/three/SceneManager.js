@@ -115,12 +115,15 @@ export class SceneManager {
 
   initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf1f5f9); // Clean architectural daylight studio sky
-    this.scene.fog = new THREE.FogExp2(0xf1f5f9, 0.00075); // Soft architectural daylight haze
+    // Atmospheric sky & daylight color matching WorldEnvironmentManager sky dome horizon
+    this.scene.background = new THREE.Color(0xeaf0f8);
+    // Soft atmospheric distance haze (keeps world visible across 2.4km without abrupt edge)
+    this.scene.fog = new THREE.FogExp2(0xeaf0f8, 0.00032);
 
     const width = this.container.clientWidth || window.innerWidth || 1200;
     const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
-    this.camera = new THREE.PerspectiveCamera(42, width / height, 1.5, 2800);
+    // Balanced architectural perspective (FOV 44 deg) with extended draw distance for regional world
+    this.camera = new THREE.PerspectiveCamera(44, width / height, 1.2, 4200);
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -142,10 +145,10 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minPolarAngle = 0.02;
-    this.controls.maxPolarAngle = Math.PI * 0.49; // Clamped above ground plane
+    this.controls.maxPolarAngle = Math.PI * 0.48; // Clamped above ground plane to prevent seeing underneath
     this.controls.screenSpacePanning = true;
-    this.controls.minDistance = 0.5;
-    this.controls.maxDistance = 1400;
+    this.controls.minDistance = 1.0;
+    this.controls.maxDistance = 2400; // Allows smooth regional zoom out without hitting ceiling
 
     // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -158,11 +161,11 @@ export class SceneManager {
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
     sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 650;
-    sunLight.shadow.camera.left = -280;
-    sunLight.shadow.camera.right = 280;
-    sunLight.shadow.camera.top = 280;
-    sunLight.shadow.camera.bottom = -280;
+    sunLight.shadow.camera.far = 1400;
+    sunLight.shadow.camera.left = -480;
+    sunLight.shadow.camera.right = 480;
+    sunLight.shadow.camera.top = 480;
+    sunLight.shadow.camera.bottom = -480;
     sunLight.shadow.bias = -0.0004;
     sunLight.shadow.normalBias = 0.02;
     this.scene.add(sunLight);
@@ -172,6 +175,15 @@ export class SceneManager {
     fillLight.position.set(-50, 42, -45);
     fillLight.castShadow = false;
     this.scene.add(fillLight);
+
+    // Dedicated Stairwell Core Warm Ambient Fill Lights (Eliminates unlit internal shadow pits)
+    const westStairFill = new THREE.PointLight(0xffedd5, 1.4, 60, 1.0);
+    westStairFill.position.set(-28, 20, -1.2);
+    this.scene.add(westStairFill);
+
+    const eastStairFill = new THREE.PointLight(0xffedd5, 1.4, 60, 1.0);
+    eastStairFill.position.set(28, 20, -1.2);
+    this.scene.add(eastStairFill);
 
     // Subtle Ground Hemisphere Bounce
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e8f0, 0.65);
@@ -531,12 +543,22 @@ export class SceneManager {
     let targetPos = new THREE.Vector3(3, 20, 68);
     let targetLook = new THREE.Vector3(0, 19, 0);
 
-    if (presetName === 'CAMPUS_OVERVIEW') {
-      targetPos.set(0, 310, 340);
-      targetLook.set(0, 10, 20);
-    } else if (presetName === 'HERO_VIEW') {
-      targetPos.set(0, 20, 70);
-      targetLook.set(0, 19, 0);
+    if (presetName === 'CAMPUS_HERO' || presetName === 'HERO_VIEW') {
+      // Elevated architectural hero perspective focusing on the 10-storey Hero Tower
+      targetPos.set(22, 28, 62);
+      targetLook.set(0, 18, 0);
+    } else if (presetName === 'CAMPUS_OVERVIEW') {
+      // Natural bird's eye perspective viewing the entire master-planned campus and lake
+      targetPos.set(0, 240, 290);
+      targetLook.set(0, 12, 15);
+    } else if (presetName === 'REGIONAL_OVERVIEW') {
+      // Geographic context view showing campus embedded in surrounding city and regional highways
+      targetPos.set(0, 620, 720);
+      targetLook.set(0, 10, 0);
+    } else if (presetName === 'CAMPUS_AERIAL') {
+      // High-angle architectural master-plan view
+      targetPos.set(0, 480, 40);
+      targetLook.set(0, 0, 0);
     } else if (presetName === 'CUTAWAY_VIEW') {
       targetPos.set(16, 22, 64);
       targetLook.set(0, 19, 0);
@@ -874,7 +896,47 @@ export class SceneManager {
     }
   }
 
+<<<<<<< HEAD
   startEvacuation(strategyType = 'LOAD_BALANCED') {
+=======
+  blockStairwell(coreName, floorNum = null) {
+    if (this.scenarioEngine && this.scenarioEngine.blockStairwellCore) {
+      this.scenarioEngine.blockStairwellCore(coreName, floorNum);
+    }
+
+    // If currently simulating, recalculate paths dynamically!
+    if (this.isSimulating) {
+      const fireLocations = [];
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach(f => {
+          if (f.basePos) fireLocations.push(f.basePos);
+        });
+      }
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
+      const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
+      const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
+
+      const newPlan = this.crowdOptimizer
+        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType)
+        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents) : null);
+
+      if (newPlan && newPlan.assignments) {
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(newPlan.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(newPlan.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+      }
+      return newPlan;
+    }
+    return null;
+  }
+
+  startEvacuation(scenario = null, strategy = null) {
+>>>>>>> 2c6f64c305eae987f2b8ec74d80eb09e0fba7902
     this.isSimulating = true;
     this.elapsedSeconds = 0;
     this.pausedElapsedSeconds = 0;
@@ -893,14 +955,16 @@ export class SceneManager {
     }
 
     const fireLocations = [];
-    this.fireSystem.activeFires.forEach(f => {
-      fireLocations.push(f.basePos);
-    });
+    if (this.fireSystem && this.fireSystem.activeFires) {
+      this.fireSystem.activeFires.forEach(f => {
+        if (f.basePos) fireLocations.push(f.basePos);
+      });
+    }
 
     const optimizationResult = this.crowdOptimizer.optimizeRoutes(
       this.agentCrowd.agents,
       fireLocations,
-      { routingContext: this.routingHazardContext, strategyType }
+      { routingContext: this.routingHazardContext, strategyType: this.activeStrategyType }
     );
     this.agentCrowd.assignRoutes(optimizationResult.assignments);
     return optimizationResult;

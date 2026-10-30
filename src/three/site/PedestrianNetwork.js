@@ -3,40 +3,73 @@ import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUti
 import { CENTRAL_ASSEMBLY_PLAZA } from './CampusLayout.js';
 
 // ============================================================================
-// PEDESTRIAN PROMENADES & CENTRAL ASSEMBLY PLAZA (MATCHING REFERENCE PLAN)
+// PEDESTRIAN PROMENADES & CENTRAL ASSEMBLY PLAZA (MATCHING REFERENCES 1, 2, 3, 4)
 // ============================================================================
-// Implements the prominent circular Central Assembly Plaza (West of Hero Building)
-// with concentric amphitheater steps and center fountain monument, plus continuous
-// architectural paver promenades connecting all campus districts.
+// Real institutional campuses feature prominent diagonal and arterial paver paths
+// cutting across expansive manicured lawns, dividing them into walkable geometric
+// islands with continuous raised stone curbs and outdoor seating pockets.
 
 export const MASTER_PEDESTRIAN_PATHS = [
-  // A. Ceremonial Arrival Promenade (Hero Drop-off Loop to South Portico)
+  // A. Ceremonial Arrival Promenade (Hero Drop-off Circus to South Portico)
   {
     id: 'PATH-PROMENADE-001',
     name: 'Hero Arrival Forecourt Promenade',
-    width: 5.5,
+    width: 6.0,
     points: [
-      { x: 0, y: 0.03, z: 75 },
-      { x: 0, y: 0.03, z: 52 },
+      { x: 0, y: 0.03, z: 65 },
+      { x: 0, y: 0.03, z: 46 },
       { x: 0, y: 0.03, z: 28 } // Hero Building South Portico
     ]
   },
-  // B. Hero Building to Central Assembly Plaza
+  // B. Civic Heart Diagonal (Hero South-West Portico across Great Lawn to Central Plaza) - Ref 1 & 4
   {
     id: 'PATH-CIVIC-002',
-    name: 'Civic Heart Walkway',
-    width: 4.5,
+    name: 'South-West Civic Heart Diagonal',
+    width: 4.8,
     points: [
-      { x: -28, y: 0.03, z: 5 },
-      { x: -45, y: 0.03, z: 0 },
+      { x: -28, y: 0.03, z: 22 },
+      { x: -48, y: 0.03, z: 8 },
       { x: -70, y: 0.03, z: -10 } // Center of Central Assembly Plaza
     ]
   },
-  // C. Central Assembly Plaza to Research Zone (North)
+  // C. Diagonal Cross-Quad Walkway to Student Forum (Ref 1 & 3)
   {
-    id: 'PATH-RESEARCH-003',
+    id: 'PATH-STUDENT-003',
+    name: 'Central Plaza to Student Forum Diagonal',
+    width: 4.0,
+    points: [
+      { x: -70,  y: 0.03, z: -10 },
+      { x: -90,  y: 0.03, z: 30 },
+      { x: -110, y: 0.03, z: 72 } // Student Forum P09
+    ]
+  },
+  // D. North-West Hero Building to Central Plaza Diagonal (Ref 4)
+  {
+    id: 'PATH-HERO-NORTH-004',
+    name: 'Hero North-West Portico Diagonal',
+    width: 4.2,
+    points: [
+      { x: -28, y: 0.03, z: -22 },
+      { x: -48, y: 0.03, z: -16 },
+      { x: -70, y: 0.03, z: -10 }
+    ]
+  },
+  // E. Great Lawn Diagonal Arterial Cross-Walk (Bisecting Great Lawn NW to SE) - Ref 4
+  {
+    id: 'PATH-QUAD-BISECTOR-005',
+    name: 'Great Lawn Transverse Diagonal Cross-Path',
+    width: 3.8,
+    points: [
+      { x: -118, y: 0.03, z: -45 },
+      { x: -70,  y: 0.03, z: -10 },
+      { x: -35,  y: 0.03, z: 45 }
+    ]
+  },
+  // F. Central Assembly Plaza to Research Zone (North)
+  {
+    id: 'PATH-RESEARCH-006',
     name: 'North Research Walkway',
-    width: 3.5,
+    width: 3.8,
     points: [
       { x: -70, y: 0.03, z: -10 },
       { x: -65, y: 0.03, z: -65 },
@@ -44,29 +77,41 @@ export const MASTER_PEDESTRIAN_PATHS = [
       { x: -20, y: 0.03, z: -140 } // Arriving between Plots P05 & P06
     ]
   },
-  // D. Central Assembly Plaza to Sports Complex & Roundabout (West)
+  // G. Central Assembly Plaza to Sports Complex & Roundabout (West)
   {
-    id: 'PATH-SPORTS-004',
+    id: 'PATH-SPORTS-007',
     name: 'West Sports Parkway Walk',
-    width: 3.5,
+    width: 3.8,
     points: [
       { x: -70,  y: 0.03, z: -10 },
       { x: -115, y: 0.03, z: 5 },
-      { x: -160, y: 0.03, z: 10 },   // Passing North of Roundabout
-      { x: -195, y: 0.03, z: 30 }    // Sports Complex running track
+      { x: -160, y: 0.03, z: 10 },  // Passing North of Roundabout
+      { x: -195, y: 0.03, z: 30 }   // Sports Complex running track
     ]
   },
-  // E. East Academic Quad Walkway
+  // H. East Technology & Academic Quad Spine
   {
-    id: 'PATH-ACADEMIC-005',
+    id: 'PATH-ACADEMIC-008',
     name: 'East Technology & Academic Spine',
-    width: 3.6,
+    width: 4.0,
     points: [
       { x: 28,  y: 0.03, z: 10 },   // Hero East entrance
       { x: 75,  y: 0.03, z: 25 },
       { x: 140, y: 0.03, z: 15 },   // Between Plots P01 & P02
       { x: 185, y: 0.03, z: -45 },  // Academic Quad
       { x: 165, y: 0.03, z: -95 }   // Plot P07
+    ]
+  },
+  // I. South-East Lake & Secondary Parking Connector
+  {
+    id: 'PATH-LAKE-TRANSIT-009',
+    name: 'Eco-Lake Scenic Promenade & Parking Link',
+    width: 3.4,
+    points: [
+      { x: 16,  y: 0.03, z: 185 },  // From Entrance Boulevard sidewalk
+      { x: 75,  y: 0.03, z: 185 },  // Lake West Shoreline
+      { x: 175, y: 0.03, z: 185 },  // Lake East Shoreline
+      { x: 205, y: 0.03, z: 185 }   // Secondary Parking entrance
     ]
   }
 ];
@@ -100,7 +145,7 @@ export class PedestrianNetwork {
     MASTER_PEDESTRIAN_PATHS.forEach(pathDef => {
       const pathMesh = this.createPaverWalkwayMesh(
         pathDef.points,
-        pathDef.width || 3.5,
+        pathDef.width || 3.8,
         pathDef.id,
         pathDef.name,
         curbGeometries
@@ -135,8 +180,8 @@ export class PedestrianNetwork {
 
     const halfW = width * 0.5;
     const curbW = 0.22;
-    const walkY = 0.04;
-    const curbTopY = 0.065;
+    const walkY = 0.052;
+    const curbTopY = 0.075;
 
     const curbVerts = [];
     const curbIndices = [];
@@ -171,8 +216,9 @@ export class PedestrianNetwork {
 
       if (i < segments) {
         const row = i * 2;
-        indices.push(row, row + 1, row + 2);
-        indices.push(row + 1, row + 3, row + 2);
+        // Upward winding (+Y normal)
+        indices.push(row, row + 2, row + 1);
+        indices.push(row + 1, row + 2, row + 3);
       }
 
       if (curbCollector) {
@@ -323,7 +369,7 @@ export class PedestrianNetwork {
 
     // Active Emergency Status Display Screen
     const screenGeo = new THREE.PlaneGeometry(1.3, 1.8);
-    const screenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 }); // Normal Green status
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
     const screenMesh = new THREE.Mesh(screenGeo, screenMat);
     screenMesh.position.set(0, 3.2, 0.46);
     totemGroup.add(screenMesh);

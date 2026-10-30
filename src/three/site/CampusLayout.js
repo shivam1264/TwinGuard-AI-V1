@@ -72,160 +72,277 @@ export const CAMPUS_DISTRICTS = [
 ];
 
 // ============================================================================
-// 2. PRIMARY CIRCULATION SPINE ROAD (~9.0m wide dual-lane boulevard)
+// 2. ROAD HIERARCHY SPECIFICATION (GIS / ROUTING METADATA)
 // ============================================================================
-// Starts at Main Campus Entrance on the South, sweeps gently north-east past the Lake,
-// seamlessly merges into the Hero Building front drop-off loop at Z = 77,
-// sweeps west past the Central Assembly Plaza, connects to the Main West Roundabout,
-// ============================================================================
-// 2. PRIMARY CIRCULATION SPINE ROAD (~9.0m wide dual-lane ceremonial boulevard)
-// ============================================================================
-// Ceremonial entry boulevard from South Main Gate directly to Hero Forecourt
-export const PRIMARY_ROAD_POINTS = [
-  { x: -10, y: 0.02, z: 295 },  // Main Campus Entrance (ENTRY-MAIN-001)
-  { x: -5,  y: 0.02, z: 245 },  // Boulevard passing Main Parking & Lake
-  { x: 5,   y: 0.02, z: 185 },  // Northbound spine
-  { x: 10,  y: 0.02, z: 135 },  // Flanking ceremonial approach
-  { x: 6,   y: 0.02, z: 95 },   // Approaching Hero Arrival Portico
-  { x: 0,   y: 0.02, z: 82 }    // Hero Forecourt Paved Apron
-];
-
-// ============================================================================
-// 3. SECONDARY DISTRICT ROADS (~6.2m to 6.8m wide dual-lane roads)
-// ============================================================================
-export const SECONDARY_ROADS = [
-  // 1. West Civic Parkway (Hero Forecourt to Central Plaza & Roundabout)
-  {
-    id: 'ROAD-SECONDARY-001',
-    name: 'Civic Heart & Roundabout Parkway',
-    width: 6.8,
-    district: 'DISTRICT-CENTRAL',
-    points: [
-      { x: -18,  y: 0.02, z: 80 },   // Branching west from Hero Forecourt
-      { x: -55,  y: 0.02, z: 65 },   // Passing South of Central Assembly Plaza
-      { x: -105, y: 0.02, z: 48 },  // Approaching Roundabout Circus
-      { x: -138, y: 0.02, z: 35 }   // Merging into East rim of Roundabout
-    ]
+export const ROAD_CLASSES = {
+  CLASS_A_PRIMARY: {
+    type: 'CLASS_A_PRIMARY',
+    name: 'Primary Campus Road',
+    targetWidth: 8.5,
+    speedLimitKmH: 35,
+    lanes: 2,
+    hasCenterline: true,
+    curbWidth: 0.28,
+    curbHeight: 0.05,
+    isEmergencyAccessible: true
   },
-  // 2. West Sports & Main Parking Access Parkway
-  {
-    id: 'ROAD-SECONDARY-002',
-    name: 'West Sports & Parking Parkway',
-    width: 6.5,
-    district: 'DISTRICT-PUBLIC',
-    points: [
-      { x: -160, y: 0.02, z: 57 },  // From South rim of Roundabout
-      { x: -165, y: 0.02, z: 110 }, // Between Sports Area and Main Parking
-      { x: -160, y: 0.02, z: 175 }, // Fronting Main Parking Area
-      { x: -130, y: 0.02, z: 235 }, // South-West parking exit
-      { x: -65,  y: 0.02, z: 275 }, // Sweeping to Main Entrance
-      { x: -18,  y: 0.02, z: 295 }  // Connecting to Entrance apron
-    ]
+  CLASS_B_SECONDARY: {
+    type: 'CLASS_B_SECONDARY',
+    name: 'Secondary Campus Road',
+    targetWidth: 6.0,
+    speedLimitKmH: 25,
+    lanes: 2,
+    hasCenterline: false,
+    curbWidth: 0.24,
+    curbHeight: 0.04,
+    isEmergencyAccessible: true
   },
-  // 3. North Research & Innovation Ring
-  {
-    id: 'ROAD-SECONDARY-003',
-    name: 'North Research Ring Parkway',
-    width: 6.5,
-    district: 'DISTRICT-RESEARCH',
-    points: [
-      { x: -160, y: 0.02, z: 13 },  // From North rim of Roundabout
-      { x: -165, y: 0.02, z: -45 }, // Heading North past Sports Area
-      { x: -150, y: 0.02, z: -105 },// Approaching Research Zone
-      { x: -130, y: 0.02, z: -175 },// Fronting Research Plot P06
-      { x: -80,  y: 0.02, z: -210 },// North of Plot P05
-      { x: 10,   y: 0.02, z: -215 },// North campus boundary drive
-      { x: 95,   y: 0.02, z: -185 },// Fronting Plot P04
-      { x: 145,  y: 0.02, z: -135 } // Academic Quad junction
-    ]
-  },
-  // 4. East Technology & Academic Loop
-  {
-    id: 'ROAD-SECONDARY-004',
-    name: 'East Technology & Academic Loop',
-    width: 6.5,
-    district: 'DISTRICT-TECH',
-    points: [
-      { x: 10,  y: 0.02, z: 135 },  // Branch from Main Spine
-      { x: 75,  y: 0.02, z: 110 },  // Curves between Hero Building & Lake
-      { x: 155, y: 0.02, z: 85 },   // Fronting Plot P01 (Technology South)
-      { x: 215, y: 0.02, z: 45 },   // Fronting Plot P02 (Technology East)
-      { x: 245, y: 0.02, z: -25 },  // East perimeter scenic drive
-      { x: 235, y: 0.02, z: -90 },  // Fronting Plot P08 (Academic East)
-      { x: 195, y: 0.02, z: -135 }, // Fronting Plot P07 (Academic North)
-      { x: 145, y: 0.02, z: -135 }  // Connecting to North Research Ring
-    ]
-  },
-  // 5. Central Plaza Enclosure Crescent
-  {
-    id: 'ROAD-SECONDARY-005',
-    name: 'Central Assembly Crescent',
-    width: 5.8,
-    district: 'DISTRICT-CENTRAL',
-    points: [
-      { x: -55,  y: 0.02, z: 65 },   // From West Civic Parkway
-      { x: -95,  y: 0.02, z: 40 },   // South-West curve of Plaza
-      { x: -112, y: 0.02, z: -10 },  // West arc of Plaza
-      { x: -95,  y: 0.02, z: -55 },  // North-West curve of Plaza
-      { x: -45,  y: 0.02, z: -60 },  // North arc behind Hero Building
-      { x: -15,  y: 0.02, z: -20 },  // Flanking Hero Building West facade
-      { x: -18,  y: 0.02, z: 80 }    // Reconnecting to Hero forecourt
-    ]
-  },
-  // 6. Sports Complex Access Spur
-  {
-    id: 'ROAD-SECONDARY-006',
-    name: 'Sports Complex Access Spur',
-    width: 6.0,
-    district: 'DISTRICT-PUBLIC',
-    points: [
-      { x: -182, y: 0.02, z: 35 },  // From West rim of Roundabout
-      { x: -205, y: 0.02, z: 35 },
-      { x: -225, y: 0.02, z: 20 }   // Running track drop-off
-    ]
+  CLASS_C_SERVICE: {
+    type: 'CLASS_C_SERVICE',
+    name: 'Service / Emergency Road',
+    targetWidth: 5.0,
+    speedLimitKmH: 20,
+    lanes: 1,
+    hasCenterline: false,
+    curbWidth: 0.20,
+    curbHeight: 0.03,
+    isEmergencyAccessible: true
   }
-];
-
-// ============================================================================
-// 4. EMERGENCY & SERVICE ROUTES (~5.5m wide high-capacity access)
-// ============================================================================
-export const EMERGENCY_ROADS = [
-  // 1. Service / Emergency Entrance Corridor
-  {
-    id: 'ROAD-EMERGENCY-001',
-    name: 'North-West Service & Emergency Arterial',
-    width: 5.8,
-    isDedicatedEmergency: true,
-    district: 'DISTRICT-SERVICE',
-    points: [
-      { x: -270, y: 0.02, z: -210 }, // Service & Emergency Gate (ENTRY-SERVICE-001)
-      { x: -225, y: 0.02, z: -185 }, // Checkpoint serving Service & Utility Zone
-      { x: -185, y: 0.02, z: -140 }, // Bypassing Sports area
-      { x: -150, y: 0.02, z: -105 }  // Direct merge into North Research Ring
-    ]
-  }
-];
-
-// ============================================================================
-// 5. CAMPUS ROUNDABOUT (Major West Circus)
-// ============================================================================
-export const CAMPUS_ROUNDABOUT = {
-  id: 'ROUNDABOUT-001',
-  name: 'West Campus Innovation Circus',
-  center: { x: -160, y: 0.02, z: 35 },
-  innerRadius: 12.0,
-  outerRadius: 22.0,
-  islandRadius: 11.2
 };
 
 // ============================================================================
-// 6. FUTURE BUILDING PARCELS (Authentic Development Parcels — Matching Image)
+// 3. CLASS A — PRIMARY CAMPUS ARTERIALS (Width = 8.5m)
 // ============================================================================
-// Notice: These are NOT solid grey boxes!
-// Each parcel has a defined organic footprint, stone perimeter curb,
-// landscaped setback, driveway apron, and identity totem.
+export const PRIMARY_CAMPUS_ROADS = [
+  // 1. Southern Gateway Spine (Site Entry to Central Distribution Circus)
+  {
+    roadId: 'ROAD-PRIMARY-001',
+    roadClass: 'CLASS_A_PRIMARY',
+    name: 'Southern Gateway Circulation Spine',
+    width: 8.5,
+    speedClass: 35,
+    lanes: 2,
+    fromNode: 'NODE-SOUTH-GATE',
+    toNode: 'NODE-CENTRAL-CIRCUS',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -10, y: 0.02, z: 295 },  // Main South Gate Portal
+      { x: -8,  y: 0.02, z: 250 },  // Gateway transition
+      { x: -3,  y: 0.02, z: 195 },  // Flowing between West Parking & Eco-Lake
+      { x: 2,   y: 0.02, z: 145 },  // Approach boulevard
+      { x: 0,   y: 0.02, z: 105 }   // Merging into Central Distribution Circus
+    ]
+  },
+  // 2. West Civic Parkway (Central Circus around Plaza south to West Circus)
+  {
+    roadId: 'ROAD-PRIMARY-002',
+    roadClass: 'CLASS_A_PRIMARY',
+    name: 'West Civic Arterial Parkway',
+    width: 8.5,
+    speedClass: 35,
+    lanes: 2,
+    fromNode: 'NODE-CENTRAL-CIRCUS',
+    toNode: 'NODE-WEST-CIRCUS',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -20,  y: 0.02, z: 85 },  // Branching west from Central Circus
+      { x: -50,  y: 0.02, z: 75 },  // Passing south of student greens
+      { x: -85,  y: 0.02, z: 58 },  // Flowing 16m south of Central Plaza edge (8-15m buffer)
+      { x: -118, y: 0.02, z: 46 },  // Approaching West Circus
+      { x: -136, y: 0.02, z: 35 }   // Merging into East rim of West Circus
+    ]
+  }
+];
+
+// ============================================================================
+// 4. CONTROLLED ROUNDABOUT JUNCTIONS (Properly Scaled & Landscaped)
+// ============================================================================
+export const CAMPUS_ROUNDABOUTS = [
+  // A. Grand Central Distribution Circus (South of Hero Building Forecourt)
+  {
+    id: 'ROUNDABOUT-CENTRAL-001',
+    name: 'Central Campus Distribution Circus',
+    center: { x: 0, y: 0.02, z: 85 },
+    outerDiameter: 40.0,
+    outerRadius: 20.0,
+    roadwayWidth: 7.5,
+    innerRadius: 12.5,
+    islandRadius: 12.3,
+    islandDiameter: 24.6,
+    hasCenterpiece: true
+  },
+  // B. West Campus Innovation Circus (Between Sports, Plaza & Research)
+  {
+    id: 'ROUNDABOUT-WEST-002',
+    name: 'West Campus Innovation Circus',
+    center: { x: -150, y: 0.02, z: 35 },
+    outerDiameter: 28.0,
+    outerRadius: 14.0,
+    roadwayWidth: 6.5,
+    innerRadius: 7.5,
+    islandRadius: 7.3,
+    islandDiameter: 14.6,
+    hasCenterpiece: true
+  }
+];
+
+// ============================================================================
+// 5. CLASS B — SECONDARY CAMPUS ROADS (Width = 6.0m)
+// ============================================================================
+export const SECONDARY_CAMPUS_ROADS = [
+  // 1. West Sports & Parking Parkway
+  {
+    roadId: 'ROAD-SECONDARY-001',
+    roadClass: 'CLASS_B_SECONDARY',
+    name: 'West Sports & Parking Parkway',
+    width: 6.0,
+    speedClass: 25,
+    lanes: 2,
+    fromNode: 'NODE-WEST-CIRCUS',
+    toNode: 'NODE-SOUTH-GATE',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -150, y: 0.02, z: 49 },   // From south rim of West Circus
+      { x: -155, y: 0.02, z: 95 },   // Passing between Sports hardcourts and Student Forum
+      { x: -155, y: 0.02, z: 145 },  // Flanking Main Parking
+      { x: -145, y: 0.02, z: 195 },  // Main Parking Junction
+      { x: -125, y: 0.02, z: 245 },  // Sweeping south
+      { x: -65,  y: 0.02, z: 280 },  // Sweeping towards entrance portal
+      { x: -18,  y: 0.02, z: 295 }   // Connecting to South Gateway apron
+    ]
+  },
+  // 2. North Research & Academic Loop
+  {
+    roadId: 'ROAD-SECONDARY-002',
+    roadClass: 'CLASS_B_SECONDARY',
+    name: 'North Research & Academic Parkway Loop',
+    width: 6.0,
+    speedClass: 25,
+    lanes: 2,
+    fromNode: 'NODE-WEST-CIRCUS',
+    toNode: 'NODE-ACADEMIC-EAST',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -150, y: 0.02, z: 21 },   // From north rim of West Circus
+      { x: -155, y: 0.02, z: -35 },  // Flowing 15m west of Central Plaza edge
+      { x: -145, y: 0.02, z: -85 },  // Northern approach
+      { x: -125, y: 0.02, z: -145 }, // Approaching Research cluster
+      { x: -95,  y: 0.02, z: -185 }, // Serving Plot P06 (Autonomous Robotics)
+      { x: -20,  y: 0.02, z: -195 }, // Serving Plot P05 (Supercomputing Hub)
+      { x: 60,   y: 0.02, z: -185 }, // Serving Plot P04 (Executive R&D)
+      { x: 150,  y: 0.02, z: -145 }, // Serving Plot P07 (Life Sciences)
+      { x: 210,  y: 0.02, z: -125 }, // Serving Plot P08 (Engineering)
+      { x: 230,  y: 0.02, z: -75 }   // Academic Quad East Junction
+    ]
+  },
+  // 3. East Technology & Lake Loop
+  {
+    roadId: 'ROAD-SECONDARY-003',
+    roadClass: 'CLASS_B_SECONDARY',
+    name: 'East Technology & Academic Loop',
+    width: 6.0,
+    speedClass: 25,
+    lanes: 2,
+    fromNode: 'NODE-CENTRAL-CIRCUS',
+    toNode: 'NODE-ACADEMIC-EAST',
+    isEmergencyAccessible: true,
+    points: [
+      { x: 20,  y: 0.02, z: 85 },    // Branching east from Central Circus
+      { x: 65,  y: 0.02, z: 75 },    // Between Hero Building and Eco-Lake
+      { x: 125, y: 0.02, z: 50 },    // Serving Plot P01 (Innovation Tower)
+      { x: 185, y: 0.02, z: 20 },    // Serving Plot P02 (Advanced Computing)
+      { x: 225, y: 0.02, z: -25 },   // Serving Plot P03 (Microelectronics)
+      { x: 230, y: 0.02, z: -75 }    // Connecting to North Research Loop
+    ]
+  },
+  // 4. Main Parking Area Dedicated Access Branch
+  {
+    roadId: 'ROAD-PARKING-001',
+    roadClass: 'CLASS_B_SECONDARY',
+    name: 'Main Parking Dedicated Access Road',
+    width: 6.0,
+    speedClass: 20,
+    lanes: 2,
+    fromNode: 'NODE-WEST-PARKING-JCT',
+    toNode: 'NODE-PARKING-MAIN-GATE',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -145, y: 0.02, z: 195 },
+      { x: -168, y: 0.02, z: 195 }   // Smooth transition into parking internal road
+    ]
+  },
+  // 5. Secondary Parking Dedicated Access Branch
+  {
+    roadId: 'ROAD-PARKING-002',
+    roadClass: 'CLASS_B_SECONDARY',
+    name: 'Secondary Parking Dedicated Access Road',
+    width: 6.0,
+    speedClass: 20,
+    lanes: 2,
+    fromNode: 'NODE-EAST-LAKE-JCT',
+    toNode: 'NODE-PARKING-SEC-GATE',
+    isEmergencyAccessible: true,
+    points: [
+      { x: 65,  y: 0.02, z: 75 },
+      { x: 100, y: 0.02, z: 110 },
+      { x: 150, y: 0.02, z: 135 },   // Bypassing north of Eco-Lake
+      { x: 195, y: 0.02, z: 155 }    // Transition into Secondary Parking
+    ]
+  }
+];
+
+// ============================================================================
+// 6. CLASS C — SERVICE & EMERGENCY ACCESS ROADS (Width = 5.0m)
+// ============================================================================
+export const SERVICE_EMERGENCY_ROADS = [
+  // 1. North-West Service & Emergency Arterial
+  {
+    roadId: 'ROAD-SERVICE-001',
+    roadClass: 'CLASS_C_SERVICE',
+    name: 'North-West Service & Emergency Arterial',
+    width: 5.0,
+    speedClass: 25,
+    lanes: 1,
+    fromNode: 'NODE-SERVICE-GATE',
+    toNode: 'NODE-RESEARCH-WEST',
+    isEmergencyAccessible: true,
+    points: [
+      { x: -270, y: 0.02, z: -210 }, // Service & Emergency Gate
+      { x: -225, y: 0.02, z: -185 }, // Serving Central Energy Plant Plot P12
+      { x: -180, y: 0.02, z: -145 },
+      { x: -145, y: 0.02, z: -85 }   // Smooth merge into North Loop
+    ]
+  },
+  // 2. Hero Building North Operational Service Spur
+  {
+    roadId: 'ROAD-SERVICE-002',
+    roadClass: 'CLASS_C_SERVICE',
+    name: 'Hero Building Operational MEP Access Spur',
+    width: 5.0,
+    speedClass: 15,
+    lanes: 1,
+    fromNode: 'NODE-HERO-REAR',
+    toNode: 'NODE-RESEARCH-SOUTH',
+    isEmergencyAccessible: true,
+    points: [
+      { x: 0, y: 0.02, z: -28 },     // Hero North MEP service entrance
+      { x: 0, y: 0.02, z: -80 },
+      { x: 0, y: 0.02, z: -135 }     // Merging into North Loop
+    ]
+  }
+];
+
+// Compatibility aliases for existing systems
+export const PRIMARY_ROAD_POINTS = PRIMARY_CAMPUS_ROADS[0].points;
+export const SECONDARY_ROADS = SECONDARY_CAMPUS_ROADS;
+export const EMERGENCY_ROADS = SERVICE_EMERGENCY_ROADS;
+export const CAMPUS_ROUNDABOUT = CAMPUS_ROUNDABOUTS[1]; // West Circus
+export const TEARDROP_DROPOFF_LOOP = CAMPUS_ROUNDABOUTS[0]; // Central Circus
+
+// ============================================================================
+// 7. FUTURE BUILDING PARCELS (Unchanged)
+// ============================================================================
 export const FUTURE_BUILDING_PLOTS = [
-  // --- TECHNOLOGY ZONE (East of Hero Building) ---
   {
     id: 'PLOT-P01',
     name: 'Technology Zone — Innovation Tower',
@@ -237,7 +354,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2200,
     plannedFloors: 8,
     useCase: 'Cloud & AI Systems Laboratories',
-    drivewayPos: { x: 120, z: 62 },
+    drivewayPos: { x: 125, z: 50 },
     drivewayAngle: 0.65
   },
   {
@@ -252,7 +369,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2050,
     plannedFloors: 6,
     useCase: 'High-Density Computing & Hardware R&D',
-    drivewayPos: { x: 232, z: 35 },
+    drivewayPos: { x: 195, z: 20 },
     drivewayAngle: -0.8
   },
   {
@@ -267,11 +384,9 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2400,
     plannedFloors: 5,
     useCase: 'Semiconductor & Sensor Prototyping',
-    drivewayPos: { x: 215, z: -78 },
+    drivewayPos: { x: 225, z: -35 },
     drivewayAngle: -1.4
   },
-
-  // --- ACADEMIC ZONE (North-East) ---
   {
     id: 'PLOT-P07',
     name: 'Academic Zone — Life Sciences & Genomics',
@@ -283,7 +398,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2150,
     plannedFloors: 6,
     useCase: 'Bio-Molecular Research & Genetics',
-    drivewayPos: { x: 140, z: -105 },
+    drivewayPos: { x: 155, z: -135 },
     drivewayAngle: 0.8
   },
   {
@@ -297,11 +412,9 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 1950,
     plannedFloors: 5,
     useCase: 'Civil, Mechanical & Robotics Engineering',
-    drivewayPos: { x: 205, z: -142 },
+    drivewayPos: { x: 215, z: -130 },
     drivewayAngle: -0.4
   },
-
-  // --- RESEARCH ZONE (North of Central Plaza & Hero Building) ---
   {
     id: 'PLOT-P04',
     name: 'Research Zone — Executive Strategy & R&D',
@@ -313,7 +426,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2000,
     plannedFloors: 5,
     useCase: 'Corporate Strategy & Global Innovation',
-    drivewayPos: { x: 60, z: -142 },
+    drivewayPos: { x: 60, z: -175 },
     drivewayAngle: 0.0
   },
   {
@@ -328,7 +441,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2600,
     plannedFloors: 4,
     useCase: 'Campus Core Supercomputer & Network Ops',
-    drivewayPos: { x: -20, z: -150 },
+    drivewayPos: { x: -20, z: -185 },
     drivewayAngle: 0.0
   },
   {
@@ -343,11 +456,9 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2100,
     plannedFloors: 5,
     useCase: 'Drone Proving Ground & Autonomous Robotics',
-    drivewayPos: { x: -95, z: -140 },
+    drivewayPos: { x: -95, z: -175 },
     drivewayAngle: 0.0
   },
-
-  // --- PUBLIC / STUDENT ZONE (South-West) ---
   {
     id: 'PLOT-P09',
     name: 'Student Forum & Conference Arena',
@@ -360,7 +471,7 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2200,
     plannedFloors: 4,
     useCase: 'Auditorium, Dining Commons & Multi-Purpose Forum',
-    drivewayPos: { x: -130, z: 105 },
+    drivewayPos: { x: -135, z: 95 },
     drivewayAngle: -1.2
   },
   {
@@ -374,11 +485,9 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 1750,
     plannedFloors: 5,
     useCase: 'Digital Media Labs & XR Simulation Studios',
-    drivewayPos: { x: -45, z: 95 },
+    drivewayPos: { x: -50, z: 100 },
     drivewayAngle: 1.0
   },
-
-  // --- SERVICE & UTILITY ZONE (North-West) ---
   {
     id: 'PLOT-P12',
     name: 'Service & Utility Zone — Central Energy Plant',
@@ -390,16 +499,14 @@ export const FUTURE_BUILDING_PLOTS = [
     areaSqm: 2100,
     plannedFloors: 3,
     useCase: 'Central Utility Plant, MEP Operations & Fleet Depot',
-    drivewayPos: { x: -215, z: -160 },
+    drivewayPos: { x: -220, z: -185 },
     drivewayAngle: 0.0
   }
 ];
 
 // ============================================================================
-// 7. CENTRAL PLAZA / ASSEMBLY AREA (Directly matching Reference Image)
+// 8. CENTRAL PLAZA / ASSEMBLY AREA (Pedestrian Focal Point)
 // ============================================================================
-// Located immediately west of the Hero Building.
-// Circular / horseshoe layout, concentric amphitheater steps, central fountain/monument.
 export const CENTRAL_ASSEMBLY_PLAZA = {
   id: 'PLAZA-CENTRAL-001',
   name: 'Central Plaza / Evacuation Assembly Forum',
@@ -411,7 +518,7 @@ export const CENTRAL_ASSEMBLY_PLAZA = {
 };
 
 // ============================================================================
-// 8. LAKE & LANDSCAPE OPEN SPACE (South-East, matching Reference Image)
+// 9. LAKE & LANDSCAPE OPEN SPACE
 // ============================================================================
 export const CAMPUS_LAKE = {
   id: 'LAKE-001',
@@ -423,24 +530,23 @@ export const CAMPUS_LAKE = {
 };
 
 // ============================================================================
-// 9. SPORTS & RECREATION COMPLEX (West, matching Reference Image)
+// 10. SPORTS & RECREATION COMPLEX
 // ============================================================================
 export const SPORTS_COMPLEX = {
   id: 'SPORTS-001',
   name: 'Campus Sports & Recreation Open Space',
   district: 'DISTRICT-PUBLIC',
   center: { x: -235, z: 50 },
-  trackSize: { length: 90, width: 54 }, // Standard 400m running track proportions
-  pitchSize: { length: 65, width: 36 }, // Inner green soccer/athletics pitch
+  trackSize: { length: 90, width: 54 },
+  pitchSize: { length: 65, width: 36 },
   courtsCenter: { x: -235, z: 110 },
-  courtsSize: { width: 50, depth: 32 }  // Blue/green hardcourts with white playing lines
+  courtsSize: { width: 50, depth: 32 }
 };
 
 // ============================================================================
-// 10. PARKING FACILITIES (Matching Reference Image)
+// 11. PARKING FACILITIES
 // ============================================================================
 export const PARKING_FACILITIES = [
-  // A. Main Parking Area (Phase 1, South-West)
   {
     id: 'PARKING-001',
     name: 'Main Parking Area (Phase 1)',
@@ -451,7 +557,6 @@ export const PARKING_FACILITIES = [
     hasEvChargers: true,
     hasTreeIslands: true
   },
-  // B. Secondary Parking Area (Staff / Visitors, South-East)
   {
     id: 'PARKING-002',
     name: 'Secondary Parking Area (Staff / Visitors)',
@@ -465,7 +570,7 @@ export const PARKING_FACILITIES = [
 ];
 
 // ============================================================================
-// 11. CAMPUS PORTALS & ENTRANCE GATES
+// 12. CAMPUS PORTALS & ENTRANCE GATES
 // ============================================================================
 export const CAMPUS_ENTRANCES = [
   {
@@ -485,5 +590,66 @@ export const CAMPUS_ENTRANCES = [
     hasGateCanopy: true,
     hasSecurityKiosk: true,
     hasMedianIsland: false
+  }
+];
+
+// ============================================================================
+// 13. DEFINED OPEN LAWNS & GREEN QUADRANGLES
+// ============================================================================
+export const CAMPUS_LAWNS = [
+  {
+    id: 'LAWN-GREAT-QUAD',
+    name: 'The Great Lawn / Central Campus Quad',
+    bounds: { minX: -130, maxX: -32, minZ: -65, maxZ: 50 },
+    center: { x: -81, z: -7.5 },
+    width: 98,
+    depth: 115,
+    hasMowingStripes: true,
+    curbHeight: 0.10,
+    curbWidth: 0.35
+  },
+  {
+    id: 'LAWN-HERO-EAST',
+    name: 'Hero East Flanking Lawn',
+    bounds: { minX: 30, maxX: 72, minZ: 30, maxZ: 85 },
+    center: { x: 51, z: 57.5 },
+    width: 42,
+    depth: 55,
+    hasMowingStripes: true,
+    curbHeight: 0.08,
+    curbWidth: 0.30
+  },
+  {
+    id: 'LAWN-HERO-WEST',
+    name: 'Hero West Flanking Lawn',
+    bounds: { minX: -72, maxX: -30, minZ: 30, maxZ: 85 },
+    center: { x: -51, z: 57.5 },
+    width: 42,
+    depth: 55,
+    hasMowingStripes: true,
+    curbHeight: 0.08,
+    curbWidth: 0.30
+  },
+  {
+    id: 'LAWN-ACADEMIC-QUAD',
+    name: 'East Academic Quad Lawn',
+    bounds: { minX: 155, maxX: 235, minZ: -125, maxZ: -45 },
+    center: { x: 195, z: -85 },
+    width: 80,
+    depth: 80,
+    hasMowingStripes: true,
+    curbHeight: 0.08,
+    curbWidth: 0.30
+  },
+  {
+    id: 'LAWN-RESEARCH-COMMONS',
+    name: 'North Research Green Commons',
+    bounds: { minX: -65, maxX: 45, minZ: -145, maxZ: -95 },
+    center: { x: -10, z: -120 },
+    width: 110,
+    depth: 50,
+    hasMowingStripes: true,
+    curbHeight: 0.08,
+    curbWidth: 0.30
   }
 ];

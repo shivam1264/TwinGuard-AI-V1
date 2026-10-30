@@ -50,15 +50,15 @@ optimizeRoutes(agents, fireLocations = [], options = {}) {
       let bestScore = Infinity;
 let fallbackAssignment = false;
 
-      // Available exits: Upper floors (L2 to L10) must use stairwell towers (West or East)
+      // Available exits: Upper floors (L2 to L10) MUST egress via vertical Stairwell Cores (West Core A or East Core B)
       // Ground floor (L1) can use West, East, or South Grand Exit!
       const allOperational = this.exits.filter(e => !e.isBlocked);
       const floorExits = agent.floor === 1 ? this.exits : [this.exits[0], this.exits[1]];
       let availableExits = floorExits.filter(e => !e.isBlocked);
 
-      // Fallback: If both floor stairwells are compromised, fallback to any operational exit
+      // Fallback: If both floor stairwells are flagged, select the least compromised stair core
       if (availableExits.length === 0) {
-        availableExits = allOperational.length > 0 ? allOperational : this.exits;
+        availableExits = [this.exits[0], this.exits[1]];
       }
 
       const candidates = [];
@@ -78,7 +78,7 @@ let fallbackAssignment = false;
         if (floorDiff === 0) {
           // Fire floor - immediate evacuation (1-2s delay)
           delayTimer = 1.0 + Math.random() * 1.0;
-        } else if (floorDiff === 1) {
+ else if (floorDiff === 1) {
           // Adjacent floor - secondary priority (3-6s delay)
           delayTimer = 3.0 + Math.random() * 3.0;
         } else {
@@ -173,6 +173,7 @@ let fallbackAssignment = false;
       bestScore = bestCandidate.score;
 
       if (bestExit) {
+      if (bestExit) {
         if (hazardAware && permittedCandidates.length === 0) {
           fallbackAssignment = true;
           requiresOperatorReview = true;
@@ -190,6 +191,52 @@ let fallbackAssignment = false;
         if (isChangingExit && agent.currentExitId) {
           tentativeLoads.set(agent.currentExitId, Math.max(0, (tentativeLoads.get(agent.currentExitId) || 0) - 1));
         }
+
+        // Determine stairwell core for upper floor descent
+        let stairCoreId = bestExit.id;
+        if (agent.floor > 1) {
+          if (stairCoreId !== 'exit_west' && stairCoreId !== 'exit_east') {
+            const westBlocked = blockedExitIds.includes('exit_west');
+            const eastBlocked = blockedExitIds.includes('exit_east');
+            if (westBlocked && !eastBlocked) stairCoreId = 'exit_east';
+            else if (!westBlocked && eastBlocked) stairCoreId = 'exit_west';
+            else stairCoreId = (agent.x < 0) ? 'exit_west' : 'exit_east';
+          }
+        }
+
+        const stairEntry = this.stairwellEntries[stairCoreId] || this.stairwellEntries[bestExit.id];
+
+        // Build full 3D path for the best exit
+        const full3DPath = this.buildFull3DPath(agent, bestExit, doorway, stairEntry, seed);
+
+        assignments.push({
+          agentId: agent.id,
+          exitId: bestExit.id,
+          exitName: bestExit.name,
+          exitColor: bestExit.color,
+          path: full3DPath,
+          targetExit: { x: bestExit.x, z: bestExit.z },
+          hazardAware,
+          routeEvaluation: hazardAware ? 'hazard-aware' : 'unverified',
+          routeCondition: bestRoute?.condition || null,
+          routeReasons: bestRoute?.reasons || [],
+          noPermittedCandidate: fallbackAssignment,
+          requiresOperatorReview: fallbackAssignment,
+          // Phased evacuation delay timer
+          delayTimer: delayTimer,
+          // Alternative routes for dynamic reevaluation
+          alternatives: candidatePaths.slice(1).map(c => ({
+            exitId: c.exit.id,
+            exitName: c.exit.name,
+            exitColor: c.exit.color,
+            path: c.path,
+            score: c.score,
+            routeCondition: c.route?.condition || null,
+            routeReasons: c.route?.reasons || []
+          }))
+        });
+      }
+    });
 
         assignments.push({
           agentId: agent.id,
