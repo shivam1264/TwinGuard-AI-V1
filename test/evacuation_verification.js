@@ -7,6 +7,8 @@ import { Pathfinder } from '../src/simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../src/simulation/CrowdOptimizer.js';
 import { PRESET_SCENARIOS, createCase3Scenario } from '../src/ai/ScenarioEngine.js';
 import { MultiStrategyRanker, EVACUATION_STRATEGIES } from '../src/ai/MultiStrategyRanker.js';
+import * as THREE from 'three';
+import { EmergencyVehiclesManager } from '../src/three/EmergencyVehiclesManager.js';
 
 console.log('=======================================================');
 console.log('🚀 RUNNING MASTER EVACUATION VERIFICATION SUITE');
@@ -486,6 +488,57 @@ assert(resultL7East.bestStrategy.exitLoads.coreA > 0 && resultL7East.bestStrateg
 const dynamicScenario = createCase3Scenario(5, 'west');
 const resultDynamic = ranker.rankStrategies(dynamicScenario, testRooms, testExits);
 assert(resultDynamic.bestStrategy.evacuationTimeSeconds > 0, `Dynamic Level 5 Case 3 clearance time: ${resultDynamic.bestStrategy.evacuationTimeSeconds}s`);
+
+
+// -------------------------------------------------------------------
+// TEST 9: Emergency Control - 30-Second Arrival & Nearest Gate Staging Invariant
+// -------------------------------------------------------------------
+console.log('\n--- Test Suite 9: Emergency Vehicles & 30-Second Response Dispatch ---');
+const emergencyScene = new THREE.Scene();
+const emergencyMgr = new EmergencyVehiclesManager(emergencyScene);
+
+// 9.A: Vehicle Asset Composition
+assert(emergencyMgr.fireEngine !== null, 'Emergency Engine 1 (Fire Extinguisher Squad) instantiated');
+assert(emergencyMgr.ambulance !== null, 'Emergency Medic 1 (Ambulance / EMS Squad) instantiated');
+assert(emergencyMgr.rescueTeam !== null, 'Emergency Rescue 1 (Tactical Incident Command Unit) instantiated');
+
+// 9.B: Spatial Nearest-Exit Routing (West, East, South / Main)
+console.log('\n  -> Emergency Dispatch Nearest Ground Gate Determination:');
+// 1. Floor 7 West Stair Hazard -> Ground West Gate (exit_west)
+emergencyMgr.dispatch(null, [{ x: -26.4, y: 22.8, z: 0, floor: 7, roomId: 'f7_r1' }]);
+assert(emergencyMgr.targetGate.id === 'exit_west', 'Hazard at Floor 7 West Stair directs units to Ground West Gate (exit_west)');
+
+// 2. Floor 7 East Stair Hazard -> Ground East Gate (exit_east)
+emergencyMgr.dispatch(null, [{ x: 26.4, y: 22.8, z: 0, floor: 7, roomId: 'f7_r5' }]);
+assert(emergencyMgr.targetGate.id === 'exit_east', 'Hazard at Floor 7 East Stair directs units to Ground East Gate (exit_east)');
+
+// 3. Ground Floor Main Entrance Hazard -> Ground Main Gate (exit_south)
+emergencyMgr.dispatch(null, [{ x: 0, y: 0.2, z: 20, floor: 1, roomId: 'f1_r8' }]);
+assert(emergencyMgr.targetGate.id === 'exit_south', 'Hazard at Main Entrance directs units to Ground Main Gate (exit_south)');
+
+// 9.C: Exact 30-Second Arrival Timeline Invariant
+console.log('\n  -> 30-Second Arrival Timeline Invariant:');
+emergencyMgr.dispatch('exit_west');
+
+// t = 0s: Dispatch initiated
+emergencyMgr.update(0, 0, true);
+let emStatus0 = emergencyMgr.getStatus();
+assert(emStatus0.status === 'EN_ROUTE' && emStatus0.isArrived === false && emStatus0.etaSeconds === 30,
+  `At t=0s: Status EN_ROUTE, ETA = ${emStatus0.etaSeconds}s, Arrived = false`);
+
+// t = 15s: Midpoint en-route traversal
+emergencyMgr.update(15, 15, true);
+let emStatus15 = emergencyMgr.getStatus();
+assert(emStatus15.status === 'EN_ROUTE' && emStatus15.isArrived === false && emStatus15.progress === 50,
+  `At t=15s: Traversal at ${emStatus15.progress}%, ETA = ${emStatus15.etaSeconds}s`);
+
+// t = 30s: Full arrival and on-scene perimeter staging
+emergencyMgr.update(15, 30, true);
+let emStatus30 = emergencyMgr.getStatus();
+assert(emStatus30.status === 'ON_SCENE' && emStatus30.isArrived === true && emStatus30.progress === 100,
+  `At t=30s: Status ON_SCENE, Progress = 100%, Staged on perimeter`);
+assert(emergencyMgr.perimeterGroup.visible === true, 'On-scene medical triage, hazard perimeter, and command cots deployed at t=30s');
+assert(Math.abs(emergencyMgr.fireEngine.position.x - (-44.0)) < 0.1, `Fire Engine staged at West Gate x=${emergencyMgr.fireEngine.position.x}`);
 
 console.log('\n=======================================================');
 console.log(`🎯 VERIFICATION COMPLETE: ${passedTests}/${totalTests} TESTS PASSED!`);

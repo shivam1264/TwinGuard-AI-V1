@@ -29,7 +29,10 @@ export const LeftSidebar = ({
   onOpenCctv,
   onOpenSystems,
   onOpenBuildingInfo,
-  onSetCameraPreset
+  onSetCameraPreset,
+  onOpenEmergencyControl,
+  isSimulating = false,
+  elapsedSeconds = 0
 }) => {
   const getFloorInfo = (floorNum) => {
     const floorRooms = rooms.filter((r) => r.floor === floorNum);
@@ -70,7 +73,16 @@ export const LeftSidebar = ({
     { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3', badgeColor: '#f1f5f9' },
     { id: 'CCTV', label: 'CCTV Monitoring', icon: Video, action: onOpenCctv, badge: '100', badgeColor: '#f0fdf4', badgeText: '#16a34a' },
     { id: 'SYSTEMS', label: 'Sensor Telemetry', icon: Activity, action: onOpenSystems, badge: 'Live', badgeColor: '#dcfce7', badgeText: '#15803d' },
-    { id: 'EMERGENCY', label: 'Emergency Control', icon: Flame, iconColor: '#ef4444', badge: null },
+    {
+      id: 'EMERGENCY',
+      label: 'Emergency Control',
+      icon: Flame,
+      iconColor: '#ef4444',
+      action: onOpenEmergencyControl,
+      badge: isSimulating ? (elapsedSeconds >= 30 ? 'On Scene' : `${Math.max(0, 30 - elapsedSeconds)}s`) : '30s Resp',
+      badgeColor: isSimulating ? (elapsedSeconds >= 30 ? '#dcfce7' : '#fee2e2') : '#fef2f2',
+      badgeText: isSimulating ? (elapsedSeconds >= 30 ? '#15803d' : '#b91c1c') : '#dc2626'
+    },
     { id: 'INFO', label: 'Building Information', icon: FileText, badge: null }
   ];
 
