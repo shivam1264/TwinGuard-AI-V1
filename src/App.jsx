@@ -284,7 +284,7 @@ export function App() {
     );
     setRooms(updatedRooms);
 
-    if (sceneManagerRef.current && !isSimulating) {
+    if (sceneManagerRef.current && !isSimulating && systemStatus !== 'COMPLETED') {
       sceneManagerRef.current.syncOccupants(updatedRooms);
     }
 
@@ -327,6 +327,7 @@ export function App() {
       AIEngine.setActiveStrategy(selectedStrategy);
     }
     if (sceneManagerRef.current) {
+      if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
       const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
       if (result) {
         if (result.exitStats) setExits(result.exitStats);
@@ -340,7 +341,9 @@ export function App() {
   // Start Evacuation Simulation
   const handleStartEvacuation = () => {
     if (!sceneManagerRef.current) return;
+    if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
     const result = sceneManagerRef.current.startEvacuation();
+    if (!result && sceneManagerRef.current.evacuationCompleted) return;
     setIsSimulating(true);
     setSystemStatus('EVACUATING');
 

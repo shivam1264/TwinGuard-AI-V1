@@ -411,6 +411,7 @@ export class AgentCrowd {
       y: data.y,
       z: data.z,
       state: data.state,
+      isEvacuated: false,
       isSeated: !!data.isSeated,
       speed: 3.2 + Math.random() * 0.6,
       animCycle: Math.random() * Math.PI * 2,
@@ -472,6 +473,16 @@ export class AgentCrowd {
     });
 
     this.agents.forEach(agent => {
+      // 1. Once an occupant has reached SAFE / evacuated, NEVER touch or reassign them!
+      if (agent.state === 'SAFE' || agent.isEvacuated) {
+        return;
+      }
+
+      // 2. If occupant is already actively EVACUATING along their route, do not reset them back to room!
+      if (agent.state === 'EVACUATING' && agent.path && agent.path.length > 0) {
+        return;
+      }
+
       const assignment = assignmentMap.get(agent.id);
       if (assignment) {
         this.standUpAgent(agent);
@@ -483,6 +494,50 @@ export class AgentCrowd {
         agent.beacon.material.color = new THREE.Color(0xff5500);
         agent.shirtMat.emissive = new THREE.Color(0xff3300);
         agent.shirtMat.emissiveIntensity = 0.35;
+      }
+    });
+  }
+
+  rerouteAgents(assignments) {
+    const assignmentMap = new Map();
+    assignments.forEach(a => assignmentMap.set(a.agentId, a));
+
+    this.agents.forEach(agent => {
+      // 1. Never reroute safe / evacuated agents!
+      if (agent.state === 'SAFE' || agent.isEvacuated) {
+        return;
+      }
+
+      const assignment = assignmentMap.get(agent.id);
+      if (!assignment || !assignment.path || assignment.path.length === 0) return;
+
+      if (agent.state === 'IDLE') {
+        this.standUpAgent(agent);
+        agent.path = assignment.path;
+        agent.currentWaypointIdx = 0;
+        agent.state = 'EVACUATING';
+        agent.assignedExitColor = assignment.exitColor;
+      } else if (agent.state === 'EVACUATING') {
+        // Find nearest forward waypoint on same or lower altitude
+        const newPath = assignment.path;
+        let bestIdx = 0;
+        let minDistSq = Infinity;
+        for (let i = 0; i < newPath.length; i++) {
+          const pt = newPath[i];
+          if (pt.y <= agent.y + 0.5) {
+            const dSq = (pt.x - agent.x) ** 2 + (pt.y - agent.y) ** 2 + (pt.z - agent.z) ** 2;
+            if (dSq < minDistSq) {
+              minDistSq = dSq;
+              bestIdx = i;
+            }
+          }
+        }
+        if (bestIdx < newPath.length - 1 && minDistSq < 1.0) {
+          bestIdx++;
+        }
+        agent.path = newPath;
+        agent.currentWaypointIdx = bestIdx;
+        agent.assignedExitColor = assignment.exitColor;
       }
     });
   }
@@ -518,7 +573,9 @@ export class AgentCrowd {
         continue;
       }
 
-      if (agent.state === 'SAFE') {
+      if (agent.state === 'SAFE' || agent.isEvacuated) {
+        agent.state = 'SAFE';
+        agent.isEvacuated = true;
         evacuatedCount++;
         agent.mesh.visible = true;
         agent.mesh.position.set(agent.x, 0.15, agent.z);
@@ -584,7 +641,15 @@ export class AgentCrowd {
             agent.currentWaypointIdx++;
             if (agent.currentWaypointIdx >= agent.path.length) {
               agent.state = 'SAFE';
+              agent.isEvacuated = true;
+              const finalWaypoint = agent.path[agent.path.length - 1];
+              if (finalWaypoint) {
+                agent.x = finalWaypoint.x;
+                agent.y = 0.15;
+                agent.z = finalWaypoint.z;
+              }
               agent.mesh.visible = true; // Safe in muster zone
+              agent.mesh.position.set(agent.x, 0.15, agent.z);
               agent.leftLeg.rotation.x = 0;
               agent.rightLeg.rotation.x = 0;
               agent.leftKnee.rotation.x = 0;
@@ -631,13 +696,13 @@ export class AgentCrowd {
 
     this.agents.forEach(agent => {
       agent.displayPos = null;
-      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y;
+      agent.mesh.position.y = (agent.state === 'SAFE' || agent.isEvacuated) ? 0.15 : agent.y;
 
       if (mode === 'ALL' || mode === 'EXPLODED') {
         agent.mesh.visible = true;
       } else {
         const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
-        agent.mesh.visible = isOnTargetFloor;
+        agent.mesh.visible = (agent.state === 'SAFE' || agent.isEvacuated) ? (targetFloorNum === 1) : isOnTargetFloor;
       }
     });
 

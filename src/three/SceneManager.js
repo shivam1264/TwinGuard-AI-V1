@@ -20,6 +20,7 @@ export class SceneManager {
 
     this.simSpeed = 1.0;
     this.isSimulating = false;
+    this.evacuationCompleted = false;
     this.elapsedSeconds = 0;
     this.clock = new THREE.Clock();
 
@@ -640,7 +641,7 @@ export class SceneManager {
       this.emergencyManager.dispatch(null, activeFires);
     }
 
-    if (this.isSimulating) {
+    if (this.isSimulating && !this.evacuationCompleted) {
       const fireLocations = [];
       this.fireSystem.activeFires.forEach((f, rId) => {
         if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
@@ -650,10 +651,18 @@ export class SceneManager {
       const floorBlockedMap = activeScenario?.structuralFailures?.floorBlockedExits || null;
       const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
       const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
-      const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap);
-      this.agentCrowd.assignRoutes(optimizationResult.assignments);
-      if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
-      if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
+      
+      const unevacuatedAgents = this.agentCrowd.agents.filter(a => a.state !== 'SAFE' && !a.isEvacuated);
+      if (unevacuatedAgents.length > 0) {
+        const optimizationResult = this.crowdOptimizer.optimizeRoutes(unevacuatedAgents, fireLocations, blockedExitIds, strategyType, floorBlockedMap);
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(optimizationResult.assignments);
+        } else {
+          this.agentCrowd.assignRoutes(optimizationResult.assignments);
+        }
+        if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
+      }
     }
   }
 
@@ -662,8 +671,8 @@ export class SceneManager {
       this.scenarioEngine.blockStairwellCore(coreName, floorNum);
     }
 
-    // If currently simulating, recalculate paths dynamically!
-    if (this.isSimulating) {
+    // If currently simulating and not completed, recalculate paths dynamically!
+    if (this.isSimulating && !this.evacuationCompleted) {
       const fireLocations = [];
       if (this.fireSystem && this.fireSystem.activeFires) {
         this.fireSystem.activeFires.forEach((f, rId) => {
@@ -676,25 +685,33 @@ export class SceneManager {
       const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
       const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
 
-      const newPlan = this.crowdOptimizer
-        ? this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap)
-        : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents, blockedExitIds, floorBlockedMap || {}) : null);
+      const unevacuatedAgents = this.agentCrowd.agents.filter(a => a.state !== 'SAFE' && !a.isEvacuated);
+      if (unevacuatedAgents.length > 0) {
+        const newPlan = this.crowdOptimizer
+          ? this.crowdOptimizer.optimizeRoutes(unevacuatedAgents, fireLocations, blockedExitIds, strategyType, floorBlockedMap)
+          : (this.routeOptimizer ? this.routeOptimizer.optimizeEvacuationRoutes(unevacuatedAgents, blockedExitIds, floorBlockedMap || {}) : null);
 
-      if (newPlan && newPlan.assignments) {
-        if (this.agentCrowd.rerouteAgents) {
-          this.agentCrowd.rerouteAgents(newPlan.assignments);
-        } else {
-          this.agentCrowd.assignRoutes(newPlan.assignments);
+        if (newPlan && newPlan.assignments) {
+          if (this.agentCrowd.rerouteAgents) {
+            this.agentCrowd.rerouteAgents(newPlan.assignments);
+          } else {
+            this.agentCrowd.assignRoutes(newPlan.assignments);
+          }
+          if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
+          if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
         }
-        if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
-        if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
+        return newPlan;
       }
-      return newPlan;
     }
     return null;
   }
 
   startEvacuation(scenario = null, strategy = null) {
+    if (this.evacuationCompleted) {
+      // Evacuation strictly runs once per scenario until Reset is clicked
+      return null;
+    }
+
     this.isSimulating = true;
     this.elapsedSeconds = 0;
 
@@ -741,6 +758,7 @@ export class SceneManager {
 
   reset(rooms = null) {
     this.isSimulating = false;
+    this.evacuationCompleted = false;
     this.elapsedSeconds = 0;
     this._lastStatsUpdate = 0;
     this._lastEvacuated = -1;
@@ -825,6 +843,12 @@ export class SceneManager {
             isCompleted: stats.inTransit === 0 && stats.total > 0
           });
         }
+
+        // When evacuation is completed, permanently halt simulation so occupants remain safe outside!
+        if (stats.isCompleted || (stats.inTransit === 0 && stats.total > 0)) {
+          this.isSimulating = false;
+          this.evacuationCompleted = true;
+        }
       }
     }
 
@@ -837,7 +861,7 @@ export class SceneManager {
     return this.emergencyManager ? this.emergencyManager.getStatus() : null;
   }
 
-  dispatchEmergency(targetGateId = null) {
+  dispatchEmergency(targetGateId = null, forceRestart = false) {
     if (this.emergencyManager) {
       const fireLocations = [];
       if (this.fireSystem && this.fireSystem.activeFires) {
@@ -845,7 +869,7 @@ export class SceneManager {
           if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
         });
       }
-      this.emergencyManager.dispatch(targetGateId, fireLocations);
+      this.emergencyManager.dispatch(targetGateId, fireLocations, forceRestart);
     }
   }
 

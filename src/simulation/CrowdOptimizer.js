@@ -174,6 +174,11 @@ export class CrowdOptimizer {
     const assignments = [];
 
     agents.forEach((agent, index) => {
+      // Ignore occupants who have already safely evacuated outside the building
+      if (agent.state === 'SAFE' || agent.isEvacuated) {
+        return;
+      }
+
       let bestExit = null;
       let minScore = Infinity;
 
