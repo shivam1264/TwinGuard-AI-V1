@@ -182,18 +182,35 @@ export const LeftSidebar = ({
       >
         {/* ─── SECTION 1: MAIN MENU ─── */}
         <div className="flex flex-col" style={{ gap: '3px' }}>
-          <div
-            style={{
-              fontSize: '10.5px',
-              fontWeight: 700,
-              color: '#94a3b8',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              padding: '0 8px',
-              marginBottom: '6px',
-            }}
-          >
-            MAIN MENU
+          <div className="flex items-center justify-between" style={{ padding: '0 8px', marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                color: '#94a3b8',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}
+            >
+              MAIN MENU
+            </span>
+            <button
+              onClick={onToggleCollapse}
+              className="flex items-center justify-center cursor-pointer transition-colors"
+              style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '8px',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                color: '#64748b',
+              }}
+              title="Collapse Left Sidebar"
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
+            >
+              <PanelLeftClose style={{ width: '15px', height: '15px' }} />
+            </button>
           </div>
 
           {menuItems.map((item) => {

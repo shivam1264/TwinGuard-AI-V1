@@ -176,30 +176,51 @@ export const RightSidebar = ({
       >
         {/* Header */}
         <div className="flex items-center justify-between" style={{ marginBottom: '12px' }}>
-          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
-            Command & Telemetry
-          </span>
-          <div
-            className="flex items-center"
-            style={{
-              padding: '2px 8px',
-              borderRadius: '999px',
-              background: '#f0fdf4',
-              border: '1px solid #d1fae5',
-              gap: '5px',
-            }}
-          >
-            <span
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+              Command & Telemetry
+            </span>
+            <div
+              className="flex items-center"
               style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                padding: '2px 8px',
+                borderRadius: '999px',
+                background: '#f0fdf4',
+                border: '1px solid #d1fae5',
+                gap: '5px',
               }}
-            />
-            <span style={{ fontSize: '10px', fontWeight: 700, color: '#16a34a' }}>Live</span>
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px rgba(16, 185, 129, 0.6)',
+                }}
+              />
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#16a34a' }}>Live</span>
+            </div>
           </div>
+
+          {/* Close / Collapse Right Sidebar Button */}
+          <button
+            onClick={onToggleCollapse}
+            className="flex items-center justify-center cursor-pointer transition-colors"
+            style={{
+              width: '26px',
+              height: '26px',
+              borderRadius: '8px',
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              color: '#64748b',
+            }}
+            title="Collapse Right Sidebar"
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#64748b'; }}
+          >
+            <PanelRightClose style={{ width: '15px', height: '15px' }} />
+          </button>
         </div>
 
         {/* 2x2 Metric Cards Grid */}
