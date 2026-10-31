@@ -37,6 +37,7 @@ export function MobileFloor3DMap({
   activeFires = [],
   targetStairCode = 'CORE_B',
   isAlarmActive = false,
+  hasActiveEmergency = false,
   onArriveMuster
 }) {
   const containerRef = useRef(null);
@@ -485,7 +486,8 @@ export function MobileFloor3DMap({
     });
 
     // 13. Dynamic Neon Green Egress Route
-    if (waypoints.length >= 2) {
+    // Only generate and render the route tube and waypoint discs when an active emergency is underway!
+    if (hasActiveEmergency && waypoints.length >= 2) {
       const curvePoints = waypoints.map((w) => w.pos);
       const curve = new THREE.CatmullRomCurve3(curvePoints);
       const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.32, 8, false);
@@ -645,7 +647,7 @@ export function MobileFloor3DMap({
       renderer.dispose();
       controls.dispose();
     };
-  }, [floor, roomId, targetStairCode, activeFires, waypoints, roomTemplate]);
+  }, [floor, roomId, targetStairCode, activeFires, waypoints, roomTemplate, hasActiveEmergency]);
 
   // Camera Mode Configuration Helper
   const applyCameraMode = (mode, cam, ctrl, avatarPos, forwardVec) => {
@@ -793,140 +795,177 @@ export function MobileFloor3DMap({
 
         {/* Live Dynamic Route Status Badge */}
         <div className="flex items-center gap-1 pointer-events-auto">
-          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5 shadow-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            AI Dynamic Route
-          </span>
+          {hasActiveEmergency ? (
+            <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5 shadow-md animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              AI Dynamic Route
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider bg-slate-900/90 text-slate-300 border border-slate-700/80 backdrop-blur-md flex items-center gap-1.5 shadow-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              Standby • Monitored
+            </span>
+          )}
         </div>
       </div>
 
       {/* ── 3D CANVAS VIEWPORT (WITH TOUCH-PAN-Y FOR CLEAN PAGE SCROLLING) ── */}
-      <div
-        ref={containerRef}
-        className="w-full h-[320px] bg-slate-950 relative touch-pan-y cursor-grab active:cursor-grabbing"
-      />
+      <div className="relative w-full h-[320px] bg-slate-950 overflow-hidden">
+        <div
+          ref={containerRef}
+          className="w-full h-full touch-pan-y cursor-grab active:cursor-grabbing"
+        />
 
-      {/* ── ON-CANVAS CAMERA ORBIT TOOLBAR ── */}
-      <div className="absolute right-2.5 bottom-32 z-10 flex flex-col gap-1.5 pointer-events-auto">
-        <button
-          onClick={() => handleRotateCamera(-Math.PI / 4)}
-          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
-          title="Rotate Left 45°"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => handleRotateCamera(Math.PI / 4)}
-          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
-          title="Rotate Right 45°"
-        >
-          <RotateCw className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => handleZoom(0.85)}
-          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
-          title="Zoom In"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-        <button
-          onClick={() => handleZoom(1.18)}
-          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
-          title="Zoom Out"
-        >
-          <Minus className="w-3.5 h-3.5" />
-        </button>
+        {/* ── ON-CANVAS CAMERA ORBIT TOOLBAR (DOCKED SAFELY INSIDE CANVAS) ── */}
+        <div className="absolute right-2.5 bottom-2.5 z-10 flex flex-col gap-1.5 pointer-events-auto">
+          <button
+            onClick={() => handleRotateCamera(-Math.PI / 4)}
+            className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+            title="Rotate Left 45°"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => handleRotateCamera(Math.PI / 4)}
+            className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+            title="Rotate Right 45°"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => handleZoom(0.85)}
+            className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+            title="Zoom In"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => handleZoom(1.18)}
+            className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+            title="Zoom Out"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* ── STEP-BY-STEP WAYPOINT DIRECTIVE HUD ── */}
       <div className="p-3.5 bg-slate-900/95 border-t border-slate-800 backdrop-blur-md space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-xs shrink-0">
-              {currentWaypointIdx + 1}
-            </div>
-            <div>
-              <div className="text-xs font-black text-white leading-tight flex items-center gap-1.5">
-                <span>{currentWp.title}</span>
-                <span className="text-[10px] text-emerald-400 font-mono font-bold">({currentWp.dist})</span>
+        {hasActiveEmergency ? (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-xs shrink-0">
+                  {currentWaypointIdx + 1}
+                </div>
+                <div>
+                  <div className="text-xs font-black text-white leading-tight flex items-center gap-1.5">
+                    <span>{currentWp.title}</span>
+                    <span className="text-[10px] text-emerald-400 font-mono font-bold">({currentWp.dist})</span>
+                  </div>
+                  <div className="text-[10.5px] text-slate-400 font-medium leading-snug">
+                    {currentWp.desc}
+                  </div>
+                </div>
               </div>
-              <div className="text-[10.5px] text-slate-400 font-medium leading-snug">
-                {currentWp.desc}
-              </div>
-            </div>
-          </div>
 
-          <div className="text-right shrink-0">
-            <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Target</div>
-            <div className="text-[11px] font-extrabold text-indigo-300 truncate max-w-[110px]">
-              {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
-            </div>
-          </div>
-        </div>
-
-        {/* Step Progress Dots */}
-        <div className="flex items-center gap-1.5 pt-1">
-          {waypoints.map((_, i) => (
-            <div
-              key={i}
-              onClick={() => handleSelectWaypoint(i)}
-              className={`h-1.5 rounded-full flex-1 transition-all cursor-pointer ${
-                i <= currentWaypointIdx ? 'bg-emerald-400 shadow-sm shadow-emerald-500/50' : 'bg-slate-800'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Stepper Controls */}
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          <button
-            onClick={() => handleSelectWaypoint(Math.max(0, currentWaypointIdx - 1))}
-            disabled={currentWaypointIdx === 0}
-            className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Prev</span>
-          </button>
-
-          <button
-            onClick={() => setIsAutoWalking((prev) => !prev)}
-            className={`py-1.5 px-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer ${
-              isAutoWalking
-                ? 'bg-amber-600 text-white animate-pulse'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
-            }`}
-          >
-            <Play className={`w-3.5 h-3.5 ${isAutoWalking ? 'animate-spin' : ''}`} />
-            <span>{isAutoWalking ? 'Pause' : 'Auto-Walk'}</span>
-          </button>
-
-          <button
-            onClick={() => handleSelectWaypoint(Math.min(waypoints.length - 1, currentWaypointIdx + 1))}
-            disabled={currentWaypointIdx === waypoints.length - 1}
-            className="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-md shadow-indigo-600/30"
-          >
-            <span>Next</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Reached Exit Callout */}
-        {hasReachedExit && (
-          <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border border-emerald-500/60 flex items-center justify-between animate-in fade-in duration-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <div className="text-[11px] text-emerald-200 font-bold leading-tight">
-                Safe Stairwell Reached! Descend to Ground Portal & Muster Zone.
+              <div className="text-right shrink-0">
+                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Target</div>
+                <div className="text-[11px] font-extrabold text-indigo-300 truncate max-w-[110px]">
+                  {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
+                </div>
               </div>
             </div>
-            {onArriveMuster && (
+
+            {/* Step Progress Dots */}
+            <div className="flex items-center gap-1.5 pt-1">
+              {waypoints.map((_, i) => (
+                <div
+                  key={i}
+                  onClick={() => handleSelectWaypoint(i)}
+                  className={`h-1.5 rounded-full flex-1 transition-all cursor-pointer ${
+                    i <= currentWaypointIdx ? 'bg-emerald-400 shadow-sm shadow-emerald-500/50' : 'bg-slate-800'
+                  }`}
+                />
+              ))}
+            </div>
+
+            {/* Stepper Controls */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
               <button
-                onClick={onArriveMuster}
-                className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider shrink-0 shadow-md active:scale-95 cursor-pointer hover:bg-emerald-400"
+                onClick={() => handleSelectWaypoint(Math.max(0, currentWaypointIdx - 1))}
+                disabled={currentWaypointIdx === 0}
+                className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
               >
-                Mark Safe
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Prev</span>
               </button>
+
+              <button
+                onClick={() => setIsAutoWalking((prev) => !prev)}
+                className={`py-1.5 px-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer ${
+                  isAutoWalking
+                    ? 'bg-amber-600 text-white animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950'
+                }`}
+              >
+                <Play className={`w-3.5 h-3.5 ${isAutoWalking ? 'animate-spin' : ''}`} />
+                <span>{isAutoWalking ? 'Pause' : 'Auto-Walk'}</span>
+              </button>
+
+              <button
+                onClick={() => handleSelectWaypoint(Math.min(waypoints.length - 1, currentWaypointIdx + 1))}
+                disabled={currentWaypointIdx === waypoints.length - 1}
+                className="py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:pointer-events-none text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-md shadow-indigo-600/30"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Reached Exit Callout */}
+            {hasReachedExit && (
+              <div className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-950/80 to-teal-950/80 border border-emerald-500/60 flex items-center justify-between animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="text-[11px] text-emerald-200 font-bold leading-tight">
+                    Safe Stairwell Reached! Descend to Ground Portal & Muster Zone.
+                  </div>
+                </div>
+                {onArriveMuster && (
+                  <button
+                    onClick={onArriveMuster}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider shrink-0 shadow-md active:scale-95 cursor-pointer hover:bg-emerald-400"
+                  >
+                    Mark Safe
+                  </button>
+                )}
+              </div>
             )}
+          </>
+        ) : (
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-xs font-black text-white leading-tight flex items-center gap-1.5">
+                  <span>Floor {floor} Monitored • Standby</span>
+                  <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-bold">NORMAL</span>
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium leading-snug mt-0.5">
+                  Occupant at {roomName}. AI dynamic route engages upon incident.
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right shrink-0">
+              <div className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider">Nearest Core</div>
+              <div className="text-[11px] font-extrabold text-indigo-300">
+                {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
+              </div>
+            </div>
           </div>
         )}
       </div>
