@@ -1,7 +1,7 @@
 // ==============================================================================
 // TwinGuard AI - Mobile "Evacuee Digital Twin" Companion View
 // Responsive, mobile-first personal emergency wayfinding HUD
-// Features 3D Single-Floor Personal Perspective Map, Google Maps Green Egress Route,
+// Features 3D Single-Floor Personal Perspective Map, Dynamic AI Egress Route,
 // Dynamic Indoor Check-In Onboarding, and Real-Time IoT Cloud Headcount Sync
 // ==============================================================================
 
@@ -328,7 +328,7 @@ export function EvacueeCompanionView() {
 
   return (
     <div
-      className="min-h-screen text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white pb-6"
+      className="h-screen max-h-screen flex flex-col bg-slate-950 text-slate-100 overflow-hidden selection:bg-indigo-500 selection:text-white"
       style={{
         background: 'linear-gradient(180deg, #090d16 0%, #0d1527 50%, #080c14 100%)',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -344,7 +344,7 @@ export function EvacueeCompanionView() {
       />
 
       {/* ── TOP TACTICAL TELEMETRY HEADER ── */}
-      <header className="px-4 py-3 border-b border-slate-800/80 bg-slate-900/70 backdrop-blur-md sticky top-0 z-40">
+      <header className="shrink-0 z-30 px-4 py-3 border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md sticky top-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
@@ -387,8 +387,8 @@ export function EvacueeCompanionView() {
         </div>
       </header>
 
-      {/* ── MAIN CONTENT AREA ── */}
-      <main className="p-4 flex-1 flex flex-col gap-3.5 max-w-md mx-auto w-full">
+      {/* ── MAIN CONTENT AREA (SMOOTH MOBILE SCROLLABLE CONTAINER) ── */}
+      <main className="flex-1 overflow-y-auto overscroll-contain px-4 pt-3 pb-36 max-w-md mx-auto w-full space-y-3.5">
         {/* Occupant Identity & Status Pill */}
         <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg">
           <div className="flex items-center justify-between mb-2">
@@ -567,7 +567,7 @@ export function EvacueeCompanionView() {
             <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-emerald-400" />
-                <span className="font-bold text-white">Google Maps Dynamic Route</span>
+                <span className="font-bold text-white">AI Dynamic Egress Route</span>
               </div>
               <div className="text-[11px] text-slate-400">
                 ETA: <strong className="text-emerald-400">{routeGuidance.timeEst}</strong> ({routeGuidance.distanceEst})
@@ -687,7 +687,7 @@ export function EvacueeCompanionView() {
       </main>
 
       {/* ── BOTTOM INTERACTIVE COMMAND ACTIONS ── */}
-      <footer className="p-4 border-t border-slate-800 bg-slate-900/90 backdrop-blur-md sticky bottom-0 z-40 max-w-md mx-auto w-full">
+      <footer className="shrink-0 z-30 p-3.5 border-t border-slate-800 bg-slate-900/95 backdrop-blur-md max-w-md mx-auto w-full">
         <div className="grid grid-cols-2 gap-3">
           {/* Action 1: Mark Safe (Increments headcount in Command Center) */}
           <button

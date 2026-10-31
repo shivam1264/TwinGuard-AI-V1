@@ -1,13 +1,14 @@
 // ==============================================================================
 // TwinGuard AI - Mobile Floor 3D Visual Map & Personal Wayfinding Engine
-// Lightweight, single-floor Three.js perspective navigation map for smartphones
-// Features Google Maps-style dynamic green egress path and personal perspective camera
+// Authentic architectural single-floor 3D digital twin matching Building3D
+// Fully dynamic room-to-exit egress route calculation and navigable personal POV
 // ==============================================================================
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { ROOM_TEMPLATES, FLOOR_THEMES, getRoomDoorway } from '../simulation/Doorways.js';
+import { ROOM_TEMPLATES, FLOOR_THEMES, getRoomFurnishingType } from '../simulation/Doorways.js';
+import { TextureHelper } from '../three/TextureHelper.js';
 import {
   Compass,
   Navigation,
@@ -17,19 +18,24 @@ import {
   ChevronLeft,
   Play,
   RotateCcw,
+  RotateCw,
+  Plus,
+  Minus,
   CheckCircle2,
   AlertTriangle,
   Flame,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  MapPin,
+  Building
 } from 'lucide-react';
 
 export function MobileFloor3DMap({
-  floor = 4,
-  roomId = 'f4_r1',
-  roomName = 'Room 401',
+  floor = 7,
+  roomId = 'f7_r9',
+  roomName = 'Room 709 - Design Ops Lab',
   activeFires = [],
-  targetStairCode = 'CORE_A',
+  targetStairCode = 'CORE_B',
   isAlarmActive = false,
   onArriveMuster
 }) {
@@ -40,25 +46,25 @@ export function MobileFloor3DMap({
   const controlsRef = useRef(null);
   const animFrameIdRef = useRef(null);
 
-  // Dynamic Waypoint Navigation State
-  const [cameraMode, setCameraMode] = useState('PERSPECTIVE'); // 'PERSPECTIVE' (User POV) | 'FLOOR_PLAN' (2.5D Overview)
+  // Dynamic Navigation State
+  const [cameraMode, setCameraMode] = useState('PERSPECTIVE'); // 'PERSPECTIVE' | 'OVERVIEW' | 'ROOM_FOCUS'
   const [currentWaypointIdx, setCurrentWaypointIdx] = useState(0);
   const [isAutoWalking, setIsAutoWalking] = useState(false);
   const [hasReachedExit, setHasReachedExit] = useState(false);
 
-  // Mesh and Object Refs for real-time animation
+  // Animation Refs
   const avatarGroupRef = useRef(null);
   const routeTubeRef = useRef(null);
   const flameMeshesRef = useRef([]);
-  const chevronSpritesRef = useRef([]);
   const pathWaypointsRef = useRef([]);
   const currentAvatarPosRef = useRef(new THREE.Vector3());
   const targetAvatarPosRef = useRef(new THREE.Vector3());
+  const userInteractedRef = useRef(false);
 
-  // Find Room Template
+  // Find Room Template for selected Room
   const roomTemplate = useMemo(() => {
-    const tmplId = roomId.split('_')[1] || 'r1';
-    return ROOM_TEMPLATES.find(t => t.idSuffix === tmplId) || ROOM_TEMPLATES[0];
+    const tmplId = roomId.split('_')[1] || 'r9';
+    return ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId) || ROOM_TEMPLATES[8];
   }, [roomId]);
 
   // Determine Target Stair Coordinates
@@ -69,7 +75,8 @@ export function MobileFloor3DMap({
     return { x: -28.5, z: 0, name: 'West Stairwell Core A (West Wing)' };
   }, [targetStairCode]);
 
-  // Generate Waypoints: Room Center -> Doorway -> Corridor -> Target Stair
+  // DYNAMIC ROOM-SPECIFIC ROUTE GENERATOR
+  // Computes exact egress waypoints from the user's specific room coordinates to the safe stair core
   const waypoints = useMemo(() => {
     const wpList = [];
     const rx = roomTemplate.centerX;
@@ -78,81 +85,88 @@ export function MobileFloor3DMap({
     const inZ = roomTemplate.insideZ;
     const doorZ = roomTemplate.doorZ;
     const targetX = targetStairCoords.x;
+    const isNorthWing = rz < 0;
 
-    // WP 0: Inside Room (Origin)
+    // WP 0: Inside the room at workstation desk
     wpList.push({
-      id: 'wp_room',
-      pos: new THREE.Vector3(rx, 0.4, rz),
-      title: 'Current Position in Room',
-      desc: `Stand up safely and prepare to exit ${roomName}`,
-      dist: '0m'
+      id: 'wp_room_desk',
+      pos: new THREE.Vector3(rx, 0.35, rz),
+      title: `Origin: ${roomName}`,
+      desc: 'Stand up safely and prepare to follow illuminated floor exit markers',
+      dist: '0m',
+      forward: new THREE.Vector3(0, 0, isNorthWing ? 1 : -1)
     });
 
-    // WP 1: Room Doorway Threshold
+    // WP 1: Room doorway threshold
     wpList.push({
-      id: 'wp_door',
-      pos: new THREE.Vector3(dx, 0.4, inZ),
+      id: 'wp_room_door',
+      pos: new THREE.Vector3(dx, 0.35, inZ),
       title: 'Exit Primary Doorway',
-      desc: 'Check corridor through fire glass for smoke before opening',
-      dist: '6m'
+      desc: 'Check corridor through fire-rated glass for clear visibility',
+      dist: '6m',
+      forward: new THREE.Vector3(0, 0, isNorthWing ? 1 : -1)
     });
 
-    // WP 2: Central Corridor Junction
+    // WP 2: Central corridor junction
     wpList.push({
-      id: 'wp_corridor_entry',
-      pos: new THREE.Vector3(dx, 0.4, 0),
+      id: 'wp_corridor_junction',
+      pos: new THREE.Vector3(dx, 0.35, 0),
       title: 'Enter Central Corridor',
-      desc: 'Turn toward illuminated green emergency floor strips',
-      dist: '12m'
+      desc: `Turn ${targetX > dx ? 'East (Right)' : 'West (Left)'} along luminous floor runner`,
+      dist: '10m',
+      forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
     });
 
-    // WP 3: Corridor Mid-way Transit (avoiding fire if nearby)
+    // WP 3: Corridor transit midpoint (safely avoiding any active fire)
     const midX = (dx + targetX) / 2;
     wpList.push({
       id: 'wp_corridor_transit',
-      pos: new THREE.Vector3(midX, 0.4, 0),
+      pos: new THREE.Vector3(midX, 0.35, 0),
       title: `Navigate ${targetX > 0 ? 'East' : 'West'} Corridor`,
-      desc: 'Proceed briskly, maintain low posture if smoke is detected',
-      dist: `${Math.round(Math.abs(midX - dx) + 12)}m`
+      desc: 'Follow continuous cyan luminous edge guidance along runner',
+      dist: `${Math.round(Math.abs(midX - dx) + 10)}m`,
+      forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
     });
 
-    // WP 4: Stairwell Entrance Portal
+    // WP 4: Stairwell Core entrance portal
     wpList.push({
-      id: 'wp_stair_entry',
-      pos: new THREE.Vector3(targetX, 0.4, 0),
+      id: 'wp_stair_portal',
+      pos: new THREE.Vector3(targetX, 0.35, 0),
       title: `Enter ${targetStairCoords.name}`,
       desc: 'Pass through pressurized fire barrier door into safety core',
-      dist: `${Math.round(Math.abs(targetX - dx) + 14)}m`
+      dist: `${Math.round(Math.abs(targetX - dx) + 12)}m`,
+      forward: new THREE.Vector3(targetX > 0 ? 1 : -1, 0, 0)
     });
 
     return wpList;
   }, [roomTemplate, roomName, targetStairCoords]);
 
-  // Keep pathWaypointsRef in sync
+  // Keep waypoint refs updated
   useEffect(() => {
-    pathWaypointsRef.current = waypoints.map(w => w.pos);
+    pathWaypointsRef.current = waypoints.map((w) => w.pos);
     if (waypoints.length > 0) {
       currentAvatarPosRef.current.copy(waypoints[0].pos);
       targetAvatarPosRef.current.copy(waypoints[0].pos);
+      setCurrentWaypointIdx(0);
+      setHasReachedExit(false);
     }
-  }, [waypoints]);
+  }, [waypoints, roomId]);
 
-  // Initialize Three.js Canvas
+  // ── BUILD AUTHENTIC 3D FLOOR SCENE ──
   useEffect(() => {
     if (!containerRef.current) return;
 
     const width = containerRef.current.clientWidth || 360;
-    const height = containerRef.current.clientHeight || 340;
+    const height = containerRef.current.clientHeight || 320;
 
     // 1. Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x090d16);
-    scene.fog = new THREE.FogExp2(0x090d16, 0.015);
+    scene.background = new THREE.Color(0x0a0f1d);
+    scene.fog = new THREE.FogExp2(0x0a0f1d, 0.012);
     sceneRef.current = scene;
 
     // 2. Camera
-    const camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 500);
-    camera.position.set(0, 32, 24);
+    const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 400);
     cameraRef.current = camera;
 
     // 3. Renderer
@@ -165,269 +179,304 @@ export function MobileFloor3DMap({
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // 4. Orbit Controls
+    // 4. Orbit Controls (Configured to not trap touch scroll)
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
-    controls.maxPolarAngle = Math.PI / 2.05; // Prevent camera going below floor
-    controls.minDistance = 6;
+    controls.maxPolarAngle = Math.PI / 2.05;
+    controls.minDistance = 4;
     controls.maxDistance = 75;
+    controls.enableZoom = true;
+    controls.enablePan = true;
     controlsRef.current = controls;
 
+    controls.addEventListener('start', () => {
+      userInteractedRef.current = true;
+    });
+
     // 5. Lighting
-    const ambientLight = new THREE.AmbientLight(0x8fa3bf, 1.2);
+    const ambientLight = new THREE.AmbientLight(0xcfd8dc, 1.4);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    dirLight.position.set(20, 40, 20);
-    scene.add(dirLight);
+    const mainSun = new THREE.DirectionalLight(0xffffff, 1.5);
+    mainSun.position.set(25, 45, 20);
+    scene.add(mainSun);
 
-    const blueAccent = new THREE.DirectionalLight(0x38bdf8, 0.8);
-    blueAccent.position.set(-25, 20, -20);
-    scene.add(blueAccent);
+    const softFill = new THREE.DirectionalLight(0x38bdf8, 0.65);
+    softFill.position.set(-25, 25, -20);
+    scene.add(softFill);
 
-    // 6. Floor Geometry
-    const floorGeo = new THREE.PlaneGeometry(62, 46);
+    // 6. Floor Slab matching Building3D
+    let floorTexture;
+    if (floor >= 9) {
+      floorTexture = TextureHelper.createWoodTexture();
+    } else if (floor >= 3) {
+      floorTexture = TextureHelper.createCarpetTexture();
+    } else if (floor === 1) {
+      floorTexture = TextureHelper.createTerrazzoTexture();
+    } else {
+      floorTexture = TextureHelper.createTileTexture();
+    }
+
+    const slabGeo = new THREE.BoxGeometry(60, 0.4, 48);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
+      map: floorTexture,
       roughness: 0.65,
-      metalness: 0.2
+      metalness: 0.15
     });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = 0;
-    scene.add(floorMesh);
+    const slabMesh = new THREE.Mesh(slabGeo, floorMat);
+    slabMesh.position.set(0, -0.2, 0);
+    scene.add(slabMesh);
 
-    // Tactical Grid Overlay
-    const grid = new THREE.GridHelper(60, 24, 0x38bdf8, 0x1e293b);
-    grid.position.y = 0.02;
-    scene.add(grid);
-
-    // Central Corridor Highlight Strip
-    const corridorGeo = new THREE.PlaneGeometry(58, 5.2);
-    const corridorMat = new THREE.MeshBasicMaterial({
-      color: 0x1e293b,
-      transparent: true,
-      opacity: 0.85
-    });
-    const corridorMesh = new THREE.Mesh(corridorGeo, corridorMat);
-    corridorMesh.rotation.x = -Math.PI / 2;
-    corridorMesh.position.set(0, 0.04, 0);
-    scene.add(corridorMesh);
-
-    // 7. Architectural Room Walls & Partitions
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.7,
-      metalness: 0.1,
-      transparent: true,
-      opacity: 0.75
-    });
-
-    const activeRoomWallMat = new THREE.MeshStandardMaterial({
-      color: 0x4f46e5,
+    // 7. Executive Dark Charcoal Corridor Runner with Luminous Cyan Guidance Strips
+    const runnerGeo = new THREE.PlaneGeometry(54, 2.2);
+    const runnerMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
       roughness: 0.5,
-      metalness: 0.3,
-      emissive: 0x312e81,
-      emissiveIntensity: 0.4,
+      metalness: 0.3
+    });
+    const runner = new THREE.Mesh(runnerGeo, runnerMat);
+    runner.rotation.x = -Math.PI / 2;
+    runner.position.set(0, 0.02, 0);
+    scene.add(runner);
+
+    // Cyan luminous edge guidance lines
+    const guideGeo = new THREE.PlaneGeometry(54, 0.08);
+    const guideMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.85 });
+    for (const gz of [-1.02, 1.02]) {
+      const guide = new THREE.Mesh(guideGeo, guideMat);
+      guide.rotation.x = -Math.PI / 2;
+      guide.position.set(0, 0.025, gz);
+      scene.add(guide);
+    }
+
+    // 8. Crisp Architectural Partition Walls
+    const wallH = 2.4;
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+
+    const woodAccentMat = new THREE.MeshStandardMaterial({
+      map: TextureHelper.createFlutedWoodTexture(),
+      roughness: 0.55,
+      metalness: 0.05
+    });
+
+    const columnMat = new THREE.MeshStandardMaterial({
+      color: 0x1f2733,
+      roughness: 0.45,
+      metalness: 0.35
+    });
+
+    // North & South Perimeter Back Walls with Wood Accent
+    const northBack = new THREE.Mesh(new THREE.BoxGeometry(60, wallH, 0.4), woodAccentMat);
+    northBack.position.set(0, wallH / 2, -23.5);
+    scene.add(northBack);
+
+    const southBack = new THREE.Mesh(new THREE.BoxGeometry(60, wallH, 0.4), woodAccentMat);
+    southBack.position.set(0, wallH / 2, 23.5);
+    scene.add(southBack);
+
+    // Dividing Walls between the 5 North and 5 South Rooms
+    const dividers = [-15.0, -6.0, 3.0, 14.0];
+    for (const zSide of [13.0, -13.0]) {
+      for (const dx of dividers) {
+        const div = new THREE.Mesh(new THREE.BoxGeometry(0.32, wallH, 20.6), wallMat);
+        div.position.set(dx, wallH / 2, zSide);
+        scene.add(div);
+      }
+    }
+
+    // Corridor Partition Walls with Open Doorway Gaps
+    const roomCentersX = [-19.5, -10.5, -1.5, 8.5, 19.0];
+    for (const cx of roomCentersX) {
+      for (const side of [-1, 1]) {
+        const wallZ = side * 2.6;
+        const leftSeg = new THREE.Mesh(new THREE.BoxGeometry(3.2, wallH, 0.28), wallMat);
+        leftSeg.position.set(cx - 2.8, wallH / 2, wallZ);
+        scene.add(leftSeg);
+
+        const rightSeg = new THREE.Mesh(new THREE.BoxGeometry(3.2, wallH, 0.28), wallMat);
+        rightSeg.position.set(cx + 2.8, wallH / 2, wallZ);
+        scene.add(rightSeg);
+
+        // Doorway threshold light
+        const isUserDoor = cx === roomTemplate.doorX && ((side < 0 && roomTemplate.centerZ < 0) || (side > 0 && roomTemplate.centerZ > 0));
+        const thresh = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.4, 0.6),
+          new THREE.MeshBasicMaterial({
+            color: isUserDoor ? 0x10b981 : 0x38bdf8,
+            transparent: true,
+            opacity: isUserDoor ? 0.9 : 0.35
+          })
+        );
+        thresh.rotation.x = -Math.PI / 2;
+        thresh.position.set(cx, 0.03, wallZ);
+        scene.add(thresh);
+      }
+    }
+
+    // Structural Concrete Columns
+    const colXPositions = [-24.5, -15.0, -6.0, 3.0, 14.0, 24.5];
+    const colZPositions = [23.5, 2.6, -2.6, -23.5];
+    for (const cx of colXPositions) {
+      for (const cz of colZPositions) {
+        const col = new THREE.Mesh(new THREE.BoxGeometry(0.42, wallH, 0.42), columnMat);
+        col.position.set(cx, wallH / 2, cz);
+        scene.add(col);
+      }
+    }
+
+    // 9. Realistic Room Furnishings (Workstations, Chairs, Monitors, Meeting Tables)
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.3 });
+    const chairMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const confWoodMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.3 });
+
+    for (let i = 0; i < 10; i++) {
+      const cx = roomCentersX[i % 5];
+      const cz = i < 5 ? -12.5 : 12.5;
+      const type = getRoomFurnishingType(floor, i);
+
+      if (type === 'CONFERENCE_BOARDROOM' || type === 'PRESIDENTIAL_BOARDROOM') {
+        // Large sleek conference table
+        const table = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.74, 2.6), confWoodMat);
+        table.position.set(cx, 0.37, cz);
+        scene.add(table);
+
+        // Chairs around table
+        for (let chairX = -2.4; chairX <= 2.4; chairX += 1.2) {
+          for (const side of [-1, 1]) {
+            const chair = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.85, 0.52), chairMat);
+            chair.position.set(cx + chairX, 0.42, cz + side * 1.7);
+            scene.add(chair);
+          }
+        }
+      } else {
+        // Spacious dual workstation pods with central aisle
+        const backSign = cz > 0 ? 1 : -1;
+        for (const podX of [-2.2, 2.2]) {
+          // Desk
+          const desk = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.74, 0.9), deskMat);
+          desk.position.set(cx + podX, 0.37, cz + 1.2 * backSign);
+          scene.add(desk);
+
+          // Chair
+          const chair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.85, 0.48), chairMat);
+          chair.position.set(cx + podX, 0.42, cz + 0.3 * backSign);
+          scene.add(chair);
+
+          // Monitor
+          const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.42, 0.05), screenMat);
+          monitor.position.set(cx + podX, 0.74 + 0.22, cz + 1.2 * backSign);
+          scene.add(monitor);
+        }
+      }
+    }
+
+    // 10. Selected User Room Architectural Highlight
+    const roomHighlightGeo = new THREE.RingGeometry(4.8, 5.2, 32);
+    const roomHighlightMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
       transparent: true,
-      opacity: 0.9
+      opacity: 0.7,
+      side: THREE.DoubleSide
     });
+    const roomHighlight = new THREE.Mesh(roomHighlightGeo, roomHighlightMat);
+    roomHighlight.rotation.x = -Math.PI / 2;
+    roomHighlight.position.set(roomTemplate.centerX, 0.04, roomTemplate.centerZ);
+    scene.add(roomHighlight);
 
-    const wallHeight = 2.0;
-
-    // Outer Perimeter Low Curb
-    const outerWalls = new THREE.Group();
-    const northWall = new THREE.Mesh(new THREE.BoxGeometry(60, wallHeight, 0.4), wallMat);
-    northWall.position.set(0, wallHeight / 2, -22.5);
-    outerWalls.add(northWall);
-
-    const southWall = new THREE.Mesh(new THREE.BoxGeometry(60, wallHeight, 0.4), wallMat);
-    southWall.position.set(0, wallHeight / 2, 22.5);
-    outerWalls.add(southWall);
-
-    const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, wallHeight, 45), wallMat);
-    westWall.position.set(-29.8, wallHeight / 2, 0);
-    outerWalls.add(westWall);
-
-    const eastWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, wallHeight, 45), wallMat);
-    eastWall.position.set(29.8, wallHeight / 2, 0);
-    outerWalls.add(eastWall);
-    scene.add(outerWalls);
-
-    // Helper to create room label canvas sprite
-    const createRoomLabel = (text, isCurrent) => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = isCurrent ? '#4f46e5' : '#0f172a';
-      ctx.beginPath();
-      ctx.roundRect(10, 10, 236, 108, 16);
-      ctx.fill();
-      ctx.lineWidth = 4;
-      ctx.strokeStyle = isCurrent ? '#818cf8' : '#334155';
-      ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, 128, 64);
-
-      const texture = new THREE.CanvasTexture(canvas);
-      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(4.5, 2.2, 1);
-      return sprite;
-    };
-
-    // Build the 10 Rooms on Floor
-    ROOM_TEMPLATES.forEach((tmpl, idx) => {
-      const isCurrent = `f${floor}_${tmpl.idSuffix}` === roomId;
-      const currentMat = isCurrent ? activeRoomWallMat : wallMat;
-      const roomNumber = `${floor}${idx < 9 ? '0' + (idx + 1) : idx + 1}`;
-
-      // Dividing Partition (Left wall of room)
-      const partGeo = new THREE.BoxGeometry(0.3, wallHeight, Math.abs(tmpl.maxZ - tmpl.minZ));
-      const partMesh = new THREE.Mesh(partGeo, currentMat);
-      partMesh.position.set(tmpl.minX, wallHeight / 2, (tmpl.minZ + tmpl.maxZ) / 2);
-      scene.add(partMesh);
-
-      // Corridor Wall with Door Gap
-      const isNorth = tmpl.centerZ < 0;
-      const wallZ = isNorth ? -2.6 : 2.6;
-      const roomWidth = tmpl.maxX - tmpl.minX;
-      const doorGap = 2.4;
-      const sideWidth = (roomWidth - doorGap) / 2;
-
-      // Left segment of corridor wall
-      const leftSeg = new THREE.Mesh(new THREE.BoxGeometry(sideWidth, wallHeight, 0.3), currentMat);
-      leftSeg.position.set(tmpl.minX + sideWidth / 2, wallHeight / 2, wallZ);
-      scene.add(leftSeg);
-
-      // Right segment of corridor wall
-      const rightSeg = new THREE.Mesh(new THREE.BoxGeometry(sideWidth, wallHeight, 0.3), currentMat);
-      rightSeg.position.set(tmpl.maxX - sideWidth / 2, wallHeight / 2, wallZ);
-      scene.add(rightSeg);
-
-      // Doorway Glowing Threshold Indicator
-      const doorThresh = new THREE.Mesh(
-        new THREE.PlaneGeometry(doorGap, 0.8),
-        new THREE.MeshBasicMaterial({
-          color: isCurrent ? 0x10b981 : 0x3b82f6,
-          transparent: true,
-          opacity: isCurrent ? 0.9 : 0.4
-        })
-      );
-      doorThresh.rotation.x = -Math.PI / 2;
-      doorThresh.position.set(tmpl.doorX, 0.05, wallZ);
-      scene.add(doorThresh);
-
-      // Room Number Label Billboard
-      const labelSprite = createRoomLabel(`R-${roomNumber}`, isCurrent);
-      labelSprite.position.set(tmpl.centerX, 1.8, tmpl.centerZ);
-      scene.add(labelSprite);
-    });
-
-    // 8. Stairwell Escape Portals
+    // 11. Stairwell Escape Portals (East & West)
     const createStairPortal = (x, z, label, isTarget, isBlocked) => {
       const group = new THREE.Group();
       group.position.set(x, 0, z);
 
-      // Portal Box Structure
-      const boxGeo = new THREE.BoxGeometry(3.8, 3.2, 5.0);
-      const boxMat = new THREE.MeshStandardMaterial({
-        color: isBlocked ? 0x7f1d1d : isTarget ? 0x064e3b : 0x1e293b,
-        emissive: isBlocked ? 0xb91c1c : isTarget ? 0x059669 : 0x0f172a,
-        emissiveIntensity: 0.6,
-        roughness: 0.4
-      });
-      const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-      boxMesh.position.y = 1.6;
-      group.add(boxMesh);
+      const portalBox = new THREE.Mesh(
+        new THREE.BoxGeometry(3.6, wallH, 4.8),
+        new THREE.MeshStandardMaterial({
+          color: isBlocked ? 0x7f1d1d : isTarget ? 0x064e3b : 0x1e293b,
+          emissive: isBlocked ? 0x991b1b : isTarget ? 0x047857 : 0x0f172a,
+          emissiveIntensity: 0.5,
+          roughness: 0.4
+        })
+      );
+      portalBox.position.y = wallH / 2;
+      group.add(portalBox);
 
-      // Illuminated Doorway Face
-      const faceGeo = new THREE.PlaneGeometry(2.4, 2.8);
-      const faceMat = new THREE.MeshBasicMaterial({
-        color: isBlocked ? 0xef4444 : isTarget ? 0x10b981 : 0x38bdf8,
-        transparent: true,
-        opacity: 0.9
-      });
-      const faceMesh = new THREE.Mesh(faceGeo, faceMat);
-      faceMesh.position.set(x > 0 ? -1.91 : 1.91, 1.4, 0);
-      faceMesh.rotation.y = x > 0 ? -Math.PI / 2 : Math.PI / 2;
-      group.add(faceMesh);
+      // Open emergency door face
+      const doorFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(2.4, wallH - 0.2),
+        new THREE.MeshBasicMaterial({
+          color: isBlocked ? 0xef4444 : isTarget ? 0x10b981 : 0x38bdf8,
+          transparent: true,
+          opacity: 0.95
+        })
+      );
+      doorFace.position.set(x > 0 ? -1.81 : 1.81, wallH / 2, 0);
+      doorFace.rotation.y = x > 0 ? -Math.PI / 2 : Math.PI / 2;
+      group.add(doorFace);
 
-      // Exit Sign Canvas Sprite
+      // Exit sign above door
       const canvas = document.createElement('canvas');
       canvas.width = 256;
-      canvas.height = 100;
+      canvas.height = 96;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = isBlocked ? '#dc2626' : '#10b981';
-      ctx.fillRect(0, 0, 256, 100);
+      ctx.fillRect(0, 0, 256, 96);
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 30px sans-serif';
+      ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, 128, 50);
+      ctx.fillText(label, 128, 48);
 
       const signTex = new THREE.CanvasTexture(canvas);
       const signSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: signTex, transparent: true }));
-      signSprite.scale.set(4.0, 1.6, 1);
-      signSprite.position.set(0, 3.8, 0);
+      signSprite.scale.set(3.6, 1.4, 1);
+      signSprite.position.set(0, wallH + 0.8, 0);
       group.add(signSprite);
 
       return group;
     };
 
-    // West Stair Core A
-    const isWestBlocked = activeFires.some(f => f.floor === floor && (f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6')));
+    const isWestBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6')));
     const stairWest = createStairPortal(-28.5, 0, isWestBlocked ? 'CORE A BLOCKED' : 'CORE A (WEST)', targetStairCode === 'CORE_A', isWestBlocked);
     scene.add(stairWest);
 
-    // East Stair Core B
-    const isEastBlocked = activeFires.some(f => f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10')));
+    const isEastBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10')));
     const stairEast = createStairPortal(28.5, 0, isEastBlocked ? 'CORE B BLOCKED' : 'CORE B (EAST)', targetStairCode === 'CORE_B', isEastBlocked);
     scene.add(stairEast);
 
-    // 9. Fire Hazard Visualization on Current Floor
-    const floorFires = activeFires.filter(f => f.floor === floor);
+    // 12. Active Fire Hazards on Floor
+    const floorFires = activeFires.filter((f) => f.floor === floor);
     flameMeshesRef.current = [];
 
-    floorFires.forEach(fire => {
+    floorFires.forEach((fire) => {
       const tmplId = fire.roomId.split('_')[1] || 'r1';
-      const tmpl = ROOM_TEMPLATES.find(t => t.idSuffix === tmplId) || ROOM_TEMPLATES[0];
+      const tmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId) || ROOM_TEMPLATES[0];
 
-      // Fire Point Light
-      const fireLight = new THREE.PointLight(0xff4500, 3, 20);
-      fireLight.position.set(tmpl.centerX, 2, tmpl.centerZ);
+      const fireLight = new THREE.PointLight(0xff4500, 3.5, 22);
+      fireLight.position.set(tmpl.centerX, 2.2, tmpl.centerZ);
       scene.add(fireLight);
 
-      // Red Hazard Ring on Floor
-      const ringGeo = new THREE.RingGeometry(2.0, 3.8, 32);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: 0xef4444,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.65
-      });
-      const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.set(tmpl.centerX, 0.08, tmpl.centerZ);
-      scene.add(ring);
+      const dangerRing = new THREE.Mesh(
+        new THREE.RingGeometry(2.2, 4.0, 32),
+        new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+      );
+      dangerRing.rotation.x = -Math.PI / 2;
+      dangerRing.position.set(tmpl.centerX, 0.05, tmpl.centerZ);
+      scene.add(dangerRing);
 
-      // Multi-layer Conical Fire Flame
       const flameGroup = new THREE.Group();
       flameGroup.position.set(tmpl.centerX, 0.2, tmpl.centerZ);
 
-      const coneMat1 = new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.85 });
-      const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 8), coneMat1);
+      const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 8), new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.85 }));
       cone1.position.y = 1.6;
       flameGroup.add(cone1);
 
-      const coneMat2 = new THREE.MeshBasicMaterial({ color: 0xffa500, transparent: true, opacity: 0.9 });
-      const cone2 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 2.2, 8), coneMat2);
+      const cone2 = new THREE.Mesh(new THREE.ConeGeometry(1.0, 2.2, 8), new THREE.MeshBasicMaterial({ color: 0xffa500, transparent: true, opacity: 0.9 }));
       cone2.position.y = 1.1;
       flameGroup.add(cone2);
 
@@ -435,15 +484,15 @@ export function MobileFloor3DMap({
       flameMeshesRef.current.push({ group: flameGroup, light: fireLight });
     });
 
-    // 10. Google Maps-Style Dynamic Neon Green Egress Route
+    // 13. Dynamic Neon Green Egress Route
     if (waypoints.length >= 2) {
-      const curvePoints = waypoints.map(w => w.pos);
+      const curvePoints = waypoints.map((w) => w.pos);
       const curve = new THREE.CatmullRomCurve3(curvePoints);
-      const tubeGeo = new THREE.TubeGeometry(curve, 48, 0.32, 8, false);
+      const tubeGeo = new THREE.TubeGeometry(curve, 64, 0.32, 8, false);
       const tubeMat = new THREE.MeshStandardMaterial({
         color: 0x10b981,
         emissive: 0x059669,
-        emissiveIntensity: 0.9,
+        emissiveIntensity: 1.0,
         roughness: 0.2,
         metalness: 0.8
       });
@@ -451,144 +500,137 @@ export function MobileFloor3DMap({
       scene.add(routeTube);
       routeTubeRef.current = routeTube;
 
-      // Pulsing Waypoint Discs
+      // Waypoint indicator discs along path
       waypoints.forEach((wp, idx) => {
-        const discGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.1, 16);
-        const discMat = new THREE.MeshBasicMaterial({
-          color: idx === 0 ? 0x38bdf8 : idx === waypoints.length - 1 ? 0x10b981 : 0xa7f3d0
-        });
-        const disc = new THREE.Mesh(discGeo, discMat);
+        const disc = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.55, 0.55, 0.08, 16),
+          new THREE.MeshBasicMaterial({
+            color: idx === 0 ? 0x38bdf8 : idx === waypoints.length - 1 ? 0x10b981 : 0x6ee7b7
+          })
+        );
         disc.position.copy(wp.pos);
-        disc.position.y = 0.08;
+        disc.position.y = 0.05;
         scene.add(disc);
       });
     }
 
-    // 11. 3D Animated User Avatar (Beacon with Direction Pointer & Pulse Ring)
+    // 14. Sleek 3D Person Avatar (Low Profile, Never Blocks Camera)
     const avatarGroup = new THREE.Group();
-    avatarGroup.position.copy(waypoints[0]?.pos || new THREE.Vector3(roomTemplate.centerX, 0.4, roomTemplate.centerZ));
+    avatarGroup.position.copy(waypoints[0]?.pos || new THREE.Vector3(roomTemplate.centerX, 0.35, roomTemplate.centerZ));
 
-    // Avatar Core Puck
-    const avatarCoreGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.4, 24);
-    const avatarCoreMat = new THREE.MeshStandardMaterial({
-      color: 0x06b6d4,
-      emissive: 0x0891b2,
-      emissiveIntensity: 0.8,
-      roughness: 0.2
-    });
-    const avatarCore = new THREE.Mesh(avatarCoreGeo, avatarCoreMat);
-    avatarCore.position.y = 0.2;
-    avatarGroup.add(avatarCore);
+    // Base puck with neon cyan glow
+    const basePuck = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.65, 0.65, 0.22, 24),
+      new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x0891b2, emissiveIntensity: 0.9 })
+    );
+    basePuck.position.y = 0.11;
+    avatarGroup.add(basePuck);
 
-    // Forward Direction Pointer Arrow
-    const arrowGeo = new THREE.ConeGeometry(0.4, 1.0, 16);
-    const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
-    arrow.rotation.x = Math.PI / 2;
-    arrow.position.set(0, 0.45, 0.7);
-    avatarGroup.add(arrow);
+    // Humanoid stylized torso
+    const torso = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.25, 0.85, 12),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4 })
+    );
+    torso.position.y = 0.65;
+    avatarGroup.add(torso);
 
-    // Pulsing Radar Beacon Ring on Floor
-    const pulseRingGeo = new THREE.RingGeometry(0.8, 1.4, 24);
-    const pulseRingMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.7,
-      side: THREE.DoubleSide
-    });
-    const pulseRing = new THREE.Mesh(pulseRingGeo, pulseRingMat);
-    pulseRing.rotation.x = -Math.PI / 2;
-    pulseRing.position.y = 0.04;
-    avatarGroup.add(pulseRing);
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.24, 16, 16),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 })
+    );
+    head.position.y = 1.25;
+    avatarGroup.add(head);
 
-    // Floating "YOU" Pin Tag
-    const pinCanvas = document.createElement('canvas');
-    pinCanvas.width = 160;
-    pinCanvas.height = 80;
-    const pCtx = pinCanvas.getContext('2d');
-    pCtx.fillStyle = '#06b6d4';
-    pCtx.beginPath();
-    pCtx.roundRect(6, 6, 148, 68, 14);
-    pCtx.fill();
-    pCtx.strokeStyle = '#ffffff';
-    pCtx.lineWidth = 4;
-    pCtx.stroke();
-    pCtx.fillStyle = '#ffffff';
-    pCtx.font = 'bold 32px sans-serif';
-    pCtx.textAlign = 'center';
-    pCtx.textBaseline = 'middle';
-    pCtx.fillText('YOU', 80, 40);
+    // Directional forward cone pointer
+    const forwardPointer = new THREE.Mesh(
+      new THREE.ConeGeometry(0.3, 0.8, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    );
+    forwardPointer.rotation.x = Math.PI / 2;
+    forwardPointer.position.set(0, 0.15, 0.85);
+    avatarGroup.add(forwardPointer);
 
-    const pinTex = new THREE.CanvasTexture(pinCanvas);
-    const pinSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: pinTex, transparent: true }));
-    pinSprite.scale.set(2.4, 1.2, 1);
-    pinSprite.position.set(0, 2.4, 0);
-    avatarGroup.add(pinSprite);
+    // Pulsing floor radar beacon
+    const beaconRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.7, 1.3, 24),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+    );
+    beaconRing.rotation.x = -Math.PI / 2;
+    beaconRing.position.y = 0.04;
+    avatarGroup.add(beaconRing);
 
     scene.add(avatarGroup);
     avatarGroupRef.current = avatarGroup;
 
-    // Handle Window / Container Resize
+    // Set Initial Camera Position Based on Selected Mode
+    applyCameraMode('PERSPECTIVE', camera, controls, waypoints[0]?.pos, waypoints[0]?.forward);
+
+    // Resize handler
     const handleResize = () => {
       if (!containerRef.current || !renderer || !camera) return;
-      const newWidth = containerRef.current.clientWidth;
-      const newHeight = containerRef.current.clientHeight;
-      camera.aspect = newWidth / newHeight;
+      const nw = containerRef.current.clientWidth;
+      const nh = containerRef.current.clientHeight;
+      camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
-      renderer.setSize(newWidth, newHeight);
+      renderer.setSize(nw, nh);
     };
 
     window.addEventListener('resize', handleResize);
 
-    // 12. Real-Time Render Animation Loop
+    // 15. Animation Render Loop
     let clock = new THREE.Clock();
 
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
-
       const delta = clock.getDelta();
       const elapsed = clock.getElapsedTime();
 
-      // Flame flicker animation
+      // Flame flicker
       flameMeshesRef.current.forEach((flame, i) => {
         const scale = 1 + Math.sin(elapsed * 8 + i) * 0.15;
         flame.group.scale.set(scale, scale * 1.1, scale);
-        flame.light.intensity = 2.5 + Math.sin(elapsed * 12 + i) * 0.8;
+        flame.light.intensity = 2.8 + Math.sin(elapsed * 12 + i) * 0.8;
       });
 
-      // Radar Ring Pulse Animation
-      if (pulseRing) {
-        const pulseScale = 1.0 + (elapsed * 1.5 % 1.5);
-        pulseRing.scale.set(pulseScale, pulseScale, 1);
-        pulseRingMat.opacity = Math.max(0, 0.8 - (pulseScale - 1.0) / 1.5);
+      // Beacon ring pulse
+      if (beaconRing) {
+        const pulse = 1.0 + ((elapsed * 1.6) % 1.4);
+        beaconRing.scale.set(pulse, pulse, 1);
+        beaconRing.material.opacity = Math.max(0, 0.75 - (pulse - 1.0) / 1.4);
       }
 
       // Smooth Avatar Glide towards Target Waypoint
       if (avatarGroupRef.current) {
         const cur = currentAvatarPosRef.current;
         const tgt = targetAvatarPosRef.current;
-        cur.lerp(tgt, 0.12);
+        cur.lerp(tgt, 0.1);
         avatarGroupRef.current.position.copy(cur);
 
         // Orient avatar towards movement direction
         const diff = new THREE.Vector3().subVectors(tgt, cur);
-        if (diff.lengthSq() > 0.01) {
+        if (diff.lengthSq() > 0.02) {
           const angle = Math.atan2(diff.x, diff.z);
           avatarGroupRef.current.rotation.y = angle;
         }
       }
 
-      // Dynamic Camera Modes
-      if (cameraMode === 'PERSPECTIVE' && avatarGroupRef.current) {
-        // Personal Perspective Navigation View (Like Google Maps turn-by-turn driving HUD)
+      // Smooth Camera tracking ONLY when user is NOT actively orbiting
+      if (cameraMode === 'PERSPECTIVE' && !userInteractedRef.current && avatarGroupRef.current) {
+        const wp = waypoints[currentWaypointIdx] || waypoints[0];
+        const forward = wp?.forward || new THREE.Vector3(0, 0, 1);
         const avPos = avatarGroupRef.current.position;
-        const lookTgt = new THREE.Vector3().copy(targetAvatarPosRef.current).add(new THREE.Vector3(0, 1.2, 0));
 
-        // Place camera 6.5 units behind avatar, 4.5 units above
-        const offset = new THREE.Vector3(0, 5.0, 7.5);
-        const camTargetPos = new THREE.Vector3().copy(avPos).add(offset);
-        camera.position.lerp(camTargetPos, 0.08);
-        controls.target.lerp(lookTgt, 0.1);
+        // Position camera behind the avatar along the current forward vector
+        const camOffset = new THREE.Vector3()
+          .copy(forward)
+          .multiplyScalar(-5.2)
+          .add(new THREE.Vector3(0, 2.6, 0));
+
+        const targetCamPos = new THREE.Vector3().copy(avPos).add(camOffset);
+        const targetLook = new THREE.Vector3().copy(avPos).add(new THREE.Vector3(forward.x * 4, 1.2, forward.z * 4));
+
+        camera.position.lerp(targetCamPos, 0.06);
+        controls.target.lerp(targetLook, 0.08);
       }
 
       controls.update();
@@ -603,21 +645,89 @@ export function MobileFloor3DMap({
       renderer.dispose();
       controls.dispose();
     };
-  }, [floor, roomId, targetStairCode, activeFires, waypoints]);
+  }, [floor, roomId, targetStairCode, activeFires, waypoints, roomTemplate]);
 
-  // Handle Waypoint Stepping
+  // Camera Mode Configuration Helper
+  const applyCameraMode = (mode, cam, ctrl, avatarPos, forwardVec) => {
+    if (!cam || !ctrl) return;
+    userInteractedRef.current = false;
+
+    const pos = avatarPos || currentAvatarPosRef.current;
+    const fwd = forwardVec || new THREE.Vector3(0, 0, 1);
+
+    if (mode === 'PERSPECTIVE') {
+      // Over-the-shoulder User POV facing forward along path
+      const offset = new THREE.Vector3()
+        .copy(fwd)
+        .multiplyScalar(-5.5)
+        .add(new THREE.Vector3(0, 2.6, 0));
+      cam.position.copy(pos).add(offset);
+      ctrl.target.copy(pos).add(new THREE.Vector3(fwd.x * 4, 1.2, fwd.z * 4));
+    } else if (mode === 'OVERVIEW') {
+      // Full floor 2.5D architectural overview
+      cam.position.set(0, 36, 26);
+      ctrl.target.set(0, 0, 0);
+    } else if (mode === 'ROOM_FOCUS') {
+      // Close-up on user's room and workstation
+      cam.position.set(roomTemplate.centerX, 12, roomTemplate.centerZ + 10);
+      ctrl.target.set(roomTemplate.centerX, 0.5, roomTemplate.centerZ);
+    }
+
+    ctrl.update();
+  };
+
+  // Switch Camera Modes
+  const handleSetCameraMode = (mode) => {
+    setCameraMode(mode);
+    const wp = waypoints[currentWaypointIdx] || waypoints[0];
+    applyCameraMode(mode, cameraRef.current, controlsRef.current, wp?.pos, wp?.forward);
+  };
+
+  // Quick Orbit Controls (Rotate Left, Rotate Right, Zoom In, Zoom Out)
+  const handleRotateCamera = (deltaAngle) => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    userInteractedRef.current = true;
+    const cam = cameraRef.current;
+    const target = controlsRef.current.target;
+
+    const radius = Math.sqrt(Math.pow(cam.position.x - target.x, 2) + Math.pow(cam.position.z - target.z, 2));
+    const currentAngle = Math.atan2(cam.position.z - target.z, cam.position.x - target.x);
+    const newAngle = currentAngle + deltaAngle;
+
+    cam.position.x = target.x + radius * Math.cos(newAngle);
+    cam.position.z = target.z + radius * Math.sin(newAngle);
+    controlsRef.current.update();
+  };
+
+  const handleZoom = (factor) => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    userInteractedRef.current = true;
+    const cam = cameraRef.current;
+    const target = controlsRef.current.target;
+
+    const dir = new THREE.Vector3().subVectors(cam.position, target);
+    dir.multiplyScalar(factor);
+    cam.position.copy(target).add(dir);
+    controlsRef.current.update();
+  };
+
+  // Handle Waypoint Navigation
   const handleSelectWaypoint = (idx) => {
     if (idx < 0 || idx >= waypoints.length) return;
     setCurrentWaypointIdx(idx);
     targetAvatarPosRef.current.copy(waypoints[idx].pos);
+    userInteractedRef.current = false;
 
-    // If reaching final waypoint (stair core), trigger arrived
+    if (cameraMode === 'PERSPECTIVE') {
+      applyCameraMode('PERSPECTIVE', cameraRef.current, controlsRef.current, waypoints[idx].pos, waypoints[idx].forward);
+    }
+
     if (idx === waypoints.length - 1) {
       setHasReachedExit(true);
     }
   };
 
-  // Auto-Walk Escort Sequence
+  // Auto-Walk Progression
   useEffect(() => {
     let timer = null;
     if (isAutoWalking) {
@@ -633,74 +743,106 @@ export function MobileFloor3DMap({
     return () => clearTimeout(timer);
   }, [isAutoWalking, currentWaypointIdx, waypoints]);
 
-  // Camera Mode Toggle Helper
-  const toggleCameraMode = () => {
-    if (cameraMode === 'PERSPECTIVE') {
-      setCameraMode('FLOOR_PLAN');
-      if (cameraRef.current && controlsRef.current) {
-        cameraRef.current.position.set(0, 36, 22);
-        controlsRef.current.target.set(0, 0, 0);
-      }
-    } else {
-      setCameraMode('PERSPECTIVE');
-    }
-  };
-
   const currentWp = waypoints[currentWaypointIdx] || waypoints[0];
 
   return (
     <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl flex flex-col">
-      {/* ── 3D CANVAS TOP HUD OVERLAY ── */}
+      {/* ── 3D TOP CONTROL HUD OVERLAY ── */}
       <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 pointer-events-auto">
-          {/* Camera View Mode Toggle */}
+        {/* Camera View Mode Buttons */}
+        <div className="flex items-center gap-1.5 pointer-events-auto">
           <button
-            onClick={toggleCameraMode}
-            className="px-2.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-bold text-white flex items-center gap-1.5 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            onClick={() => handleSetCameraMode('PERSPECTIVE')}
+            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer ${
+              cameraMode === 'PERSPECTIVE'
+                ? 'bg-indigo-600 text-white shadow-indigo-600/30'
+                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80'
+            }`}
+            title="User Perspective (Follows Walk Path)"
           >
-            {cameraMode === 'PERSPECTIVE' ? (
-              <>
-                <Navigation className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Follow Me POV</span>
-              </>
-            ) : (
-              <>
-                <Eye className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Floor Plan 2.5D</span>
-              </>
-            )}
+            <Navigation className="w-3.5 h-3.5" />
+            <span>Follow POV</span>
           </button>
 
-          {/* Reset Position Button */}
           <button
-            onClick={() => handleSelectWaypoint(0)}
-            className="p-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-slate-300 hover:text-white shadow-lg backdrop-blur-md active:scale-95 transition-all cursor-pointer"
-            title="Reset position to room"
+            onClick={() => handleSetCameraMode('OVERVIEW')}
+            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer ${
+              cameraMode === 'OVERVIEW'
+                ? 'bg-indigo-600 text-white shadow-indigo-600/30'
+                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80'
+            }`}
+            title="Floor Plan 2.5D Overview"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
+            <Eye className="w-3.5 h-3.5" />
+            <span>Floor 2.5D</span>
+          </button>
+
+          <button
+            onClick={() => handleSetCameraMode('ROOM_FOCUS')}
+            className={`px-2 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer ${
+              cameraMode === 'ROOM_FOCUS'
+                ? 'bg-indigo-600 text-white shadow-indigo-600/30'
+                : 'bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/80'
+            }`}
+            title="Focus On My Room"
+          >
+            <Building className="w-3.5 h-3.5" />
+            <span>Room</span>
           </button>
         </div>
 
-        {/* Level Tag & Live Egress Badge */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
-          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1 shadow-lg">
+        {/* Live Dynamic Route Status Badge */}
+        <div className="flex items-center gap-1 pointer-events-auto">
+          <span className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 backdrop-blur-md flex items-center gap-1.5 shadow-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            Google Maps 3D Route
+            AI Dynamic Route
           </span>
         </div>
       </div>
 
-      {/* ── THREE.JS CONTAINER ── */}
+      {/* ── 3D CANVAS VIEWPORT (WITH TOUCH-PAN-Y FOR CLEAN PAGE SCROLLING) ── */}
       <div
         ref={containerRef}
-        className="w-full h-[320px] bg-slate-950 relative touch-none cursor-grab active:cursor-grabbing"
+        className="w-full h-[320px] bg-slate-950 relative touch-pan-y cursor-grab active:cursor-grabbing"
       />
 
-      {/* ── NAVIGATION STEP DIRECTIVE BANNER ── */}
+      {/* ── ON-CANVAS CAMERA ORBIT TOOLBAR ── */}
+      <div className="absolute right-2.5 bottom-32 z-10 flex flex-col gap-1.5 pointer-events-auto">
+        <button
+          onClick={() => handleRotateCamera(-Math.PI / 4)}
+          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+          title="Rotate Left 45°"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => handleRotateCamera(Math.PI / 4)}
+          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+          title="Rotate Right 45°"
+        >
+          <RotateCw className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => handleZoom(0.85)}
+          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+          title="Zoom In"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+        <button
+          onClick={() => handleZoom(1.18)}
+          className="w-7 h-7 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-slate-200 flex items-center justify-center text-xs shadow-md backdrop-blur-sm active:scale-95 transition-all cursor-pointer"
+          title="Zoom Out"
+        >
+          <Minus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* ── STEP-BY-STEP WAYPOINT DIRECTIVE HUD ── */}
       <div className="p-3.5 bg-slate-900/95 border-t border-slate-800 backdrop-blur-md space-y-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-xs">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-black text-xs shrink-0">
               {currentWaypointIdx + 1}
             </div>
             <div>
@@ -714,9 +856,9 @@ export function MobileFloor3DMap({
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="text-right shrink-0">
             <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Target</div>
-            <div className="text-[11px] font-extrabold text-indigo-300 truncate max-w-[100px]">
+            <div className="text-[11px] font-extrabold text-indigo-300 truncate max-w-[110px]">
               {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
             </div>
           </div>
@@ -735,7 +877,7 @@ export function MobileFloor3DMap({
           ))}
         </div>
 
-        {/* Step Action Stepper Controls */}
+        {/* Stepper Controls */}
         <div className="grid grid-cols-3 gap-2 pt-1">
           <button
             onClick={() => handleSelectWaypoint(Math.max(0, currentWaypointIdx - 1))}
@@ -747,7 +889,7 @@ export function MobileFloor3DMap({
           </button>
 
           <button
-            onClick={() => setIsAutoWalking(prev => !prev)}
+            onClick={() => setIsAutoWalking((prev) => !prev)}
             className={`py-1.5 px-2 rounded-lg text-[11px] font-black flex items-center justify-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer ${
               isAutoWalking
                 ? 'bg-amber-600 text-white animate-pulse'
@@ -755,7 +897,7 @@ export function MobileFloor3DMap({
             }`}
           >
             <Play className={`w-3.5 h-3.5 ${isAutoWalking ? 'animate-spin' : ''}`} />
-            <span>{isAutoWalking ? 'Pausing...' : 'Auto-Walk'}</span>
+            <span>{isAutoWalking ? 'Pause' : 'Auto-Walk'}</span>
           </button>
 
           <button
@@ -791,4 +933,3 @@ export function MobileFloor3DMap({
     </div>
   );
 }
-
