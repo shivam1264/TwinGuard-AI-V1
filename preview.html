@@ -14,28 +14,41 @@
         let report = [];
         cards.forEach((c, i) => {
           const r = c.getBoundingClientRect();
-          const cs = getComputedStyle(c);
           const overX = c.scrollWidth - c.clientWidth;
           const overY = c.scrollHeight - c.clientHeight;
           if (overX > 0 || overY > 0) {
-            report.push(`CARD#${i}[${(c.textContent || '').trim().slice(0, 26)}] w=${Math.round(r.width)} h=${Math.round(r.height)} pad=${cs.paddingLeft} overX=${overX} overY=${overY}`);
+            report.push(`CARD#${i}[${(c.textContent || '').trim().slice(0, 22)}] w=${Math.round(r.width)} overX=${overX} overY=${overY}`);
           }
         });
-        // Find any element whose right edge exceeds its parent card's content box
         let spills = [];
         cards.forEach((c, i) => {
           const cr = c.getBoundingClientRect();
           const cs = getComputedStyle(c);
           const right = cr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+          const bottom = cr.bottom - parseFloat(cs.paddingBottom) - parseFloat(cs.borderBottomWidth);
           c.querySelectorAll('*').forEach((el) => {
             const er = el.getBoundingClientRect();
-            if (er.width > 0 && er.right > right + 1.5) {
-              spills.push(`SPILL card#${i} <${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').slice(0, 3).join('.')}> right=${Math.round(er.right)} limit=${Math.round(right)}`);
-            }
+            if (er.width > 0 && er.right > right + 1.5) spills.push(`RIGHT-SPILL card#${i} <${el.tagName.toLowerCase()}> +${Math.round(er.right - right)}`);
+            if (er.height > 0 && er.bottom > bottom + 1.5) spills.push(`BOTTOM-SPILL card#${i} <${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').slice(0, 2).join('.')}> +${Math.round(er.bottom - bottom)}`);
           });
         });
-        document.title = `page=${document.documentElement.scrollWidth}x${document.documentElement.scrollHeight} vp=${window.innerWidth}x${window.innerHeight} || ` +
-          (report.length ? report.join(' ## ') : 'no-card-overflow') + ' || ' + (spills.length ? [...new Set(spills)].slice(0, 12).join(' ## ') : 'no-spill');
+        const root = document.querySelector('.overflow-y-auto');
+        // Header overflow check (nowrap button row)
+        let headSpill = [];
+        const hdr = document.querySelector('header');
+        if (hdr) {
+          const hr = hdr.getBoundingClientRect();
+          hdr.querySelectorAll(':scope > div').forEach((el) => {
+            const er = el.getBoundingClientRect();
+            if (er.right > hr.right + 1.5) headSpill.push(`HEADER-SPILL +${Math.round(er.right - hr.right)}`);
+            if (er.left < hr.left - 1.5) headSpill.push(`HEADER-LEFT-SPILL ${Math.round(hr.left - er.left)}`);
+          });
+          const h1 = hdr.querySelector('h1');
+          if (h1 && h1.scrollWidth > h1.clientWidth + 1) headSpill.push(`H1-CLIPPED ${h1.scrollWidth}>${h1.clientWidth}`);
+        }
+        document.title = `VP=${window.innerWidth}x${window.innerHeight} ROOTscroll=${root ? root.scrollHeight : '?'} ROOTw=${root ? root.scrollWidth + '/' + root.clientWidth : '?'} || ` +
+          (report.length ? report.join(' ## ') : 'no-card-overflow') + ' || ' + (spills.length ? [...new Set(spills)].slice(0, 8).join(' ## ') : 'no-spill') +
+          ' || ' + (headSpill.length ? headSpill.join(' ## ') : 'header-ok');
       }, 2000);
     </script>
   </body>

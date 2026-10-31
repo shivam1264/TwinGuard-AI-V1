@@ -116,6 +116,28 @@ export function EmergencyCommandCenterPage({
     return () => clearInterval(timer);
   }, [sceneManager]);
 
+  // Keep the WebGL canvas sized to the viewport whenever the panel height
+  // changes (the viewport now flexes to fill the available dashboard height).
+  useEffect(() => {
+    const slot = commandCenterSlotRef.current;
+    if (!slot || !sceneManager || !sceneManager.handleResize) return;
+
+    let frame = null;
+    const ro = new ResizeObserver(() => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        if (sceneManager.handleResize) sceneManager.handleResize();
+      });
+    });
+
+    ro.observe(slot);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+  }, [sceneManager]);
+
   // ============================================================================
   // 2. FLOORS & LOCATIONS DATA
   // ============================================================================
@@ -558,7 +580,7 @@ export function EmergencyCommandCenterPage({
 
   return (
     <div
-      className="w-full h-full bg-[#f4f6fa] text-slate-800 p-3 md:p-4 font-sans select-none overflow-y-auto overflow-x-hidden relative"
+      className="w-full h-full bg-[#f4f6fa] text-slate-800 p-3 md:p-4 font-sans select-none overflow-y-auto overflow-x-hidden relative flex flex-col"
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
       {/* Toast Notification */}
@@ -572,14 +594,14 @@ export function EmergencyCommandCenterPage({
       {/* ========================================================================= */}
       {/* TOP HEADER                                                                */}
       {/* ========================================================================= */}
-      <header className="flex flex-wrap lg:flex-nowrap items-center justify-between pb-3 border-b border-slate-200/80 gap-2.5">
+      <header className="flex flex-wrap lg:flex-nowrap items-center justify-between pb-3 border-b border-slate-200/80 gap-2.5 shrink-0">
         {/* Left: Siren + Title + Subtitle */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500 shadow-sm shrink-0">
             <Siren className="w-5 h-5 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight whitespace-nowrap">
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight truncate">
               Emergency Command Center
             </h1>
             <p className="text-[11px] md:text-xs text-slate-500 font-medium truncate max-w-xl">
@@ -649,13 +671,13 @@ export function EmergencyCommandCenterPage({
       {/* ========================================================================= */}
       {/* MAIN LAYOUT GRID (LEFT 8 COLS, RIGHT 4 COLS MATCHING TARGET DESIGN)        */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 md:gap-4 mt-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 md:gap-4 mt-3 flex-1">
         {/* ────────────────────────────────────────────────────────────────────── */}
         {/* LEFT COLUMN: 3D VIEWPORT + BOTTOM DUAL CARDS (8 COLS)                   */}
         {/* ────────────────────────────────────────────────────────────────────── */}
         <div className="lg:col-span-8 flex flex-col gap-3.5 min-w-0">
-          {/* ── 3D Viewport Container ── */}
-          <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm flex flex-col h-[340px] md:h-[370px] lg:h-[390px] shrink-0">
+          {/* ── 3D Viewport Container (fills leftover vertical space) ── */}
+          <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm flex flex-col h-[340px] md:h-[370px] lg:h-auto lg:flex-1 lg:min-h-[380px]">
             {/* Top Left: Main Academic Building Dropdown Pill */}
             <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/80 text-white text-[11px] font-semibold shadow-lg">
@@ -822,7 +844,7 @@ export function EmergencyCommandCenterPage({
           </div>
 
           {/* ── BOTTOM DUAL SUB-CARDS (MATCHING REFERENCE DESIGN) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full min-w-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full min-w-0 shrink-0">
             {/* ── Sub-Card 1: Building Emergency Overview ── */}
             <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between w-full min-w-0">
               {/* Header Row */}
@@ -1024,7 +1046,7 @@ export function EmergencyCommandCenterPage({
                 <img
                   src={room204Img}
                   alt="Room 204 Classroom"
-                  className="w-20 h-16 rounded-lg object-cover border border-slate-200 shrink-0"
+                  className="w-[96px] h-[56px] rounded-lg object-cover object-center border border-slate-200 shrink-0 bg-slate-100"
                 />
 
                 <div className="flex-1 min-w-0">
