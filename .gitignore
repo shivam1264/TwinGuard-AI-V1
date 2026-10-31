@@ -18,6 +18,17 @@ dist-ssr
 .env.*.local
 !.env.example
 
+# Python Virtual Environments & Bytecode
+venv/
+.venv/
+ml-service/venv/
+ml-service/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.joblib
+*.pkl
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -28,4 +39,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-

@@ -1,0 +1,64 @@
+{
+  "model_version": "1.0.0",
+  "status": "production_ready",
+  "algorithm": "Random Forest Classifier + Gradient Boosting Regressor",
+  "dataset_size": 10000,
+  "train_samples": 8000,
+  "test_samples": 2000,
+  "metrics": {
+    "stampede_classifier": {
+      "accuracy": 0.964,
+      "accuracy_pct": "96.40%",
+      "roc_auc": 0.9955
+    },
+    "time_to_jam_regressor": {
+      "r2_score": 0.9451,
+      "r2_formatted": "R\u00b2 = 0.9451",
+      "mae_seconds": 7.03,
+      "rmse_seconds": 11.4
+    }
+  },
+  "feature_importance_weights": {
+    "occupant_density": {
+      "label": "Occupant Density (p/m\u00b2)",
+      "weight_pct": 56.43
+    },
+    "door_clear_width": {
+      "label": "Doorway Clear Width (m)",
+      "weight_pct": 26.85
+    },
+    "smoke_opacity_pct": {
+      "label": "Smoke Opacity (%)",
+      "weight_pct": 8.32
+    },
+    "corridor_length": {
+      "label": "Corridor Travel Distance (m)",
+      "weight_pct": 4.51
+    },
+    "stairwell_inflow_load": {
+      "label": "Stairwell Inflow Load",
+      "weight_pct": 1.69
+    },
+    "mean_reaction_delay": {
+      "label": "Reaction Delay (s)",
+      "weight_pct": 1.27
+    },
+    "impaired_mobility_ratio": {
+      "label": "Impaired Mobility Ratio",
+      "weight_pct": 0.93
+    }
+  },
+  "benchmark_sample_prediction": {
+    "inputs": {
+      "occupant_density": 4.2,
+      "door_clear_width": 1.0,
+      "corridor_length": 24.0,
+      "mean_reaction_delay": 12.0,
+      "smoke_opacity_pct": 45.0,
+      "impaired_mobility_ratio": 0.1,
+      "stairwell_inflow_load": 55.0
+    },
+    "predicted_stampede_probability_pct": 100.0,
+    "predicted_time_to_jam_seconds": 116.5
+  }
+}

@@ -20,6 +20,7 @@ import {
 } from './MultiStrategyRanker.js';
 
 import { SafetyAnalystLLM, AnalystLLM } from './SafetyAnalystLLM.js';
+import { BottleneckPredictor, MLBottleneckPredictor } from './BottleneckPredictor.js';
 
 class MasterAIEngine {
   constructor() {
@@ -27,6 +28,7 @@ class MasterAIEngine {
     this.crowd = new BehavioralCrowdEngine();
     this.ranker = StrategyRanker;
     this.analyst = AnalystLLM;
+    this.bottleneck = MLBottleneckPredictor;
     this.activeScenario = this.scenario.getScenario();
     this.activeStrategy = EVACUATION_STRATEGIES.STRATEGY_B; // Default to Smart Balanced Strategy
     this.listeners = new Set();
@@ -159,6 +161,20 @@ class MasterAIEngine {
   hasLiveGeminiEnabled() {
     return this.analyst.hasLiveGeminiEnabled();
   }
+
+  // --- Phase 5: Predictive Neural Bottleneck Forecaster API ---
+
+  async predictBottleneck(params) {
+    return this.bottleneck.predictBottleneck(params);
+  }
+
+  async getBottleneckSensitivityCurve(params) {
+    return this.bottleneck.getSensitivityCurve(params);
+  }
+
+  async checkMLMicroserviceHealth() {
+    return this.bottleneck.checkHealth();
+  }
 }
 
 
@@ -176,5 +192,7 @@ export {
   StrategyRanker,
   EVACUATION_STRATEGIES,
   SafetyAnalystLLM,
-  AnalystLLM
+  AnalystLLM,
+  BottleneckPredictor,
+  MLBottleneckPredictor
 };
