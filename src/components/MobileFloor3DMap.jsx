@@ -68,8 +68,11 @@ export function MobileFloor3DMap({
     return ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId) || ROOM_TEMPLATES[8];
   }, [roomId]);
 
-  // Determine Target Stair Coordinates
+  // Determine Target Stair / Direct Ground Portal Coordinates
   const targetStairCoords = useMemo(() => {
+    if (targetStairCode === 'EXIT_C') {
+      return { x: 0, z: 23.5, name: 'South Grand Plaza Portal (Exit C / Front Gate)' };
+    }
     if (targetStairCode === 'CORE_B') {
       return { x: 28.5, z: 0, name: 'East Stairwell Core B (East Wing)' };
     }
@@ -108,39 +111,83 @@ export function MobileFloor3DMap({
       forward: new THREE.Vector3(0, 0, isNorthWing ? 1 : -1)
     });
 
-    // WP 2: Central corridor junction
-    wpList.push({
-      id: 'wp_corridor_junction',
-      pos: new THREE.Vector3(dx, 0.35, 0),
-      title: 'Enter Central Corridor',
-      desc: `Turn ${targetX > dx ? 'East (Right)' : 'West (Left)'} along luminous floor runner`,
-      dist: '10m',
-      forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
-    });
+    if (targetStairCode === 'EXIT_C') {
+      // ── GROUND FLOOR (L1) EXIT C (FRONT GATE / SOUTH GRAND PORTAL) ROUTING ──
+      // WP 2: Central corridor junction
+      wpList.push({
+        id: 'wp_corridor_junction',
+        pos: new THREE.Vector3(dx, 0.35, 0),
+        title: 'Enter Central Gallery',
+        desc: `Turn ${dx > 0 ? 'West (Left)' : 'East (Right)'} toward Central Atrium Foyer`,
+        dist: '8m',
+        forward: new THREE.Vector3(dx > 0 ? -1 : 1, 0, 0)
+      });
 
-    // WP 3: Corridor transit midpoint (safely avoiding any active fire)
-    const midX = (dx + targetX) / 2;
-    wpList.push({
-      id: 'wp_corridor_transit',
-      pos: new THREE.Vector3(midX, 0.35, 0),
-      title: `Navigate ${targetX > 0 ? 'East' : 'West'} Corridor`,
-      desc: 'Follow continuous cyan luminous edge guidance along runner',
-      dist: `${Math.round(Math.abs(midX - dx) + 10)}m`,
-      forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
-    });
+      // WP 3: Central Atrium Foyer junction (x: 0, z: 0)
+      wpList.push({
+        id: 'wp_atrium_junction',
+        pos: new THREE.Vector3(0, 0.35, 0),
+        title: 'Central Atrium Junction',
+        desc: 'Turn South along illuminated Grand Portal Foyer',
+        dist: `${Math.round(Math.abs(dx) + 8)}m`,
+        forward: new THREE.Vector3(0, 0, 1)
+      });
 
-    // WP 4: Stairwell Core entrance portal
-    wpList.push({
-      id: 'wp_stair_portal',
-      pos: new THREE.Vector3(targetX, 0.35, 0),
-      title: `Enter ${targetStairCoords.name}`,
-      desc: 'Pass through pressurized fire barrier door into safety core',
-      dist: `${Math.round(Math.abs(targetX - dx) + 12)}m`,
-      forward: new THREE.Vector3(targetX > 0 ? 1 : -1, 0, 0)
-    });
+      // WP 4: Grand Portal Promenade midpoint (x: 0, z: 12)
+      wpList.push({
+        id: 'wp_grand_promenade',
+        pos: new THREE.Vector3(0, 0.35, 12),
+        title: 'South Grand Portal Foyer',
+        desc: 'Follow overhead high-illumination green exit indicators',
+        dist: `${Math.round(Math.abs(dx) + 16)}m`,
+        forward: new THREE.Vector3(0, 0, 1)
+      });
+
+      // WP 5: Direct Exit through South Portal (x: 0, z: 23.5) into Outdoor Plaza
+      wpList.push({
+        id: 'wp_south_portal_exit',
+        pos: new THREE.Vector3(0, 0.35, 23.5),
+        title: 'South Grand Plaza Portal (Exit C)',
+        desc: 'Pass through security turnstiles directly into Exterior Safety Plaza',
+        dist: `${Math.round(Math.abs(dx) + 24)}m`,
+        forward: new THREE.Vector3(0, 0, 1)
+      });
+    } else {
+      // ── WEST CORE A / EAST CORE B ROUTING ──
+      // WP 2: Central corridor junction
+      wpList.push({
+        id: 'wp_corridor_junction',
+        pos: new THREE.Vector3(dx, 0.35, 0),
+        title: 'Enter Central Corridor',
+        desc: `Turn ${targetX > dx ? 'East (Right)' : 'West (Left)'} along luminous floor runner`,
+        dist: '10m',
+        forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
+      });
+
+      // WP 3: Corridor transit midpoint (safely avoiding any active fire)
+      const midX = (dx + targetX) / 2;
+      wpList.push({
+        id: 'wp_corridor_transit',
+        pos: new THREE.Vector3(midX, 0.35, 0),
+        title: `Navigate ${targetX > 0 ? 'East' : 'West'} Corridor`,
+        desc: 'Follow continuous cyan luminous edge guidance along runner',
+        dist: `${Math.round(Math.abs(midX - dx) + 10)}m`,
+        forward: new THREE.Vector3(targetX > dx ? 1 : -1, 0, 0)
+      });
+
+      // WP 4: Stairwell Core entrance portal
+      wpList.push({
+        id: 'wp_stair_portal',
+        pos: new THREE.Vector3(targetX, 0.35, 0),
+        title: `Enter ${targetStairCoords.name}`,
+        desc: 'Pass through pressurized fire barrier door into safety core',
+        dist: `${Math.round(Math.abs(targetX - dx) + 12)}m`,
+        forward: new THREE.Vector3(targetX > 0 ? 1 : -1, 0, 0)
+      });
+    }
 
     return wpList;
-  }, [roomTemplate, roomName, targetStairCoords]);
+  }, [roomTemplate, roomName, targetStairCoords, targetStairCode]);
 
   // Keep waypoint refs updated
   useEffect(() => {
@@ -449,6 +496,87 @@ export function MobileFloor3DMap({
     const isEastBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10')));
     const stairEast = createStairPortal(28.5, 0, isEastBlocked ? 'CORE B BLOCKED' : 'CORE B (EAST)', targetStairCode === 'CORE_B', isEastBlocked);
     scene.add(stairEast);
+
+    // ── 3RD GROUND EXIT: SOUTH GRAND PLAZA PORTAL (EXIT C / FRONT GATE) ──
+    if (floor === 1) {
+      const isSouthBlocked = activeFires.some(
+        (f) => f.floor === 1 && (f.roomId === 'f1_r3' || f.roomId === 'f1_r8' || f.roomId.includes('exit_c') || f.roomId.includes('front'))
+      );
+
+      // Create South Grand Portal Group at x: 0, z: 23.5
+      const southGroup = new THREE.Group();
+      southGroup.position.set(0, 0, 23.5);
+
+      const southPortalBox = new THREE.Mesh(
+        new THREE.BoxGeometry(6.4, wallH, 1.4),
+        new THREE.MeshStandardMaterial({
+          color: isSouthBlocked ? 0x7f1d1d : targetStairCode === 'EXIT_C' ? 0x064e3b : 0x1e293b,
+          emissive: isSouthBlocked ? 0x991b1b : targetStairCode === 'EXIT_C' ? 0x047857 : 0x0f172a,
+          emissiveIntensity: 0.5,
+          roughness: 0.4
+        })
+      );
+      southPortalBox.position.y = wallH / 2;
+      southGroup.add(southPortalBox);
+
+      // Open emergency double door leaf
+      const southDoorFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(5.2, wallH - 0.2),
+        new THREE.MeshBasicMaterial({
+          color: isSouthBlocked ? 0xef4444 : targetStairCode === 'EXIT_C' ? 0x10b981 : 0x38bdf8,
+          transparent: true,
+          opacity: 0.95
+        })
+      );
+      southDoorFace.position.set(0, wallH / 2, -0.71);
+      southGroup.add(southDoorFace);
+
+      // Overhead High-Luminance Portal Sign
+      const sCanvas = document.createElement('canvas');
+      sCanvas.width = 360;
+      sCanvas.height = 96;
+      const sCtx = sCanvas.getContext('2d');
+      sCtx.fillStyle = isSouthBlocked ? '#dc2626' : '#10b981';
+      sCtx.fillRect(0, 0, 360, 96);
+      sCtx.fillStyle = '#ffffff';
+      sCtx.font = 'bold 26px sans-serif';
+      sCtx.textAlign = 'center';
+      sCtx.textBaseline = 'middle';
+      sCtx.fillText(isSouthBlocked ? 'EXIT C BLOCKED' : 'EXIT C (FRONT GATE)', 180, 48);
+
+      const sSignTex = new THREE.CanvasTexture(sCanvas);
+      const sSignSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: sSignTex, transparent: true }));
+      sSignSprite.scale.set(5.2, 1.4, 1);
+      sSignSprite.position.set(0, wallH + 0.8, 0);
+      southGroup.add(sSignSprite);
+
+      scene.add(southGroup);
+
+      // Central Grand Walkway from (0, 0) to (0, 23.5)
+      const southWalkwayGeo = new THREE.PlaneGeometry(3.6, 23.5);
+      const southWalkway = new THREE.Mesh(southWalkwayGeo, runnerMat);
+      southWalkway.rotation.x = -Math.PI / 2;
+      southWalkway.position.set(0, 0.022, 11.75);
+      scene.add(southWalkway);
+
+      // Luminous cyan edge runners along South Walkway
+      for (const gx of [-1.75, 1.75]) {
+        const southGuide = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 23.5), guideMat);
+        southGuide.rotation.x = -Math.PI / 2;
+        southGuide.position.set(gx, 0.026, 11.75);
+        scene.add(southGuide);
+      }
+
+      // Exterior Muster Zone Alpha (South Plaza Lawn)
+      const musterR = 5.2;
+      const musterRing = new THREE.Mesh(
+        new THREE.RingGeometry(musterR - 0.45, musterR, 48),
+        new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide })
+      );
+      musterRing.rotation.x = -Math.PI / 2;
+      musterRing.position.set(0, 0.03, 31);
+      scene.add(musterRing);
+    }
 
     // 12. Active Fire Hazards on Floor
     const floorFires = activeFires.filter((f) => f.floor === floor);
@@ -872,7 +1000,7 @@ export function MobileFloor3DMap({
               <div className="text-right shrink-0">
                 <div className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Target</div>
                 <div className="text-[11px] font-extrabold text-indigo-300 truncate max-w-[110px]">
-                  {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
+                  {targetStairCode === 'EXIT_C' ? 'Exit C (Front Gate)' : targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
                 </div>
               </div>
             </div>
@@ -961,9 +1089,9 @@ export function MobileFloor3DMap({
             </div>
 
             <div className="text-right shrink-0">
-              <div className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider">Nearest Core</div>
+              <div className="text-[9.5px] uppercase font-bold text-slate-500 tracking-wider">{floor === 1 ? 'Nearest Portal' : 'Nearest Core'}</div>
               <div className="text-[11px] font-extrabold text-indigo-300">
-                {targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
+                {targetStairCode === 'EXIT_C' ? 'Exit C (Front Gate)' : targetStairCode === 'CORE_B' ? 'Core B (East)' : 'Core A (West)'}
               </div>
             </div>
           </div>

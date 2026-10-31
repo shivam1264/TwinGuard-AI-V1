@@ -21,6 +21,7 @@ import { EmergencyCommandCenterPage } from './components/EmergencyCommandCenterP
 import { EmergencyControlModal } from './components/EmergencyControlModal';
 import { EvacueeCompanionView } from './components/EvacueeCompanionView';
 import { EvacueeQrModal } from './components/EvacueeQrModal';
+import { SosAlertModal } from './components/SosAlertModal';
 import GisMapDrawer from './components/gis/GisMapDrawer';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
@@ -131,6 +132,7 @@ export function App() {
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
   const [isEvacueeQrOpen, setIsEvacueeQrOpen] = useState(false);
+  const [activeSosAlert, setActiveSosAlert] = useState(null);
   const [isGisOpen, setIsGisOpen] = useState(false);
   const [isSirenMuted, setIsSirenMuted] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
@@ -237,6 +239,39 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Synthesize Command Center Tactical Distress Alarm Tone for SOS Alerts
+  const playCommandCenterSosChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      // High-urgency alert burst 1
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(880, now);
+      gain1.gain.setValueAtTime(0.28, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+
+      // High-urgency alert burst 2
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(1174.66, now + 0.16);
+      gain2.gain.setValueAtTime(0.32, now + 0.16);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.16);
+      osc2.stop(now + 0.6);
+    } catch {}
+  };
+
   // Socket.io backend sync
   useEffect(() => {
     const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
@@ -261,6 +296,8 @@ export function App() {
     socket.on('incident-sos', (sosAlert) => {
       setIncidents((prev) => [sosAlert, ...prev]);
       setSystemStatus((prev) => (prev === 'STANDBY' ? 'ALARM' : prev));
+      setActiveSosAlert(sosAlert);
+      playCommandCenterSosChime();
     });
 
     socket.on('state-update', (state) => {
@@ -838,6 +875,18 @@ export function App() {
         isOpen={isEvacueeQrOpen}
         onClose={() => setIsEvacueeQrOpen(false)}
       />
+
+      {/* REAL-TIME DISTRESS NOTIFICATION: Mobile Occupant Trapped SOS Modal */}
+      {activeSosAlert && (
+        <SosAlertModal
+          sosData={activeSosAlert}
+          onClose={() => setActiveSosAlert(null)}
+          onFocusFloor={(floor) => {
+            handleSetFloorView(floor);
+            handleSetCameraPreset('FLOOR_' + floor);
+          }}
+        />
+      )}
 
       {/* KILLER FEATURE 1: Live Interactive Satellite GIS + City Emergency Dispatch */}
       <GisMapDrawer

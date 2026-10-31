@@ -218,12 +218,18 @@ export function EvacueeCompanionView() {
   // West Core A is at x = -28.5, East Core B is at x = +28.5
   const distToWestCore = useMemo(() => {
     const doorX = currentRoomTemplate.doorX;
-    return Math.round(Math.abs(doorX - (-28.5)) + 12);
-  }, [currentRoomTemplate]);
+    return Math.round(Math.abs(doorX - (-28.5)) + (floor === 1 ? 6 : 12));
+  }, [currentRoomTemplate, floor]);
 
   const distToEastCore = useMemo(() => {
     const doorX = currentRoomTemplate.doorX;
-    return Math.round(Math.abs(28.5 - doorX) + 12);
+    return Math.round(Math.abs(28.5 - doorX) + (floor === 1 ? 6 : 12));
+  }, [currentRoomTemplate, floor]);
+
+  // South Grand Plaza Portal (Exit C) - Ground Floor Direct Front Entrance
+  const distToSouthPortal = useMemo(() => {
+    const doorX = currentRoomTemplate.doorX;
+    return Math.round(Math.abs(doorX - 0) + 12);
   }, [currentRoomTemplate]);
 
   // Derived hazard analysis for this occupant
@@ -270,65 +276,145 @@ export function EvacueeCompanionView() {
     });
   }, [isEastStairCompromised, currentRoomTemplate, activeFires, floor]);
 
+  // Ground Floor Front Gate / South Portal hazard detection
+  const isSouthPortalCompromised = useMemo(() => {
+    if (floor !== 1) return false;
+    return activeFires.some((f) => {
+      return f.floor === 1 && (f.roomId === 'f1_r3' || f.roomId === 'f1_r8' || f.roomId.includes('exit_c') || f.roomId.includes('front'));
+    });
+  }, [activeFires, floor]);
+
   // Active Emergency Flag (Gating dynamic routes until fire / evacuation / alarm occurs)
   const hasActiveEmergency = useMemo(() => {
     return isAlarmActive || activeFires.length > 0 || occupantStatus === 'EVACUATING' || occupantStatus === 'REROUTED' || occupantStatus === 'SOS_ACTIVE';
   }, [isAlarmActive, activeFires, occupantStatus]);
 
-  // Dynamic AI route generation with balanced East & West spatial intelligence
+  // Dynamic AI route generation with balanced East, South Front Gate & West spatial intelligence
   const routeGuidance = useMemo(() => {
     const isGround = floor === 1;
     let targetStairCode = 'CORE_A';
     let warning = null;
 
-    // Intelligent Multi-Factor Decision Matrix:
-    // 1. If West corridor or Core A is compromised, and East is clear: choose East Core B
-    if (isWestPathHazardous && !isEastPathHazardous) {
-      targetStairCode = 'CORE_B';
-      warning = 'West Corridor / Core A Compromised • AI Diverting to East Core B';
-    }
-    // 2. If East corridor or Core B is compromised, and West is clear: choose West Core A
-    else if (isEastPathHazardous && !isWestPathHazardous) {
-      targetStairCode = 'CORE_A';
-      warning = 'East Corridor / Core B Compromised • AI Diverting to West Core A';
-    }
-    // 3. If both directions have hazards, pick the operational core
-    else if (isWestPathHazardous && isEastPathHazardous) {
-      if (!isWestStairCompromised && isEastStairCompromised) {
-        targetStairCode = 'CORE_A';
-        warning = 'Multiple Hazards Detected • Directing to Operational West Core A';
-      } else if (!isEastStairCompromised && isWestStairCompromised) {
+    if (isGround) {
+      // ── GROUND FLOOR (L1) 3-WAY MULTI-PORTAL AI DISPATCH ──
+      // Case 1: Fire near Front Gate / South Portal (Exit C)
+      if (isSouthPortalCompromised) {
+        if (isWestPathHazardous && !isEastPathHazardous) {
+          targetStairCode = 'CORE_B';
+          warning = 'Front Portal (Exit C) & West Corridor Compromised • AI Diverting to East Egress Portal (Exit B)';
+        } else if (isEastPathHazardous && !isWestPathHazardous) {
+          targetStairCode = 'CORE_A';
+          warning = 'Front Portal (Exit C) & East Corridor Compromised • AI Diverting to West Egress Portal (Exit A)';
+        } else {
+          targetStairCode = distToEastCore < distToWestCore ? 'CORE_B' : 'CORE_A';
+          warning = 'Front Grand Portal (Exit C) Compromised by Smoke • AI Diverting to Perimeter Portals';
+        }
+      }
+      // Case 2: Fire near West Portal (Exit A)
+      else if (isWestPathHazardous && !isEastPathHazardous) {
+        if (!isSouthPortalCompromised && distToSouthPortal <= distToEastCore) {
+          targetStairCode = 'EXIT_C';
+          warning = 'West Egress Portal (Exit A) Compromised • AI Diverting to South Grand Plaza Portal (Exit C)';
+        } else {
+          targetStairCode = 'CORE_B';
+          warning = 'West Egress Portal (Exit A) Compromised • AI Diverting to East Egress Portal (Exit B)';
+        }
+      }
+      // Case 3: Fire near East Portal (Exit B)
+      else if (isEastPathHazardous && !isWestPathHazardous) {
+        if (!isSouthPortalCompromised && distToSouthPortal <= distToWestCore) {
+          targetStairCode = 'EXIT_C';
+          warning = 'East Egress Portal (Exit B) Compromised • AI Diverting to South Grand Plaza Portal (Exit C)';
+        } else {
+          targetStairCode = 'CORE_A';
+          warning = 'East Egress Portal (Exit B) Compromised • AI Diverting to West Egress Portal (Exit A)';
+        }
+      }
+      // Case 4: Multiple wing hazards
+      else if (isWestPathHazardous && isEastPathHazardous) {
+        if (!isSouthPortalCompromised) {
+          targetStairCode = 'EXIT_C';
+          warning = 'Both Wing Corridors Compromised • AI Directing straight to South Grand Plaza Portal (Exit C)';
+        } else {
+          targetStairCode = distToEastCore < distToWestCore ? 'CORE_B' : 'CORE_A';
+          warning = 'Multiple Hazard Warnings • Proceed with Extreme Caution to Nearest Portal';
+        }
+      }
+      // Case 5: Normal Standby / Clear (Evaluate all 3 exits and select closest)
+      else {
+        const minD = Math.min(distToWestCore, distToEastCore, distToSouthPortal);
+        if (minD === distToSouthPortal) {
+          targetStairCode = 'EXIT_C';
+        } else if (minD === distToWestCore) {
+          targetStairCode = 'CORE_A';
+        } else {
+          targetStairCode = 'CORE_B';
+        }
+      }
+    } else {
+      // ── UPPER FLOORS (L2 - L10) DUAL-CORE STAIRWELL DISPATCH ──
+      if (isWestPathHazardous && !isEastPathHazardous) {
         targetStairCode = 'CORE_B';
-        warning = 'Multiple Hazards Detected • Directing to Operational East Core B';
+        warning = 'West Corridor / Core A Compromised • AI Diverting to East Core B';
+      } else if (isEastPathHazardous && !isWestPathHazardous) {
+        targetStairCode = 'CORE_A';
+        warning = 'East Corridor / Core B Compromised • AI Diverting to West Core A';
+      } else if (isWestPathHazardous && isEastPathHazardous) {
+        if (!isWestStairCompromised && isEastStairCompromised) {
+          targetStairCode = 'CORE_A';
+          warning = 'Multiple Hazards Detected • Directing to Operational West Core A';
+        } else if (!isEastStairCompromised && isWestStairCompromised) {
+          targetStairCode = 'CORE_B';
+          warning = 'Multiple Hazards Detected • Directing to Operational East Core B';
+        } else {
+          targetStairCode = distToEastCore < distToWestCore ? 'CORE_B' : 'CORE_A';
+          warning = 'Elevated Smoke Alert • Proceed with Caution along Corridor Edge';
+        }
       } else {
         targetStairCode = distToEastCore < distToWestCore ? 'CORE_B' : 'CORE_A';
-        warning = 'Elevated Smoke Alert • Proceed with Caution along Corridor Edge';
       }
     }
-    // 4. Both pathways clear: AI dynamically chooses closest stair core based on room door coordinates!
-    else {
-      targetStairCode = distToEastCore < distToWestCore ? 'CORE_B' : 'CORE_A';
+
+    let targetStair = 'West Stairwell Core A (West Wing)';
+    let targetGate = 'West Egress Portal (Exit A)';
+    let selectedDist = distToWestCore;
+
+    if (targetStairCode === 'EXIT_C') {
+      targetStair = 'South Grand Plaza Portal (Exit C / Front Gate)';
+      targetGate = 'Front / Main Gate (South Plaza)';
+      selectedDist = distToSouthPortal;
+    } else if (targetStairCode === 'CORE_B') {
+      targetStair = isGround ? 'East Egress Portal (Exit B)' : 'East Stairwell Core B (East Wing)';
+      targetGate = 'East Egress Portal (Exit B)';
+      selectedDist = distToEastCore;
+    } else {
+      targetStair = isGround ? 'West Egress Portal (Exit A)' : 'West Stairwell Core A (West Wing)';
+      targetGate = 'West Egress Portal (Exit A)';
+      selectedDist = distToWestCore;
     }
 
-    const isEast = targetStairCode === 'CORE_B';
-    const targetStair = isEast ? 'East Stairwell Core B (East Wing)' : 'West Stairwell Core A (West Wing)';
-    const targetGate = isEast ? 'East Egress Portal (Exit B)' : 'West Egress Portal (Exit A)';
-    const selectedDist = isEast ? distToEastCore : distToWestCore;
     const distanceEst = `${selectedDist}m`;
     const timeEst = `${Math.round(selectedDist * 0.85)}s`;
 
     const steps = isGround
-      ? [
-          { text: `Exit ${roomName} through primary doorway into Central Gallery`, detail: 'Check corridor for clear visibility before stepping out' },
-          { text: `Turn ${isEast ? 'East (Right)' : 'West (Left)'} toward ${targetGate}`, detail: 'Follow overhead high-illumination green exit indicators' },
-          { text: `Pass through security turnstiles & portal doors`, detail: 'Turnstiles automatically released by fire command override' },
-          { text: 'Assemble at Exterior Muster Zone Alpha (South Lawn)', detail: 'Check in with Emergency Safety Warden' }
-        ]
+      ? (targetStairCode === 'EXIT_C'
+          ? [
+              { text: `Exit ${roomName} through primary doorway into Central Gallery`, detail: 'Check corridor for clear visibility before stepping out' },
+              { text: 'Turn toward Central Foyer & South Grand Portal', detail: 'Follow overhead high-illumination green exit indicators' },
+              { text: 'Pass through security turnstiles & South Grand Portal doors', detail: 'Turnstiles automatically released by fire command override' },
+              { text: 'Assemble at Exterior South Plaza Muster Zone Alpha', detail: 'Check in with Emergency Safety Warden' }
+            ]
+          : [
+              { text: `Exit ${roomName} through primary doorway into Central Gallery`, detail: 'Check corridor for clear visibility before stepping out' },
+              { text: `Turn ${targetStairCode === 'CORE_B' ? 'East (Right)' : 'West (Left)'} toward ${targetGate}`, detail: 'Follow overhead high-illumination green exit indicators' },
+              { text: 'Pass through security turnstiles & portal doors', detail: 'Turnstiles automatically released by fire command override' },
+              { text: 'Assemble at Exterior Muster Zone Alpha (South Lawn)', detail: 'Check in with Emergency Safety Warden' }
+            ])
       : [
           { text: `Exit ${roomName} into Floor ${floor} Central Corridor`, detail: 'Stay low if light smoke haze is visible' },
-          { text: `Navigate ${isEast ? 'East (Right)' : 'West (Left)'} along main corridor`, detail: 'Follow dynamic smart floor LED strip lighting' },
+          { text: `Navigate ${targetStairCode === 'CORE_B' ? 'East (Right)' : 'West (Left)'} along main corridor`, detail: 'Follow dynamic smart floor LED strip lighting' },
           { text: `Enter ${targetStair} Fire Barrier Door`, detail: 'Heavy fire-rated door with active positive pressure air curtain' },
-          { text: `Descend switchback stairs to Ground Floor Level 1`, detail: 'Maintain single-file descent; hold inside handrail firmly' },
+          { text: 'Descend switchback stairs to Ground Floor Level 1', detail: 'Maintain single-file descent; hold inside handrail firmly' },
           { text: `Exit via ${targetGate} into Outdoor Safety Plaza`, detail: 'Proceed 40m clear of building perimeter to Muster Zone' }
         ];
 
@@ -346,8 +432,10 @@ export function EvacueeCompanionView() {
     roomName,
     distToWestCore,
     distToEastCore,
+    distToSouthPortal,
     isWestPathHazardous,
     isEastPathHazardous,
+    isSouthPortalCompromised,
     isWestStairCompromised,
     isEastStairCompromised
   ]);
@@ -513,57 +601,125 @@ export function EvacueeCompanionView() {
           </p>
         </div>
 
-        {/* ── FLOOR OVERVIEW & EXITS READINESS CARD (REQUIREMENT 2) ── */}
+        {/* ── FLOOR OVERVIEW & EXITS READINESS CARD (REQUIREMENT 2 & BUG 1 FIX) ── */}
         <div className="p-3 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-2">
           <div className="flex items-center justify-between text-xs font-bold text-slate-300">
             <span className="flex items-center gap-1.5 text-indigo-400">
               <Building2 className="w-3.5 h-3.5" />
               Floor {floor} Architecture & Exits Overview:
             </span>
-            <span className="text-[10px] font-mono text-emerald-400">2 Cores Active</span>
+            <span className="text-[10px] font-mono text-emerald-400">
+              {floor === 1 ? '3 Direct Portals Active' : '2 Cores Active'}
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            {/* West Stair Core A */}
-            <div
-              className={`p-2.5 rounded-xl border transition-all ${
-                isWestStairCompromised
-                  ? 'bg-red-950/40 border-red-500/50 text-red-200'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-300'
-              }`}
-            >
-              <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
-                <span>West Wing:</span>
-                {isWestStairCompromised ? (
-                  <span className="text-red-400 font-black">COMPROMISED</span>
-                ) : (
-                  <span className="text-emerald-400 font-bold">OPERATIONAL</span>
-                )}
+          {floor === 1 ? (
+            /* 3 Direct Exits for Ground Floor (L1): West, South Front Gate, East */
+            <div className="grid grid-cols-3 gap-1.5 text-[10.5px]">
+              {/* West Portal (Exit A) */}
+              <div
+                className={`p-2 rounded-xl border transition-all ${
+                  isWestStairCompromised
+                    ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                  <span>West:</span>
+                  {isWestStairCompromised ? (
+                    <span className="text-red-400 font-black">BLOCKED</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">READY</span>
+                  )}
+                </div>
+                <div className="font-black text-white mt-0.5 text-[11px] leading-tight">Exit A (West)</div>
+                <div className="text-[9.5px] text-slate-400 mt-0.5">~{distToWestCore}m</div>
               </div>
-              <div className="font-black text-white mt-0.5 text-xs">Stairwell Core A</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Distance: ~{distToWestCore}m from your room</div>
-            </div>
 
-            {/* East Stair Core B */}
-            <div
-              className={`p-2.5 rounded-xl border transition-all ${
-                isEastStairCompromised
-                  ? 'bg-red-950/40 border-red-500/50 text-red-200'
-                  : 'bg-slate-950/60 border-slate-800 text-slate-300'
-              }`}
-            >
-              <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
-                <span>East Wing:</span>
-                {isEastStairCompromised ? (
-                  <span className="text-red-400 font-black">COMPROMISED</span>
-                ) : (
-                  <span className="text-emerald-400 font-bold">OPERATIONAL</span>
-                )}
+              {/* South Front Gate (Exit C) */}
+              <div
+                className={`p-2 rounded-xl border transition-all ${
+                  isSouthPortalCompromised
+                    ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                    : 'bg-indigo-950/40 border-indigo-500/40 text-slate-200'
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase text-indigo-300 flex items-center justify-between">
+                  <span>Front:</span>
+                  {isSouthPortalCompromised ? (
+                    <span className="text-red-400 font-black">BLOCKED</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">READY</span>
+                  )}
+                </div>
+                <div className="font-black text-white mt-0.5 text-[11px] leading-tight">Exit C (South)</div>
+                <div className="text-[9.5px] text-slate-400 mt-0.5">~{distToSouthPortal}m</div>
               </div>
-              <div className="font-black text-white mt-0.5 text-xs">Stairwell Core B</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">Distance: ~{distToEastCore}m from your room</div>
+
+              {/* East Portal (Exit B) */}
+              <div
+                className={`p-2 rounded-xl border transition-all ${
+                  isEastStairCompromised
+                    ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                }`}
+              >
+                <div className="text-[9px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                  <span>East:</span>
+                  {isEastStairCompromised ? (
+                    <span className="text-red-400 font-black">BLOCKED</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">READY</span>
+                  )}
+                </div>
+                <div className="font-black text-white mt-0.5 text-[11px] leading-tight">Exit B (East)</div>
+                <div className="text-[9.5px] text-slate-400 mt-0.5">~{distToEastCore}m</div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Upper Floors (2 to 10): 2 Cores */
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {/* West Stair Core A */}
+              <div
+                className={`p-2.5 rounded-xl border transition-all ${
+                  isWestStairCompromised
+                    ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                }`}
+              >
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                  <span>West Wing:</span>
+                  {isWestStairCompromised ? (
+                    <span className="text-red-400 font-black">COMPROMISED</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">OPERATIONAL</span>
+                  )}
+                </div>
+                <div className="font-black text-white mt-0.5 text-xs">Stairwell Core A</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Distance: ~{distToWestCore}m from your room</div>
+              </div>
+
+              {/* East Stair Core B */}
+              <div
+                className={`p-2.5 rounded-xl border transition-all ${
+                  isEastStairCompromised
+                    ? 'bg-red-950/40 border-red-500/50 text-red-200'
+                    : 'bg-slate-950/60 border-slate-800 text-slate-300'
+                }`}
+              >
+                <div className="text-[10px] font-bold uppercase text-slate-400 flex items-center justify-between">
+                  <span>East Wing:</span>
+                  {isEastStairCompromised ? (
+                    <span className="text-red-400 font-black">COMPROMISED</span>
+                  ) : (
+                    <span className="text-emerald-400 font-bold">OPERATIONAL</span>
+                  )}
+                </div>
+                <div className="font-black text-white mt-0.5 text-xs">Stairwell Core B</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Distance: ~{distToEastCore}m from your room</div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
             <span>🚪 10 Fire Barrier Doors</span>
@@ -775,22 +931,40 @@ export function EvacueeCompanionView() {
         )}
       </main>
 
-      {/* ── BOTTOM INTERACTIVE COMMAND ACTIONS ── */}
+      {/* ── BOTTOM INTERACTIVE COMMAND ACTIONS (ELEVATED ABOVE PHONE NAVIGATION BAR) ── */}
       <footer
-        className="shrink-0 z-30 px-3.5 pt-3 pb-6 border-t border-slate-800 bg-slate-900/95 backdrop-blur-md max-w-md mx-auto w-full"
+        className="shrink-0 z-30 px-4 pt-2.5 pb-10 border-t border-slate-800 bg-slate-900/98 backdrop-blur-xl max-w-md mx-auto w-full shadow-2xl"
         style={{
-          paddingBottom: 'max(1.75rem, env(safe-area-inset-bottom, 24px))'
+          paddingBottom: 'max(3.25rem, calc(env(safe-area-inset-bottom, 24px) + 32px))'
         }}
       >
-        <div className="grid grid-cols-2 gap-2.5">
+        {/* Presentation Simulation Helper Bar (Placed neatly ABOVE the buttons so it never pushes buttons down!) */}
+        <div className="flex items-center justify-between text-[10px] text-slate-400 mb-2 px-1">
+          <span className="flex items-center gap-1 font-mono">
+            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+            Beacon: TWG-{floor}-{roomId.slice(-2)}
+          </span>
+          <button
+            onClick={() => {
+              playAlertChime();
+              triggerHaptic();
+            }}
+            className="text-indigo-400 hover:text-indigo-300 underline font-semibold cursor-pointer"
+          >
+            Test Chime & Haptic
+          </button>
+        </div>
+
+        {/* Action Buttons with high elevation */}
+        <div className="grid grid-cols-2 gap-3 mb-1">
           {/* Action 1: Mark Safe (Increments headcount in Command Center) */}
           <button
             onClick={handleMarkSafe}
             disabled={occupantStatus === 'SAFE_MUSTER'}
-            className={`py-3 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${
+            className={`py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg ${
               occupantStatus === 'SAFE_MUSTER'
                 ? 'bg-emerald-900/40 border border-emerald-700/50 text-emerald-400 cursor-default'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-600/30 border border-emerald-400'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 shadow-emerald-600/30 border border-emerald-400'
             }`}
           >
             <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -801,31 +975,14 @@ export function EvacueeCompanionView() {
           <button
             onClick={handleTriggerSos}
             disabled={occupantStatus === 'SOS_ACTIVE'}
-            className={`py-3 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer ${
+            className={`py-3.5 px-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-lg ${
               occupantStatus === 'SOS_ACTIVE'
                 ? 'bg-red-900/50 border border-red-700 text-red-300 cursor-default'
-                : 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 border border-red-400'
+                : 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/30 border border-red-400'
             }`}
           >
             <LifeBuoy className="w-4 h-4 shrink-0" />
-            <span>{occupantStatus === 'SOS_ACTIVE' ? 'SOS Sent' : 'SOS / Trapped'}</span>
-          </button>
-        </div>
-
-        {/* Presentation Simulation Helper Bar */}
-        <div className="mt-2.5 flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-800/80">
-          <span className="flex items-center gap-1 font-mono">
-            <Radio className="w-3 h-3 text-indigo-400 animate-pulse" />
-            Beacon: TWG-{floor}-{roomId.slice(-2)}
-          </span>
-          <button
-            onClick={() => {
-              playAlertChime();
-              triggerHaptic();
-            }}
-            className="text-slate-400 hover:text-indigo-300 underline font-semibold cursor-pointer"
-          >
-            Test Chime & Haptic
+            <span>{occupantStatus === 'SOS_ACTIVE' ? 'SOS Dispatched' : 'SOS / Trapped'}</span>
           </button>
         </div>
       </footer>
