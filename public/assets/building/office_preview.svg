@@ -1,0 +1,32 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 240' width='100%' height='100%'>
+  <defs>
+    <linearGradient id='offwall' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#f8fafc'/>
+      <stop offset='100%' stop-color='#e2e8f0'/>
+    </linearGradient>
+    <linearGradient id='offfloor' x1='0' y1='0' x2='0' y2='1'>
+      <stop offset='0%' stop-color='#e2e8f0'/>
+      <stop offset='100%' stop-color='#94a3b8'/>
+    </linearGradient>
+  </defs>
+  <rect width='400' height='140' fill='url(#offwall)'/>
+  <polygon points='0,140 400,140 400,240 0,240' fill='url(#offfloor)'/>
+  <!-- Large Glass Curtain Wall with City Sky -->
+  <rect x='20' y='20' width='360' height='110' rx='4' fill='#e0f2fe' stroke='#94a3b8' stroke-width='2'/>
+  <line x1='140' y1='20' x2='140' y2='130' stroke='#94a3b8' stroke-width='2'/>
+  <line x1='260' y1='20' x2='260' y2='130' stroke='#94a3b8' stroke-width='2'/>
+  <!-- Office Pod Desks -->
+  <polygon points='60,150 180,150 170,185 50,185' fill='#ffffff' stroke='#cbd5e1' stroke-width='2'/>
+  <!-- Dual Monitors -->
+  <rect x='90' y='125' width='35' height='24' rx='2' fill='#0f172a'/>
+  <rect x='130' y='125' width='35' height='24' rx='2' fill='#0f172a'/>
+  <rect x='105' y='149' width='5' height='6' fill='#64748b'/>
+  <rect x='145' y='149' width='5' height='6' fill='#64748b'/>
+  <!-- Ergonomic Mesh Chair -->
+  <ellipse cx='115' cy='195' rx='16' ry='6' fill='#334155'/>
+  <rect x='104' y='170' width='22' height='22' rx='3' fill='#1e293b'/>
+  <!-- Second workstation -->
+  <polygon points='220,150 340,150 330,185 210,185' fill='#ffffff' stroke='#cbd5e1' stroke-width='2'/>
+  <rect x='250' y='125' width='45' height='25' rx='2' fill='#0f172a'/>
+  <text x='200' y='15' fill='#334155' font-family='sans-serif' font-size='12' font-weight='bold' text-anchor='middle'>CORPORATE TECH WORKSPACE</text>
+</svg>

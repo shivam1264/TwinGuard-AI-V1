@@ -804,8 +804,11 @@ export class FireParticles {
 
   setFloorMode(mode) {
     this.floorMode = mode;
+    const isExploded = (mode === 'EXPLODED');
     this.activeFires.forEach((fire, roomId) => {
       const floorNum = fire.floor || 1;
+      const yOffset = isExploded ? (floorNum - 1) * 6.5 : 0;
+      fire.group.position.y = yOffset;
       if (mode === 'ALL' || mode === 'EXPLODED') {
         fire.group.visible = true;
       } else {

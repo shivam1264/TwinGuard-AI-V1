@@ -17,6 +17,7 @@ import { ScenarioConfigModal } from './components/ScenarioConfigModal';
 import { StrategyRankModal } from './components/StrategyRankModal';
 import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
+import { EmergencyCommandCenterPage } from './components/EmergencyCommandCenterPage';
 import { EmergencyControlModal } from './components/EmergencyControlModal';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
@@ -89,6 +90,7 @@ const calculateTotal = (rooms) => rooms.reduce((sum, r) => sum + (r.peopleCount 
 
 export function App() {
   const threeCanvasRef = useRef(null);
+  const mainSlotRef = useRef(null);
   const sceneManagerRef = useRef(null);
   const socketRef = useRef(null);
 
@@ -108,6 +110,7 @@ export function App() {
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
 
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
+  const [selected3DRoom, setSelected3DRoom] = useState(null);
   const [fireBubbleData, setFireBubbleData] = useState(null);
   const [isCctvOpen, setIsCctvOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
@@ -151,8 +154,10 @@ export function App() {
           setSystemStatus('COMPLETED');
         }
       },
-      () => {
-        // Single click popup removed
+      (selectedRoom) => {
+        if (selectedRoom) {
+          setSelected3DRoom(selectedRoom);
+        }
       },
       (matchedRoom, screenPos) => {
         // Double tap / double click: show minimalist fire trigger pill
@@ -488,8 +493,10 @@ export function App() {
             if (mode === '3D_VIEW') {
               handleSetCameraPreset('HERO_VIEW');
               handleSetFloorView('ALL');
+            } else if (mode === 'COMMAND_CENTER') {
+              setActiveSidebarMode('COMMAND_CENTER');
             } else if (mode === 'FLOOR_VIEW') {
-              handleSetCameraPreset('HERO_VIEW');
+              handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED');
             } else if (mode === 'STAIRS_FOCUS') {
               handleSetCameraPreset('STAIRS_FOCUS');
             } else if (mode === 'ELEVATORS') {
@@ -519,15 +526,20 @@ export function App() {
 
         {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
         <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f1f5f9] relative overflow-hidden">
-          {/* Full Three.js 3D Viewport */}
+          {/* Main Three.js 3D Viewport Slot */}
           <div
-            ref={threeCanvasRef}
-            className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
-            style={{ display: activeSidebarMode === 'INFO' ? 'none' : 'block' }}
-          />
+            ref={mainSlotRef}
+            className="w-full h-full relative overflow-hidden"
+            style={{ display: activeSidebarMode === '3D_VIEW' ? 'block' : 'none' }}
+          >
+            <div
+              ref={threeCanvasRef}
+              className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
+            />
+          </div>
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          {activeSidebarMode !== 'INFO' && (
+          {activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
             <ViewportOverlay
               facadeMode={facadeMode}
               onSetFacadeMode={handleSetFacadeMode}
@@ -562,6 +574,58 @@ export function App() {
                   handleSetFloorView(floorNum);
                   setActiveSidebarMode('FLOOR_VIEW');
                   handleSetCameraPreset(`FLOOR_${floorNum}`);
+                }}
+              />
+            </div>
+          )}
+
+          {/* EMERGENCY COMMAND CENTER DASHBOARD (Full-Screen Dedicated View Matching Target Reference) */}
+          {activeSidebarMode === 'COMMAND_CENTER' && (
+            <div className="fixed inset-0 z-50 overflow-hidden bg-[#f4f6fa]">
+              <EmergencyCommandCenterPage
+                threeCanvasRef={threeCanvasRef}
+                mainSlotRef={mainSlotRef}
+                sceneManager={sceneManagerRef.current}
+                rooms={rooms}
+                selected3DRoom={selected3DRoom}
+                onSelect3DRoom={(r) => setSelected3DRoom(r)}
+                onUpdateRooms={(updatedRooms) => {
+                  setRooms(updatedRooms);
+                  if (sceneManagerRef.current && sceneManagerRef.current.syncOccupants) {
+                    sceneManagerRef.current.syncOccupants(updatedRooms);
+                  }
+                }}
+                onUpdateExits={(updatedExits) => {
+                  setExits(updatedExits);
+                }}
+                exits={exits}
+                isSimulating={isSimulating}
+                onStartSimulation={() => handleStartSimulation()}
+                onPauseSimulation={() => handlePauseSimulation()}
+                onResetSimulation={() => handleResetSimulation()}
+                onTriggerFire={handleTriggerFire}
+                onExtinguishFire={(roomId) => {
+                  setRooms(prev => prev.map(r => r.id === roomId ? { ...r, hasFire: false, tempCelsius: 22 } : r));
+                  if (sceneManagerRef.current && sceneManagerRef.current.extinguishFire) {
+                    sceneManagerRef.current.extinguishFire(roomId);
+                  }
+                }}
+                onClearAllFires={() => {
+                  setRooms(prev => prev.map(r => ({ ...r, hasFire: false, tempCelsius: 22 })));
+                  if (sceneManagerRef.current && sceneManagerRef.current.extinguishAll) {
+                    sceneManagerRef.current.extinguishAll();
+                  }
+                }}
+                onUpdateCrowd={(roomId, newCount) => {
+                  setRooms(prev => prev.map(r => r.id === roomId ? { ...r, peopleCount: newCount } : r));
+                }}
+                onSwitchTo3D={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
+                }}
+                onClose={() => {
+                  setActiveSidebarMode('3D_VIEW');
+                  handleSetCameraPreset('HERO_VIEW');
                 }}
               />
             </div>

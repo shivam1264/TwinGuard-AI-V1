@@ -9,6 +9,8 @@ export class AgentCrowd {
 
     this.agents = [];
     this.floorMode = 'ALL';
+    this.isExploded = false;
+    this.explodeGap = 6.5;
     this.floorHeight = 3.8; // Realistic commercial ceiling height
 
     // === Stylized Realistic Human Geometries (Pre-Allocated Shared Pool) ===
@@ -536,6 +538,10 @@ export class AgentCrowd {
       }
 
       if (agent.state === 'IDLE') {
+        const floorOffset = (this.isExploded && agent.state !== 'SAFE')
+          ? (Number(agent.floor || 1) - 1) * this.explodeGap
+          : 0;
+        agent.mesh.position.y = agent.y + floorOffset;
         continue;
       }
 
@@ -607,8 +613,11 @@ export class AgentCrowd {
             agent.y += dy * moveRatio;
             agent.z += dz * moveRatio;
 
-            // Canonical Navigation Coordinates: No vertical explosion offset
-            agent.mesh.position.set(agent.x, agent.y, agent.z);
+            // Apply vertical explosion offset if in exploded layered mode
+            const floorOffset = (this.isExploded && agent.state !== 'SAFE')
+              ? (Number(agent.floor || 1) - 1) * this.explodeGap
+              : 0;
+            agent.mesh.position.set(agent.x, agent.y + floorOffset, agent.z);
           }
         }
       }
@@ -626,12 +635,16 @@ export class AgentCrowd {
 
   setFloorMode(mode) {
     this.floorMode = mode;
+    this.isExploded = (mode === 'EXPLODED');
     const isSingleFloor = mode !== 'ALL' && mode !== 'EXPLODED';
     const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
 
     this.agents.forEach(agent => {
       agent.displayPos = null;
-      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y;
+      const floorOffset = (this.isExploded && agent.state !== 'SAFE')
+        ? (Number(agent.floor || 1) - 1) * this.explodeGap
+        : 0;
+      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y + floorOffset;
 
       if (mode === 'ALL' || mode === 'EXPLODED') {
         agent.mesh.visible = true;
@@ -642,15 +655,16 @@ export class AgentCrowd {
     });
 
     if (this.pathLinesGroup) {
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.pathLinesGroup.visible = true;
-      } else {
-        this.pathLinesGroup.children.forEach(line => {
-          if (line.userData && line.userData.floor) {
-            line.visible = Number(line.userData.floor) === targetFloorNum;
-          }
-        });
-      }
+      this.pathLinesGroup.children.forEach(line => {
+        const fl = (line.userData && line.userData.floor) ? line.userData.floor : 1;
+        line.position.y = this.isExploded ? (fl - 1) * this.explodeGap : 0;
+        if (mode === 'ALL' || mode === 'EXPLODED') {
+          line.visible = true;
+        } else {
+          line.visible = Number(fl) === targetFloorNum;
+        }
+      });
+      this.pathLinesGroup.visible = true;
     }
   }
 
