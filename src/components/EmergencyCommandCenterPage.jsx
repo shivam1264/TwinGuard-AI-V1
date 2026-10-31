@@ -594,24 +594,24 @@ export function EmergencyCommandCenterPage({
       {/* ========================================================================= */}
       {/* TOP HEADER                                                                */}
       {/* ========================================================================= */}
-      <header className="flex flex-wrap lg:flex-nowrap items-center justify-between pb-3 border-b border-slate-200/80 gap-2.5 shrink-0">
+      <header className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-200/80 gap-x-3 gap-y-2.5 shrink-0">
         {/* Left: Siren + Title + Subtitle */}
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500 shadow-sm shrink-0">
             <Siren className="w-5 h-5 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight truncate">
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight whitespace-nowrap">
               Emergency Command Center
             </h1>
-            <p className="text-[11px] md:text-xs text-slate-500 font-medium truncate max-w-xl">
+            <p className="text-[11px] md:text-xs text-slate-500 font-medium truncate max-w-[260px] sm:max-w-sm md:max-w-md">
               Monitor incidents, manage emergency scenarios and coordinate intelligent building evacuation in real time.
             </p>
           </div>
         </div>
 
         {/* Right: 4 Clean Action Buttons */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <button
             onClick={() => {
               setMode('simulation');
