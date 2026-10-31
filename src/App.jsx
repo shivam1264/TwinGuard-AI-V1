@@ -689,7 +689,11 @@ export function App() {
         )}
 
         {/* Central Dynamic Workspace (Switches between 3D Command Center, AI Scenarios Studio, Strategy Ranker, and Incidents View) */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#070d18] relative overflow-hidden">
+        <div
+          className={`flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden transition-colors duration-300 ${
+            theme === 'dark' ? 'bg-[#070d18]' : 'bg-[#f1f5f9]'
+          }`}
+        >
           {/* 1. AI SCENARIOS VIEW (Matching Reference Image 3) */}
           {activeTab === 'SCENARIOS' && (
             <ScenariosView
