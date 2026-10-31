@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Calendar,
+  Compass,
   ChevronDown,
   Video,
   AlertTriangle,
@@ -24,6 +25,8 @@ export const TopHeader = ({
   onOpenStrategyRanker,
   onOpenSettings,
   onOpenBuildingInfo,
+  onOpenGis,
+  isGisOpen = false,
   serverConnected = true
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -244,6 +247,45 @@ export const TopHeader = ({
             </div>
           </div>
         </div>
+
+        {/* Live Satellite GIS Mini-Map & Dispatch Trigger Button */}
+        {onOpenGis && (
+          <button
+            onClick={onOpenGis}
+            className="flex items-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
+            style={{
+              background: isGisOpen
+                ? 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)'
+                : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+              border: isGisOpen ? '1px solid #60a5fa' : '1px solid #334155',
+              borderRadius: '12px',
+              padding: '6px 12px',
+              gap: '8px',
+              color: '#ffffff',
+            }}
+            title="Toggle Live Satellite GIS & City Emergency Dispatch"
+          >
+            <Compass style={{ width: '15px', height: '15px', color: isGisOpen ? '#93c5fd' : '#38bdf8' }} className="animate-spin-slow" />
+            <div className="text-left">
+              <div style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1.1, color: '#f8fafc' }}>
+                Satellite GIS
+              </div>
+              <div style={{ fontSize: '9px', color: isGisOpen ? '#bfdbfe' : '#94a3b8', fontWeight: 600 }}>
+                City Dispatch
+              </div>
+            </div>
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 6px #10b981',
+                display: 'inline-block'
+              }}
+            />
+          </button>
+        )}
 
         {/* User Avatar Badge */}
         <div
