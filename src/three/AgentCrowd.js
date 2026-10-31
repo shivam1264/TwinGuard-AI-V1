@@ -1,3 +1,4 @@
+
 import * as THREE from 'three';
 import { getRoomSeatingSpots } from '../simulation/Doorways.js';
 
@@ -573,167 +574,167 @@ export class AgentCrowd {
         continue;
       }
 
-      if (agent.state === 'SAFE' || agent.isEvacuated) {
-        agent.state = 'SAFE';
-        agent.isEvacuated = true;
-        evacuatedCount++;
-        agent.mesh.visible = true;
-        agent.mesh.position.set(agent.x, 0.15, agent.z);
-        agent.leftLeg.rotation.x = 0;
-        agent.rightLeg.rotation.x = 0;
-        agent.leftKnee.rotation.x = 0;
-        agent.rightKnee.rotation.x = 0;
-        agent.leftArm.rotation.x = 0;
-        agent.rightArm.rotation.x = 0;
-        agent.leftElbow.rotation.x = 0;
-        agent.rightElbow.rotation.x = 0;
-        agent.torso.position.y = 0.86;
-        agent.headGroup.position.y = 1.48;
-        continue;
-      }
-
-      if (agent.state === 'IDLE') {
-        continue;
-      }
-
-      // Evacuating Human Locomotion
-      if (agent.state === 'EVACUATING' && agent.path.length > 0) {
-        if (agent.isSeated) {
-          this.standUpAgent(agent);
+        if (agent.state === 'SAFE' || agent.isEvacuated) {
+          agent.state = 'SAFE';
+          agent.isEvacuated = true;
+          evacuatedCount++;
+          agent.mesh.visible = true;
+          agent.mesh.position.set(agent.x, 0.15, agent.z);
+          agent.leftLeg.rotation.x = 0;
+          agent.rightLeg.rotation.x = 0;
+          agent.leftKnee.rotation.x = 0;
+          agent.rightKnee.rotation.x = 0;
+          agent.leftArm.rotation.x = 0;
+          agent.rightArm.rotation.x = 0;
+          agent.leftElbow.rotation.x = 0;
+          agent.rightElbow.rotation.x = 0;
+          agent.torso.position.y = 0.86;
+          agent.headGroup.position.y = 1.48;
+          continue;
         }
 
-        const targetWaypoint = agent.path[agent.currentWaypointIdx];
+        if (agent.state === 'IDLE') {
+          continue;
+        }
 
-        if (targetWaypoint) {
-          const dx = targetWaypoint.x - agent.x;
-          const dy = targetWaypoint.y - agent.y;
-          const dz = targetWaypoint.z - agent.z;
-          const distSq = dx * dx + dy * dy + dz * dz;
-
-          const distH_Sq = dx * dx + dz * dz;
-          if (distH_Sq > 0.0025) {
-            agent.mesh.rotation.y = Math.atan2(dx, dz);
+        // Evacuating Human Locomotion
+        if (agent.state === 'EVACUATING' && agent.path.length > 0) {
+          if (agent.isSeated) {
+            this.standUpAgent(agent);
           }
 
-          agent.animCycle += effectiveDelta * agent.speed * 5.0;
-          const stride = Math.sin(agent.animCycle) * 0.52;
+          const targetWaypoint = agent.path[agent.currentWaypointIdx];
 
-          // Articulated Hip & Knee Locomotion
-          agent.leftLeg.rotation.x = stride;
-          agent.rightLeg.rotation.x = -stride;
+          if (targetWaypoint) {
+            const dx = targetWaypoint.x - agent.x;
+            const dy = targetWaypoint.y - agent.y;
+            const dz = targetWaypoint.z - agent.z;
+            const distSq = dx * dx + dy * dy + dz * dz;
 
-          // Natural knee flexion during back swing
-          agent.leftKnee.rotation.x = Math.max(0, -stride * 0.65);
-          agent.rightKnee.rotation.x = Math.max(0, stride * 0.65);
-
-          // Coordinated Arm Counter-Swing
-          agent.leftArm.rotation.x = -stride * 0.45;
-          agent.rightArm.rotation.x = stride * 0.45;
-          agent.leftElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
-          agent.rightElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
-
-          // Natural Rhythmic Pelvis Bounce
-          const runBounce = Math.abs(Math.sin(agent.animCycle * 2)) * 0.035;
-          agent.torso.position.y = 0.86 + runBounce;
-          agent.headGroup.position.y = 1.48 + runBounce;
-
-          if (distSq < 0.4225) { // 0.65m waypoint threshold
-            agent.currentWaypointIdx++;
-            if (agent.currentWaypointIdx >= agent.path.length) {
-              agent.state = 'SAFE';
-              agent.isEvacuated = true;
-              const finalWaypoint = agent.path[agent.path.length - 1];
-              if (finalWaypoint) {
-                agent.x = finalWaypoint.x;
-                agent.y = 0.15;
-                agent.z = finalWaypoint.z;
-              }
-              agent.mesh.visible = true; // Safe in muster zone
-              agent.mesh.position.set(agent.x, 0.15, agent.z);
-              agent.leftLeg.rotation.x = 0;
-              agent.rightLeg.rotation.x = 0;
-              agent.leftKnee.rotation.x = 0;
-              agent.rightKnee.rotation.x = 0;
-              agent.leftArm.rotation.x = 0;
-              agent.rightArm.rotation.x = 0;
-              agent.leftElbow.rotation.x = 0;
-              agent.rightElbow.rotation.x = 0;
-              agent.torso.position.y = 0.86;
-              agent.headGroup.position.y = 1.48;
-              evacuatedCount++;
-              continue;
+            const distH_Sq = dx * dx + dz * dz;
+            if (distH_Sq > 0.0025) {
+              agent.mesh.rotation.y = Math.atan2(dx, dz);
             }
-          } else {
-            const totalDist = Math.sqrt(distSq);
-            const step = agent.speed * effectiveDelta;
-            const moveRatio = Math.min(1.0, step / totalDist);
 
-            agent.x += dx * moveRatio;
-            agent.y += dy * moveRatio;
-            agent.z += dz * moveRatio;
+            agent.animCycle += effectiveDelta * agent.speed * 5.0;
+            const stride = Math.sin(agent.animCycle) * 0.52;
 
-            // Canonical Navigation Coordinates: No vertical explosion offset
-            agent.mesh.position.set(agent.x, agent.y, agent.z);
+            // Articulated Hip & Knee Locomotion
+            agent.leftLeg.rotation.x = stride;
+            agent.rightLeg.rotation.x = -stride;
+
+            // Natural knee flexion during back swing
+            agent.leftKnee.rotation.x = Math.max(0, -stride * 0.65);
+            agent.rightKnee.rotation.x = Math.max(0, stride * 0.65);
+
+            // Coordinated Arm Counter-Swing
+            agent.leftArm.rotation.x = -stride * 0.45;
+            agent.rightArm.rotation.x = stride * 0.45;
+            agent.leftElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
+            agent.rightElbow.rotation.x = -0.25 - Math.abs(stride) * 0.2;
+
+            // Natural Rhythmic Pelvis Bounce
+            const runBounce = Math.abs(Math.sin(agent.animCycle * 2)) * 0.035;
+            agent.torso.position.y = 0.86 + runBounce;
+            agent.headGroup.position.y = 1.48 + runBounce;
+
+            if (distSq < 0.4225) { // 0.65m waypoint threshold
+              agent.currentWaypointIdx++;
+              if (agent.currentWaypointIdx >= agent.path.length) {
+                agent.state = 'SAFE';
+                agent.isEvacuated = true;
+                const finalWaypoint = agent.path[agent.path.length - 1];
+                if (finalWaypoint) {
+                  agent.x = finalWaypoint.x;
+                  agent.y = 0.15;
+                  agent.z = finalWaypoint.z;
+                }
+                agent.mesh.visible = true; // Safe in muster zone
+                agent.mesh.position.set(agent.x, 0.15, agent.z);
+                agent.leftLeg.rotation.x = 0;
+                agent.rightLeg.rotation.x = 0;
+                agent.leftKnee.rotation.x = 0;
+                agent.rightKnee.rotation.x = 0;
+                agent.leftArm.rotation.x = 0;
+                agent.rightArm.rotation.x = 0;
+                agent.leftElbow.rotation.x = 0;
+                agent.rightElbow.rotation.x = 0;
+                agent.torso.position.y = 0.86;
+                agent.headGroup.position.y = 1.48;
+                evacuatedCount++;
+                continue;
+              }
+            } else {
+              const totalDist = Math.sqrt(distSq);
+              const step = agent.speed * effectiveDelta;
+              const moveRatio = Math.min(1.0, step / totalDist);
+
+              agent.x += dx * moveRatio;
+              agent.y += dy * moveRatio;
+              agent.z += dz * moveRatio;
+
+              // Canonical Navigation Coordinates: No vertical explosion offset
+              agent.mesh.position.set(agent.x, agent.y, agent.z);
+            }
           }
+        }
+      }
+
+      const currentStats = {
+        total: this.agents.length,
+        evacuated: evacuatedCount,
+        inTransit: this.agents.length - evacuatedCount,
+        isCompleted: evacuatedCount === this.agents.length && this.agents.length > 0
+      };
+      this.cachedStats = currentStats;
+      return currentStats;
+    }
+
+    setFloorMode(mode) {
+      this.floorMode = mode;
+      const isSingleFloor = mode !== 'ALL' && mode !== 'EXPLODED';
+      const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
+
+      this.agents.forEach(agent => {
+        agent.displayPos = null;
+        agent.mesh.position.y = (agent.state === 'SAFE' || agent.isEvacuated) ? 0.15 : agent.y;
+
+        if (mode === 'ALL' || mode === 'EXPLODED') {
+          agent.mesh.visible = true;
+        } else {
+          const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
+          agent.mesh.visible = (agent.state === 'SAFE' || agent.isEvacuated) ? (targetFloorNum === 1) : isOnTargetFloor;
+        }
+      });
+
+      if (this.pathLinesGroup) {
+        if (mode === 'ALL' || mode === 'EXPLODED') {
+          this.pathLinesGroup.visible = true;
+        } else {
+          this.pathLinesGroup.children.forEach(line => {
+            if (line.userData && line.userData.floor) {
+              line.visible = Number(line.userData.floor) === targetFloorNum;
+            }
+          });
         }
       }
     }
 
-    const currentStats = {
-      total: this.agents.length,
-      evacuated: evacuatedCount,
-      inTransit: this.agents.length - evacuatedCount,
-      isCompleted: evacuatedCount === this.agents.length && this.agents.length > 0
-    };
-    this.cachedStats = currentStats;
-    return currentStats;
-  }
-
-  setFloorMode(mode) {
-    this.floorMode = mode;
-    const isSingleFloor = mode !== 'ALL' && mode !== 'EXPLODED';
-    const targetFloorNum = isSingleFloor ? parseInt(mode, 10) : null;
-
-    this.agents.forEach(agent => {
-      agent.displayPos = null;
-      agent.mesh.position.y = (agent.state === 'SAFE' || agent.isEvacuated) ? 0.15 : agent.y;
-
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        agent.mesh.visible = true;
-      } else {
-        const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
-        agent.mesh.visible = (agent.state === 'SAFE' || agent.isEvacuated) ? (targetFloorNum === 1) : isOnTargetFloor;
-      }
-    });
-
-    if (this.pathLinesGroup) {
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.pathLinesGroup.visible = true;
-      } else {
-        this.pathLinesGroup.children.forEach(line => {
-          if (line.userData && line.userData.floor) {
-            line.visible = Number(line.userData.floor) === targetFloorNum;
-          }
-        });
+    clearPathLines() {
+      while (this.pathLinesGroup.children.length > 0) {
+        const obj = this.pathLinesGroup.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) obj.material.dispose();
+        this.pathLinesGroup.remove(obj);
       }
     }
-  }
 
-  clearPathLines() {
-    while (this.pathLinesGroup.children.length > 0) {
-      const obj = this.pathLinesGroup.children[0];
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
-      this.pathLinesGroup.remove(obj);
+    clear() {
+      this.clearPathLines();
+      while (this.group.children.length > 0) {
+        const obj = this.group.children[0];
+        this.group.remove(obj);
+      }
+      this.agents = [];
     }
   }
-
-  clear() {
-    this.clearPathLines();
-    while (this.group.children.length > 0) {
-      const obj = this.group.children[0];
-      this.group.remove(obj);
-    }
-    this.agents = [];
-  }
-}
