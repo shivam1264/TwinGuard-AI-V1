@@ -103,9 +103,9 @@ export function App() {
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
   const [cameraYaw, setCameraYaw] = useState(0);
 
-  // Collapsible panels state (Default: expanded, clicking collapse shows icon rails)
-  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
-  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  // Collapsible panels state (Default: closed/collapsed on start as requested)
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(true);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(true);
 
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
   const [fireBubbleData, setFireBubbleData] = useState(null);
