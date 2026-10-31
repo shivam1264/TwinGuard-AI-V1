@@ -18,6 +18,8 @@ import { StrategyRankModal } from './components/StrategyRankModal';
 import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { EmergencyControlModal } from './components/EmergencyControlModal';
+import { EvacueeCompanionView } from './components/EvacueeCompanionView';
+import { EvacueeQrModal } from './components/EvacueeQrModal';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
@@ -87,7 +89,13 @@ const INITIAL_INCIDENTS = [
 
 const calculateTotal = (rooms) => rooms.reduce((sum, r) => sum + (r.peopleCount || 0), 0);
 
+const isEvacueeView = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'evacuee';
+
 export function App() {
+  if (isEvacueeView) {
+    return <EvacueeCompanionView />;
+  }
+
   const threeCanvasRef = useRef(null);
   const sceneManagerRef = useRef(null);
   const socketRef = useRef(null);
@@ -118,6 +126,7 @@ export function App() {
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
+  const [isEvacueeQrOpen, setIsEvacueeQrOpen] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => (AIEngine && AIEngine.getActiveScenario ? AIEngine.getActiveScenario() : null));
 
@@ -204,7 +213,8 @@ export function App() {
 
   // Socket.io backend sync
   useEffect(() => {
-    const socket = io('http://localhost:5000', {
+    const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+    const socket = io(`http://${backendHost}:5000`, {
       transports: ['websocket', 'polling'],
       timeout: 3000
     });
@@ -222,9 +232,21 @@ export function App() {
       handleTriggerFire(data.roomId, false);
     });
 
+    socket.on('incident-sos', (sosAlert) => {
+      setIncidents((prev) => [sosAlert, ...prev]);
+      setSystemStatus((prev) => (prev === 'STANDBY' ? 'ALARM' : prev));
+    });
+
     socket.on('state-update', (state) => {
       if (state.rooms) setRooms(state.rooms);
       if (state.exits) setExits(state.exits);
+      if (state.evacuatedCount !== undefined) {
+        setStats((prev) => ({
+          ...prev,
+          evacuated: state.evacuatedCount,
+          inTransit: state.inTransitCount !== undefined ? state.inTransitCount : prev.inTransit
+        }));
+      }
     });
 
     return () => socket.disconnect();
@@ -476,6 +498,7 @@ export function App() {
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
+        onOpenEvacueeQr={() => setIsEvacueeQrOpen(true)}
         serverConnected={serverConnected}
       />
 
@@ -716,6 +739,12 @@ export function App() {
         activeScenario={activeScenario}
         isSimulating={isSimulating}
         elapsedSeconds={stats.elapsedSeconds}
+      />
+
+      {/* MODAL 11: Live Mobile Evacuee Companion QR Modal */}
+      <EvacueeQrModal
+        isOpen={isEvacueeQrOpen}
+        onClose={() => setIsEvacueeQrOpen(false)}
       />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}

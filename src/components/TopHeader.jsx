@@ -9,7 +9,9 @@ import {
   Settings,
   Home,
   Sparkles,
-  Trophy
+  Trophy,
+  Smartphone,
+  QrCode
 } from 'lucide-react';
 
 export const TopHeader = ({
@@ -24,6 +26,7 @@ export const TopHeader = ({
   onOpenStrategyRanker,
   onOpenSettings,
   onOpenBuildingInfo,
+  onOpenEvacueeQr,
   serverConnected = true
 }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -182,8 +185,30 @@ export const TopHeader = ({
         })}
       </nav>
 
-      {/* ── Right: Facility Selector, Clock, & Avatar ── */}
+      {/* ── Right: Evacuee Mobile View, Facility Selector, Clock, & Avatar ── */}
       <div className="flex items-center" style={{ gap: '12px' }}>
+        {/* Evacuee Mobile View Action Button */}
+        <button
+          onClick={onOpenEvacueeQr}
+          className="hidden sm:flex items-center cursor-pointer transition-all hover:scale-105 active:scale-95 select-none"
+          style={{
+            height: '36px',
+            padding: '0 14px',
+            borderRadius: '12px',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
+            color: '#ffffff',
+            gap: '8px',
+            border: 'none',
+            boxShadow: '0 2px 8px -1px rgba(79, 70, 229, 0.4)',
+            fontWeight: 700,
+            fontSize: '12px'
+          }}
+          title="Open Scannable QR Code for Live Mobile Evacuee Companion Demo"
+        >
+          <Smartphone style={{ width: '15px', height: '15px' }} />
+          <span>📱 Evacuee Mobile View</span>
+        </button>
+
         {/* Facility Selector Pill */}
         <div
           onClick={onOpenBuildingInfo}

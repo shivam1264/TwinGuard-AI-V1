@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import os from 'os';
 
 const app = express();
 const server = http.createServer(app);
@@ -211,9 +212,74 @@ io.on('connection', (socket) => {
     simulationState.status = 'EVACUATING';
     io.emit('evacuation-started');
   });
+
+  // Mobile Evacuee Companion - Marked Safe at Muster Zone
+  socket.on('evacuee-marked-safe', (data) => {
+    simulationState.evacuatedCount = Math.min(simulationState.totalOccupants, (simulationState.evacuatedCount || 0) + 1);
+    simulationState.inTransitCount = Math.max(0, simulationState.totalOccupants - simulationState.evacuatedCount);
+    io.emit('state-update', simulationState);
+    io.emit('evacuee-safe-confirmed', {
+      userId: data?.userId || 'anonymous',
+      roomId: data?.roomId,
+      floor: data?.floor,
+      evacuatedCount: simulationState.evacuatedCount,
+      inTransitCount: simulationState.inTransitCount
+    });
+  });
+
+  // Mobile Evacuee Companion - Emergency Trapped SOS
+  socket.on('evacuee-sos', (data) => {
+    const sosAlert = {
+      id: `sos_${Date.now()}`,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      title: `CRITICAL SOS: Occupant Trapped on Level ${data?.floor || 4}`,
+      subtitle: `${data?.roomName || 'Room ' + (data?.roomId || '104')} • Immediate Extraction Required`,
+      severity: 'Critical',
+      floor: data?.floor || 4,
+      roomId: data?.roomId || 'f4_r1',
+      sender: data?.userName || 'Mobile Evacuee'
+    };
+    io.emit('incident-sos', sosAlert);
+  });
+
+  // Incident Commander - Stairwell obstruction notification
+  socket.on('client-block-stairwell', (data) => {
+    io.emit('stairwell-blocked', data);
+  });
+});
+
+// Discover local IPv4 address for multi-device QR Code demonstration
+app.get('/api/network-ip', (req, res) => {
+  try {
+    const interfaces = os.networkInterfaces();
+    const addresses = [];
+    let bestLanIp = null;
+
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          addresses.push({ interface: name, address: iface.address });
+          // Prioritize Wi-Fi, WLAN, or Hotspot network adapter
+          if (!bestLanIp) {
+            bestLanIp = iface.address;
+          } else if (/wi-?fi|wlan|hotspot|wireless|cellular/i.test(name)) {
+            bestLanIp = iface.address;
+          }
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      bestLanIp: bestLanIp || '10.229.123.50',
+      addresses
+    });
+  } catch (err) {
+    res.json({ success: false, bestLanIp: '10.229.123.50', addresses: [] });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Digital Twin 10-Storey Server listening on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Digital Twin 10-Storey Server listening on http://0.0.0.0:${PORT}`);
 });
