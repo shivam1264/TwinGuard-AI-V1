@@ -126,6 +126,23 @@ export class NavGrid {
     this.markDoorWalkable(0, 22.8, 4.0, 2.5);  // South Main Lobby Exit
   }
 
+  clearFireZone(centerX, centerZ, radius = 5.5) {
+    const center = this.worldToGrid(centerX, centerZ);
+    const gridRadius = Math.round(radius / this.cellSize);
+
+    for (let r = Math.max(0, center.r - gridRadius); r <= Math.min(this.rows - 1, center.r + gridRadius); r++) {
+      for (let c = Math.max(0, center.c - gridRadius); c <= Math.min(this.cols - 1, center.c + gridRadius); c++) {
+        const dist = Math.hypot(c - center.c, r - center.r) * this.cellSize;
+        if (dist <= radius) {
+          if (!this.blockedStatic[r][c]) {
+            this.grid[r][c] = 0;
+          }
+          this.hazardCosts[r][c] = 0;
+        }
+      }
+    }
+  }
+
   setFireZone(centerX, centerZ, radius = 5.5) {
     const center = this.worldToGrid(centerX, centerZ);
     const gridRadius = Math.round(radius / this.cellSize);
