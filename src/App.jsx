@@ -545,10 +545,13 @@ export function App() {
               setActiveSidebarMode('COMMAND_CENTER');
             } else if (mode === 'FLOOR_VIEW') {
               handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED');
+              handleSetFacadeMode('CUTAWAY');
             } else if (mode === 'STAIRS_FOCUS') {
               handleSetCameraPreset('STAIRS_FOCUS');
+              handleSetFacadeMode('CUTAWAY');
             } else if (mode === 'ELEVATORS') {
-              handleSetCameraPreset('FLOOR_1');
+              handleSetCameraPreset('ELEVATORS');
+              handleSetFacadeMode('CUTAWAY');
             } else if (mode === 'CCTV') {
               setIsCctvOpen(true);
             } else if (mode === 'SYSTEMS') {
@@ -578,7 +581,7 @@ export function App() {
           <div
             ref={mainSlotRef}
             className="w-full h-full relative overflow-hidden"
-            style={{ display: activeSidebarMode === '3D_VIEW' ? 'block' : 'none' }}
+            style={{ display: (activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER') ? 'none' : 'block' }}
           >
             <div
               ref={threeCanvasRef}

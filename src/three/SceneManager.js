@@ -673,6 +673,9 @@ export class SceneManager {
     } else if (presetName === 'STAIRS_FOCUS') {
       targetPos.set(-42, 24, 32);
       targetLook.set(-28, 16, 0);
+    } else if (presetName === 'ELEVATORS' || presetName === 'ELEVATOR_FOCUS') {
+      targetPos.set(16, 20, 26);
+      targetLook.set(3.2, 16, -1.8);
     } else if (presetName === 'ATRIUM') {
       targetPos.set(0, 5.0, 16);
       targetLook.set(0, 3.5, 0);
