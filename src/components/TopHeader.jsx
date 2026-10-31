@@ -248,7 +248,7 @@ export const TopHeader = ({
           </div>
         </div>
 
-        {/* Live Satellite GIS Mini-Map & Dispatch Trigger Button */}
+        {/* Live Satellite GIS Mini-Map Tactical Toggle Button */}
         {onOpenGis && (
           <button
             onClick={onOpenGis}
@@ -256,32 +256,35 @@ export const TopHeader = ({
             style={{
               background: isGisOpen
                 ? 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)'
-                : 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-              border: isGisOpen ? '1px solid #60a5fa' : '1px solid #334155',
+                : '#ffffff',
+              border: isGisOpen ? '1px solid #3b82f6' : '1px solid #e2e8f0',
               borderRadius: '12px',
               padding: '6px 12px',
-              gap: '8px',
-              color: '#ffffff',
+              gap: '7px',
+              color: isGisOpen ? '#ffffff' : '#0f172a',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
             }}
-            title="Toggle Live Satellite GIS & City Emergency Dispatch"
+            title={isGisOpen ? 'Close GIS Tactical Mini-Map' : 'Open GIS Tactical Mini-Map'}
           >
-            <Compass style={{ width: '15px', height: '15px', color: isGisOpen ? '#93c5fd' : '#38bdf8' }} className="animate-spin-slow" />
-            <div className="text-left">
-              <div style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1.1, color: '#f8fafc' }}>
-                Satellite GIS
-              </div>
-              <div style={{ fontSize: '9px', color: isGisOpen ? '#bfdbfe' : '#94a3b8', fontWeight: 600 }}>
-                City Dispatch
-              </div>
-            </div>
+            <Compass
+              style={{
+                width: '14px',
+                height: '14px',
+                color: isGisOpen ? '#60a5fa' : '#2563eb'
+              }}
+            />
+            <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.02em' }}>
+              GIS
+            </span>
             <span
               style={{
-                width: '7px',
-                height: '7px',
+                width: '6px',
+                height: '6px',
                 borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 6px #10b981',
-                display: 'inline-block'
+                background: isGisOpen ? '#10b981' : '#94a3b8',
+                boxShadow: isGisOpen ? '0 0 6px #10b981' : 'none',
+                display: 'inline-block',
+                transition: 'all 0.2s ease',
               }}
             />
           </button>

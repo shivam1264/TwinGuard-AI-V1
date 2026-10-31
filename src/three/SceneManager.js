@@ -854,9 +854,15 @@ export class SceneManager {
     }
 
     if (optimizationResult && optimizationResult.assignments) {
-      this.agentCrowd.assignRoutes(optimizationResult.assignments);
-      this.renderRouteOverlays(optimizationResult.assignments);
-      this.updateExitHoloBadges(optimizationResult.exitStats);
+      if (this.agentCrowd && this.agentCrowd.assignRoutes) {
+        this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      }
+      if (typeof this.renderRouteOverlays === 'function') {
+        this.renderRouteOverlays(optimizationResult.assignments);
+      }
+      if (typeof this.updateExitHoloBadges === 'function') {
+        this.updateExitHoloBadges(optimizationResult.exitStats);
+      }
     }
 
     if (this.emergencyManager && !this.emergencyManager.isActive) {

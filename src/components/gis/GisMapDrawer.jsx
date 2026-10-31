@@ -1,123 +1,106 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   X,
   Maximize2,
   Minimize2,
-  Layers,
-  Flame,
-  Truck,
-  Building2,
-  ShieldAlert,
-  Clock,
-  Compass,
-  AlertTriangle,
-  Radio,
   Eye,
-  MapPin,
+  Plus,
+  Minus,
   Volume2,
   VolumeX,
-  Navigation
+  Radio
 } from 'lucide-react';
 import {
   GIS_COORDINATES,
-  GIS_DATA_NOTICE,
   ROUTE_METRICS,
   getInterpolatedRoutePosition,
   getTravelledRoute
 } from './gisData';
 
-// Custom CSS for Leaflet pulsars and realistic SVG fire-engine icon
-const LEAFLET_CUSTOM_STYLES = `
-  .gis-pulse-marker {
+// Custom tactical Leaflet and HUD styles
+const TACTICAL_GIS_STYLES = `
+  .tactical-gis-pulse-marker {
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     position: relative;
+    transition: transform 0.2s ease;
   }
-  .gis-pulse-fire {
-    width: 28px;
-    height: 28px;
-    background: rgba(239, 68, 68, 0.9);
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 14px rgba(239, 68, 68, 0.9);
+  .tactical-gate-pulse {
+    animation: gatePulse 1.2s infinite ease-in-out;
   }
-  .gis-pulse-muster {
-    width: 24px;
-    height: 24px;
-    background: rgba(16, 185, 129, 0.9);
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 10px rgba(16, 185, 129, 0.8);
+  @keyframes gatePulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+    70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(168, 85, 247, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
   }
-  .gis-pulse-station {
-    width: 28px;
-    height: 28px;
-    background: rgba(59, 130, 246, 0.9);
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+  .tactical-vehicle-pulse {
+    animation: vehiclePulse 1.4s infinite ease-in-out;
   }
-  .gis-pulse-gate {
-    width: 26px;
-    height: 26px;
-    background: rgba(168, 85, 247, 0.9);
-    border: 2px solid #ffffff;
-    box-shadow: 0 0 12px rgba(168, 85, 247, 0.8);
+  @keyframes vehiclePulse {
+    0% { filter: drop-shadow(0 0 2px #ef4444); }
+    50% { filter: drop-shadow(0 0 8px #ef4444) drop-shadow(0 0 14px rgba(239,68,68,0.6)); }
+    100% { filter: drop-shadow(0 0 2px #ef4444); }
   }
   .gis-fire-truck-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.7));
-    transition: transform 0.15s linear;
+    width: 32px;
+    height: 32px;
+    transition: transform 0.12s linear;
   }
   .gis-strobe-blinker {
     animation: strobeBlink 0.35s infinite alternate;
   }
   @keyframes strobeBlink {
-    0% { fill: #ef4444; filter: drop-shadow(0 0 2px #ef4444); }
-    100% { fill: #3b82f6; filter: drop-shadow(0 0 8px #60a5fa); }
+    0% { fill: #ef4444; }
+    100% { fill: #38bdf8; }
   }
+  /* Minimal Leaflet Popup */
   .leaflet-popup-content-wrapper {
-    background: #0f172a !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
     color: #f1f5f9 !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
     border-radius: 8px !important;
-    font-size: 12px !important;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+    font-size: 11px !important;
+    padding: 2px !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5) !important;
+  }
+  .leaflet-popup-content {
+    margin: 8px 10px !important;
+    line-height: 1.3 !important;
   }
   .leaflet-popup-tip {
-    background: #0f172a !important;
+    background: rgba(15, 23, 42, 0.95) !important;
   }
 `;
 
 /**
- * Generate a sharp, recognizable vector SVG Fire Truck icon
- * Direction of vehicle cab is pointing UP (0 deg) so rotate(heading) aligns perfectly
+ * Tactical SVG Fire Engine with dynamic heading rotation
  */
-function createFireTruckSvg(headingDeg = 0) {
+function createTacticalFireTruckSvg(headingDeg = 0, isPulsing = false) {
   return `
-    <div class="gis-fire-truck-container" style="transform: rotate(${headingDeg}deg);">
-      <svg width="34" height="34" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="gis-fire-truck-container ${isPulsing ? 'tactical-vehicle-pulse' : ''}" style="transform: rotate(${headingDeg}deg);">
+      <svg width="28" height="28" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Wheels -->
-        <rect x="7" y="6" width="3" height="7" rx="1.5" fill="#1e293b" />
-        <rect x="30" y="6" width="3" height="7" rx="1.5" fill="#1e293b" />
-        <rect x="7" y="27" width="3" height="7" rx="1.5" fill="#1e293b" />
-        <rect x="30" y="27" width="3" height="7" rx="1.5" fill="#1e293b" />
+        <rect x="7" y="6" width="3" height="7" rx="1.5" fill="#0f172a" />
+        <rect x="30" y="6" width="3" height="7" rx="1.5" fill="#0f172a" />
+        <rect x="7" y="27" width="3" height="7" rx="1.5" fill="#0f172a" />
+        <rect x="30" y="27" width="3" height="7" rx="1.5" fill="#0f172a" />
         
-        <!-- Truck Body (Red Pumper) -->
+        <!-- Truck Body -->
         <rect x="9" y="4" width="22" height="32" rx="4" fill="#dc2626" stroke="#991b1b" stroke-width="1.5" />
         
         <!-- Silver Equipment Compartments -->
         <rect x="11" y="16" width="18" height="18" rx="2" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1" />
-        <line x1="11" y1="22" x2="29" y2="22" stroke="#94a3b8" stroke-width="1" />
-        <line x1="11" y1="28" x2="29" y2="28" stroke="#94a3b8" stroke-width="1" />
         
         <!-- Aerial Ladder Structure -->
-        <rect x="17" y="14" width="6" height="20" rx="1" fill="#cbd5e1" stroke="#475569" stroke-width="0.8" />
+        <rect x="17" y="14" width="6" height="20" rx="1" fill="#94a3b8" stroke="#475569" stroke-width="0.8" />
         <line x1="17" y1="18" x2="23" y2="18" stroke="#475569" stroke-width="1" />
         <line x1="17" y1="22" x2="23" y2="22" stroke="#475569" stroke-width="1" />
         <line x1="17" y1="26" x2="23" y2="26" stroke="#475569" stroke-width="1" />
@@ -130,7 +113,7 @@ function createFireTruckSvg(headingDeg = 0) {
         <!-- High-Intensity Emergency Light Bar -->
         <rect x="15" y="4" width="10" height="2.5" rx="1" class="gis-strobe-blinker" />
         
-        <!-- Yellow Reflective Warning Chevron at Rear -->
+        <!-- Yellow Rear Chevron -->
         <rect x="12" y="34" width="16" height="1.8" fill="#facc15" />
       </svg>
     </div>
@@ -149,45 +132,87 @@ export default function GisMapDrawer({
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
   const vehicleMarkerRef = useRef(null);
+  const gateMarkerRef = useRef(null);
   const baseRoutePolylineRef = useRef(null);
   const travelledRoutePolylineRef = useRef(null);
-  const geofenceRef = useRef(null);
-  const markersGroupRef = useRef(null);
 
-  const [mapMode, setMapMode] = useState('satellite'); // 'satellite' | 'streets' | 'hybrid'
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mapMode, setMapMode] = useState('satellite'); // 'satellite' | 'streets'
 
   // Authoritative simulation state from emergencyStatus
   const isEmergency = Boolean(emergencyStatus && emergencyStatus.isActive);
   const dispatchProgress = emergencyStatus ? (emergencyStatus.gisProgress ?? (emergencyStatus.progress / 100)) : 0;
   const dispatchEta = emergencyStatus?.etaSeconds ?? (isEmergency ? 30 : 0);
   const phase = emergencyStatus?.phase ?? (isEmergency ? 'EN_ROUTE' : 'STANDBY');
-  const assignedGateName = emergencyStatus?.targetGate?.name ?? 'South Main Entrance';
 
   // Tile layers definition
   const TILE_LAYERS = {
     satellite: {
       url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      attribution: 'Esri World Imagery, DigitalGlobe, GeoEye, Earthstar Geographics'
+      attribution: 'Esri World Imagery'
     },
     streets: {
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; OpenStreetMap contributors'
-    },
-    hybrid: {
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      attribution: 'Esri World Imagery & OpenStreetMap'
+      attribution: 'OpenStreetMap'
     }
   };
 
-  // Initialize Map
+  // Derive dynamic tactical badge text & colors
+  const statusTelemetry = useMemo(() => {
+    if (!isEmergency && phase === 'STANDBY') {
+      return {
+        badgeText: 'STANDBY',
+        badgeColor: 'bg-slate-800 text-slate-300 border-slate-700',
+        dotColor: '#94a3b8',
+        hudLine1: '🚒 ENGINE #07',
+        hudLine2: 'STANDBY • STATION #07'
+      };
+    }
+    if (phase === 'ON_SCENE') {
+      return {
+        badgeText: 'ON SCENE',
+        badgeColor: 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40',
+        dotColor: '#10b981',
+        hudLine1: '🚒 ENGINE #07   ON SCENE',
+        hudLine2: 'TWINGUARD HQ • PERIMETER STAGED'
+      };
+    }
+    if (phase === 'AT_CAMPUS_GATE' || phase === 'ENTERING_CAMPUS' || dispatchProgress >= 1.0) {
+      return {
+        badgeText: 'CAMPUS ARRIVAL',
+        badgeColor: 'bg-purple-950/80 text-purple-300 border-purple-500/40',
+        dotColor: '#a855f7',
+        hudLine1: '🚒 ENGINE #07   AT GATE',
+        hudLine2: 'CAMPUS GATE REACHED • 3D ACTIVE'
+      };
+    }
+    if (phase === 'ARRIVING_GATE' || dispatchProgress >= 0.9) {
+      return {
+        badgeText: 'ARRIVING',
+        badgeColor: 'bg-amber-950/80 text-amber-300 border-amber-500/40',
+        dotColor: '#f59e0b',
+        hudLine1: `🚒 ENGINE #07   ETA ${Math.max(1, Math.ceil(dispatchEta))}s`,
+        hudLine2: 'ARRIVING • SOUTH MAIN GATE'
+      };
+    }
+    // DISPATCHED / EN_ROUTE
+    return {
+      badgeText: 'DISPATCH ACTIVE',
+      badgeColor: 'bg-blue-950/80 text-blue-300 border-blue-500/40',
+      dotColor: '#38bdf8',
+      hudLine1: `🚒 ENGINE #07   ETA ${Math.ceil(dispatchEta)}s`,
+      hudLine2: `EN ROUTE → MAIN GATE (${((1 - dispatchProgress) * (ROUTE_METRICS.totalMeters / 1000)).toFixed(1)} km)`
+    };
+  }, [isEmergency, phase, dispatchProgress, dispatchEta]);
+
+  // Initialize Tactical Map
   useEffect(() => {
     if (!isOpen || !mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
       // Inject stylesheet
       const styleEl = document.createElement('style');
-      styleEl.innerHTML = LEAFLET_CUSTOM_STYLES;
+      styleEl.innerHTML = TACTICAL_GIS_STYLES;
       document.head.appendChild(styleEl);
 
       const map = L.map(mapContainerRef.current, {
@@ -195,157 +220,104 @@ export default function GisMapDrawer({
         zoom: 14,
         minZoom: 12,
         maxZoom: 18,
-        zoomControl: false
+        zoomControl: false,
+        attributionControl: false
       });
 
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-      // Base Tile Layer
+      // Base Satellite Tile Layer
       const baseLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-        attribution: TILE_LAYERS[mapMode].attribution,
         maxZoom: 19
       }).addTo(map);
       tileLayerRef.current = baseLayer;
 
-      // Geofence Polygon
-      const geofence = L.polygon(GIS_COORDINATES.CAMPUS_GEOFENCE, {
+      // Outer Campus Geofence Boundary (Subtle translucent overlay)
+      L.polygon(GIS_COORDINATES.CAMPUS_GEOFENCE, {
         color: '#3b82f6',
-        weight: 2,
-        dashArray: '5, 5',
+        weight: 1.5,
+        dashArray: '4, 4',
         fillColor: '#3b82f6',
-        fillOpacity: 0.12
+        fillOpacity: 0.08
       }).addTo(map);
-      geofence.bindTooltip('TwinGuard Campus Geofence Boundary', { sticky: true });
-      geofenceRef.current = geofence;
 
-      // Layer group for stationary points
-      const markersGroup = L.layerGroup().addTo(map);
-      markersGroupRef.current = markersGroup;
-
-      // 1. Facility Main Building Marker
-      const heroIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div class="gis-pulse-marker gis-pulse-fire" title="Facility Center">
-                <span style="font-size: 13px;">🏢</span>
-              </div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-      const heroMarker = L.marker(
-        [GIS_COORDINATES.FACILITY_ORIGIN.lat, GIS_COORDINATES.FACILITY_ORIGIN.lng],
-        { icon: heroIcon }
-      ).addTo(markersGroup);
-      heroMarker.bindPopup(`
-        <div style="font-family: sans-serif; line-height: 1.4;">
-          <strong style="color: #60a5fa; font-size: 13px;">${GIS_COORDINATES.FACILITY_ORIGIN.name}</strong><br/>
-          <span style="color: #94a3b8;">${GIS_COORDINATES.FACILITY_ORIGIN.zone}</span><br/>
-          <div style="margin-top: 6px; padding: 4px; background: rgba(255,255,255,0.08); border-radius: 4px;">
-            Digital Twin Core Status: <b style="color: ${isEmergency ? '#ef4444' : '#10b981'};">${isEmergency ? 'HAZARD EVACUATION' : 'NORMAL SECURE'}</b>
-          </div>
-        </div>
-      `);
-
-      // 2. Authoritative Campus Main Gate Marker
-      const mainGateCoord = GIS_COORDINATES.CAMPUS_GATES[0]; // South Main Portal
-      const gateIcon = L.divIcon({
-        className: 'custom-div-icon',
-        html: `<div class="gis-pulse-marker gis-pulse-gate" title="${mainGateCoord.name}">
-                <span style="font-size: 12px; color: #fff; font-weight: bold;">🚪</span>
-              </div>`,
-        iconSize: [26, 26],
-        iconAnchor: [13, 13]
-      });
-      const gateMarker = L.marker([mainGateCoord.lat, mainGateCoord.lng], { icon: gateIcon }).addTo(markersGroup);
-      gateMarker.bindPopup(`
-        <div style="font-family: sans-serif;">
-          <strong style="color: #c084fc;">${mainGateCoord.name}</strong><br/>
-          <span style="color: #cbd5e1;">Digital Twin Hand-off Point</span><br/>
-          <span style="color: #94a3b8; font-size: 11px;">Coordinates: ${mainGateCoord.lat.toFixed(6)}, ${mainGateCoord.lng.toFixed(6)}</span>
-        </div>
-      `);
-
-      // 3. Fire Station #07
+      // 1. Fire Station Origin Marker
       const fireStation = GIS_COORDINATES.MUNICIPAL_SERVICES[0];
       const stationIcon = L.divIcon({
         className: 'custom-div-icon',
-        html: `<div class="gis-pulse-marker gis-pulse-station" title="${fireStation.name}">
-                <span style="font-size: 13px;">🚒</span>
-              </div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-      const stationMarker = L.marker([fireStation.lat, fireStation.lng], { icon: stationIcon }).addTo(markersGroup);
-      stationMarker.bindPopup(`
-        <div>
-          <strong style="color: #93c5fd;">${fireStation.name}</strong><br/>
-          <span style="color: #cbd5e1;">Road Distance: <b>${(ROUTE_METRICS.totalMeters / 1000).toFixed(2)} km</b></span><br/>
-          <span style="color: #cbd5e1;">Nominal ETA: <b>30s simulation</b></span><br/>
-          <span style="color: #94a3b8; font-size: 11px;">Tactical Units: ${fireStation.units.join(', ')}</span>
-        </div>
-      `);
-
-      // 4. Muster Points
-      GIS_COORDINATES.MUSTER_POINTS.forEach(pt => {
-        const musterIcon = L.divIcon({
-          className: 'custom-div-icon',
-          html: `<div class="gis-pulse-marker gis-pulse-muster" title="${pt.name}">
-                  <span style="font-size: 12px; color: #fff; font-weight: bold;">M</span>
-                </div>`,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        });
-        const m = L.marker([pt.lat, pt.lng], { icon: musterIcon }).addTo(markersGroup);
-        m.bindPopup(`
-          <div style="font-family: sans-serif;">
-            <strong style="color: #34d399;">${pt.name}</strong><br/>
-            <span style="color: #cbd5e1;">Designated Capacity: <b>${pt.capacity} persons</b></span><br/>
-            <span style="color: #94a3b8; font-size: 11px;">${pt.notes}</span>
+        html: `
+          <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid #3b82f6; border-radius: 6px; padding: 2px 5px; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
+            <span style="font-size: 11px;">🚒</span>
+            <span style="font-size: 9px; font-weight: 700; color: #93c5fd; white-space: nowrap;">STATION #07</span>
           </div>
-        `);
+        `,
+        iconSize: [80, 22],
+        iconAnchor: [40, 11]
       });
+      L.marker([fireStation.lat, fireStation.lng], { icon: stationIcon }).addTo(map);
 
-      // 5. Real Road Route Base Polyline (Subtle amber/gray dashed backdrop)
+      // 2. Campus Main Gate Marker
+      const mainGateCoord = GIS_COORDINATES.CAMPUS_GATES[0];
+      const gateIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `
+          <div id="gis-main-gate-marker" class="tactical-gis-pulse-marker" style="width: 20px; height: 20px; background: rgba(168, 85, 247, 0.9); border: 1.5px solid #ffffff; box-shadow: 0 0 8px rgba(168, 85, 247, 0.8);">
+            <span style="font-size: 10px; color: #ffffff; font-weight: 800;">⌖</span>
+          </div>
+        `,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
+      });
+      const gateMarker = L.marker([mainGateCoord.lat, mainGateCoord.lng], { icon: gateIcon }).addTo(map);
+      gateMarker.bindTooltip('South Main Gate', { direction: 'top', offset: [0, -10], className: 'tactical-tooltip' });
+      gateMarkerRef.current = gateMarker;
+
+      // 3. Hero Facility HQ Marker
+      const heroIcon = L.divIcon({
+        className: 'custom-div-icon',
+        html: `
+          <div style="background: rgba(15, 23, 42, 0.88); border: 1.5px solid #38bdf8; border-radius: 6px; padding: 2px 5px; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
+            <span style="font-size: 11px;">🏢</span>
+            <span style="font-size: 9px; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;">TWIN HQ</span>
+          </div>
+        `,
+        iconSize: [70, 22],
+        iconAnchor: [35, 11]
+      });
+      L.marker([GIS_COORDINATES.FACILITY_ORIGIN.lat, GIS_COORDINATES.FACILITY_ORIGIN.lng], { icon: heroIcon }).addTo(map);
+
+      // 4. Tactical Real Road Route (Subtle remaining route dashed line)
       const baseRoute = L.polyline(GIS_COORDINATES.DISPATCH_ROUTE, {
         color: '#f59e0b',
-        weight: 4,
-        opacity: 0.4,
-        dashArray: '6, 6',
+        weight: 3,
+        opacity: 0.45,
+        dashArray: '5, 5',
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
       baseRoutePolylineRef.current = baseRoute;
 
-      // 6. Travelled Route Polyline (High-intensity illuminated solid line)
+      // 5. Travelled Route (Solid high-contrast cyan/emerald line)
       const initialTravelled = getTravelledRoute(dispatchProgress);
       const travelledRoute = L.polyline(initialTravelled, {
         color: '#38bdf8',
-        weight: 5,
+        weight: 4,
         opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
       travelledRoutePolylineRef.current = travelledRoute;
 
-      // 7. Realistic Fire Engine Marker with Dynamic Heading
+      // 6. Tactical Fire Engine Directional Marker
       const initialVehicleState = getInterpolatedRoutePosition(dispatchProgress);
       const vehicleIcon = L.divIcon({
         className: 'custom-div-icon',
-        html: createFireTruckSvg(initialVehicleState.heading),
-        iconSize: [36, 36],
-        iconAnchor: [18, 18]
+        html: createTacticalFireTruckSvg(initialVehicleState.heading, isEmergency && dispatchProgress < 1.0),
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
       });
       const vehicleMarker = L.marker([initialVehicleState.lat, initialVehicleState.lng], {
         icon: vehicleIcon,
         zIndexOffset: 1000
       }).addTo(map);
-      vehicleMarker.bindPopup(`
-        <div>
-          <strong style="color: #ef4444;">Fire Squad Engine #07</strong><br/>
-          <span style="color: #e2e8f0;">Status: <b>${phase}</b></span><br/>
-          <span style="color: #cbd5e1;">Target: <b>South Main Ceremonial Gate</b></span><br/>
-          <span style="color: #94a3b8; font-size: 10px;">${GIS_DATA_NOTICE}</span>
-        </div>
-      `);
       vehicleMarkerRef.current = vehicleMarker;
 
       mapInstanceRef.current = map;
@@ -372,13 +344,12 @@ export default function GisMapDrawer({
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
     const newLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-      attribution: TILE_LAYERS[mapMode].attribution,
       maxZoom: 19
     }).addTo(mapInstanceRef.current);
     tileLayerRef.current = newLayer;
   }, [mapMode]);
 
-  // Update Emergency Vehicle Position, Heading & Travelled Trail in Real-Time
+  // Update Emergency Vehicle Position, Heading, Travelled Trail & Gate Pulse in Real-Time
   useEffect(() => {
     if (!mapInstanceRef.current || !vehicleMarkerRef.current) return;
     const posState = getInterpolatedRoutePosition(dispatchProgress);
@@ -386,12 +357,13 @@ export default function GisMapDrawer({
     // Update coordinates
     vehicleMarkerRef.current.setLatLng([posState.lat, posState.lng]);
 
-    // Update dynamic SVG rotation based on road heading
+    // Update dynamic SVG rotation based on road heading & pulsing state
+    const isPulsing = isEmergency && dispatchProgress < 1.0;
     const updatedIcon = L.divIcon({
       className: 'custom-div-icon',
-      html: createFireTruckSvg(posState.heading),
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      html: createTacticalFireTruckSvg(posState.heading, isPulsing),
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
     vehicleMarkerRef.current.setIcon(updatedIcon);
 
@@ -401,266 +373,214 @@ export default function GisMapDrawer({
       travelledRoutePolylineRef.current.setLatLngs(travelledCoords);
 
       if (dispatchProgress >= 1.0) {
-        travelledRoutePolylineRef.current.setStyle({ color: '#10b981', weight: 5 });
+        travelledRoutePolylineRef.current.setStyle({ color: '#10b981', weight: 4 });
       } else {
-        travelledRoutePolylineRef.current.setStyle({ color: '#38bdf8', weight: 5 });
+        travelledRoutePolylineRef.current.setStyle({ color: '#38bdf8', weight: 4 });
       }
     }
-  }, [dispatchProgress]);
+
+    // Main Gate subtle pulse upon arrival (dispatchProgress >= 0.95)
+    const gateEl = document.getElementById('gis-main-gate-marker');
+    if (gateEl) {
+      if (dispatchProgress >= 0.95 && dispatchProgress <= 1.05) {
+        gateEl.classList.add('tactical-gate-pulse');
+      } else {
+        gateEl.classList.remove('tactical-gate-pulse');
+      }
+    }
+
+    // Smooth auto-follow vehicle when actively en route in compact mini-map
+    if (isEmergency && dispatchProgress > 0 && dispatchProgress < 1.0 && !isExpanded) {
+      mapInstanceRef.current.panTo([posState.lat, posState.lng], {
+        animate: true,
+        duration: 0.25
+      });
+    } else if (dispatchProgress === 0 && mapInstanceRef.current && !isExpanded) {
+      mapInstanceRef.current.setView([28.5028, 77.0850], 14, { animate: false });
+    }
+  }, [dispatchProgress, isEmergency, isExpanded]);
 
   // Invalidate map size on expand/collapse
   useEffect(() => {
     if (mapInstanceRef.current) {
       setTimeout(() => {
         mapInstanceRef.current.invalidateSize();
-      }, 300);
+        if (dispatchProgress > 0 && dispatchProgress < 1.0) {
+          const posState = getInterpolatedRoutePosition(dispatchProgress);
+          mapInstanceRef.current.panTo([posState.lat, posState.lng]);
+        } else {
+          mapInstanceRef.current.setView([28.5028, 77.0850], isExpanded ? 14 : 14);
+        }
+      }, 250);
     }
   }, [isExpanded]);
+
+  // Zoom helpers
+  const handleZoomIn = (e) => {
+    e.stopPropagation();
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
+  };
+
+  const handleZoomOut = (e) => {
+    e.stopPropagation();
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
+  };
 
   if (!isOpen) return null;
 
   return (
     <div
-      className={`fixed top-16 right-0 z-50 transition-all duration-300 ease-in-out flex flex-col shadow-2xl border-l border-slate-700/60 bg-slate-900/95 backdrop-blur-md text-slate-100 ${
+      className={`fixed top-20 right-5 z-40 transition-all duration-200 ease-out flex flex-col select-none overflow-hidden ${
         isExpanded
-          ? 'w-[780px] h-[calc(100vh-4rem)]'
-          : 'w-[440px] h-[calc(100vh-4.5rem)]'
+          ? 'w-[520px] h-[500px] rounded-2xl shadow-2xl'
+          : 'w-[290px] h-[300px] rounded-2xl shadow-xl'
       }`}
-      style={{ borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' }}
+      style={{
+        background: 'rgba(15, 23, 42, 0.92)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        boxShadow: '0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+        fontFamily: "'Inter', system-ui, sans-serif"
+      }}
     >
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/70">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">
-            <Radio className="w-4 h-4 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm font-bold tracking-wide text-white uppercase">
-                Satellite GIS Mini-Map
-              </h2>
-              <span
-                className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded border ${
-                  dispatchProgress >= 1.0
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                    : isEmergency
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                }`}
-              >
-                {dispatchProgress >= 1.0 ? 'At Campus Gate' : isEmergency ? 'City Dispatch' : 'Standby'}
-              </span>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Sector 28 • Real Road Route to Digital Twin
-            </p>
-          </div>
+      {/* ── 1. Top HUD Strip: Compact Status & Essential Controls ── */}
+      <div
+        className="flex items-center justify-between px-3 py-1.5 z-20 shrink-0 border-b border-white/10"
+        style={{ background: 'rgba(10, 15, 30, 0.7)' }}
+      >
+        {/* Left: Tiny Tactical Status Pill */}
+        <div className="flex items-center gap-1.5">
+          <span
+            style={{
+              width: '6.5px',
+              height: '6.5px',
+              borderRadius: '50%',
+              backgroundColor: statusTelemetry.dotColor,
+              boxShadow: isEmergency ? `0 0 8px ${statusTelemetry.dotColor}` : 'none',
+              display: 'inline-block'
+            }}
+          />
+          <span className="text-[10px] font-extrabold tracking-wider text-slate-200 uppercase">
+            {statusTelemetry.badgeText}
+          </span>
+          <span className="text-[9px] font-medium text-slate-400 pl-1 border-l border-slate-700">
+            REAL WORLD
+          </span>
         </div>
 
-        <div className="flex items-center space-x-1.5">
-          {/* Mute Siren Button */}
+        {/* Right: Compact Tactical Controls */}
+        <div className="flex items-center gap-1">
+          {/* Mute Siren (if present) */}
           {onToggleMute && (
             <button
               onClick={onToggleMute}
               title={isMuted ? 'Unmute Siren Alarm' : 'Silence Siren Alarm'}
-              className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition"
             >
               {isMuted ? (
-                <VolumeX className="w-4 h-4 text-red-400" />
+                <VolumeX className="w-3.5 h-3.5 text-red-400" />
               ) : (
-                <Volume2 className="w-4 h-4 text-emerald-400" />
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
               )}
             </button>
           )}
 
+          {/* Zoom In / Out */}
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In"
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-white/10 transition"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out"
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-white/10 transition"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+
           {/* Expand/Collapse Toggle */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? 'Restore Panel' : 'Maximize Panel'}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            title={isExpanded ? 'Compact Mini-Map' : 'Expand Tactical View'}
+            className="p-1 rounded text-slate-300 hover:text-white hover:bg-white/10 transition"
           >
             {isExpanded ? (
-              <Minimize2 className="w-4 h-4" />
+              <Minimize2 className="w-3.5 h-3.5" />
             ) : (
-              <Maximize2 className="w-4 h-4" />
+              <Maximize2 className="w-3.5 h-3.5" />
             )}
           </button>
 
-          {/* Close Button */}
+          {/* Close Mini-Map */}
           <button
             onClick={onClose}
-            title="Close GIS Panel"
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-red-500/20 transition"
+            title="Close Tactical Mini-Map"
+            className="p-1 rounded text-slate-400 hover:text-red-400 hover:bg-white/10 transition ml-0.5"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Map Mode Selector & Actions Bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-900/90 border-b border-slate-800 text-xs">
-        <div className="flex items-center space-x-1.5 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
-          <button
-            onClick={() => setMapMode('satellite')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-              mapMode === 'satellite'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Satellite
-          </button>
-          <button
-            onClick={() => setMapMode('streets')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-              mapMode === 'streets'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Map
-          </button>
-          <button
-            onClick={() => setMapMode('hybrid')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition ${
-              mapMode === 'hybrid'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            Hybrid
-          </button>
-        </div>
+      {/* ── 2. Satellite Map Hero Area ── */}
+      <div className="relative flex-1 w-full bg-slate-950 overflow-hidden">
+        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-        {/* Focus 3D Campus Button */}
+        {/* Optional Expanded Mode Top-Right Layer Switcher */}
+        {isExpanded && (
+          <div className="absolute top-2 right-2 z-10 flex items-center bg-slate-900/90 border border-slate-700/60 rounded-lg p-0.5 text-[10px]">
+            <button
+              onClick={() => setMapMode('satellite')}
+              className={`px-2 py-0.5 rounded font-semibold transition ${
+                mapMode === 'satellite' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Satellite
+            </button>
+            <button
+              onClick={() => setMapMode('streets')}
+              className={`px-2 py-0.5 rounded font-semibold transition ${
+                mapMode === 'streets' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Streets
+            </button>
+          </div>
+        )}
+
+        {/* 3D Campus Quick Focus Button (Subtle overlay) */}
         {onFocusCampusView && (
           <button
             onClick={onFocusCampusView}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 transition text-[11px]"
-            title="Synchronize 3D Camera with Master Campus Overview"
+            className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2 py-1 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded border border-white/10 backdrop-blur-sm text-[10px] font-semibold transition shadow-md"
+            title="Focus 3D Digital Twin Camera on Campus"
           >
-            <Eye className="w-3.5 h-3.5 text-blue-400" />
-            <span>Campus 3D Focus</span>
+            <Eye className="w-3 h-3 text-blue-400" />
+            <span>3D Focus</span>
           </button>
         )}
       </div>
 
-      {/* Main Map Canvas Area */}
-      <div className="relative flex-1 w-full bg-slate-950 min-h-[260px]">
-        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
-
-        {/* Simulation Watermark / Badge */}
-        <div className="absolute top-2 left-2 z-10 px-2 py-1 rounded bg-black/75 backdrop-blur-sm border border-amber-500/30 text-[10px] text-amber-300 font-mono tracking-wide flex items-center space-x-1 shadow">
-          <AlertTriangle className="w-3 h-3 text-amber-400" />
-          <span>SIMULATION: REAL ROAD DISPATCH (2.7 KM)</span>
-        </div>
-
-        {/* Mini Legend overlay */}
-        <div className="absolute bottom-3 left-2 z-10 px-2.5 py-1.5 rounded-lg bg-slate-950/85 backdrop-blur-md border border-slate-800 text-[10px] space-y-1 shadow-lg pointer-events-none">
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 border border-white inline-block"></span>
-            <span className="text-slate-300">Hero Facility HQ</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 border border-white inline-block"></span>
-            <span className="text-slate-300">Campus Main Gate</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-white inline-block"></span>
-            <span className="text-slate-300">Station #07 (Origin)</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2.5 h-1 bg-sky-400 rounded inline-block"></span>
-            <span className="text-slate-300">Travelled Road Trail</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Emergency Dispatch Intelligence Panel */}
-      <div className="p-3.5 bg-slate-950 border-t border-slate-800 space-y-3 z-10 relative">
-        {/* Status Header */}
+      {/* ── 3. Bottom HUD Strip: Maximum 2 Lines Telemetry ── */}
+      <div
+        className="px-3 py-2 z-20 shrink-0 border-t border-white/10 flex flex-col justify-center"
+        style={{ background: 'rgba(10, 15, 30, 0.85)' }}
+      >
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div
-              className={`p-1.5 rounded ${
-                dispatchProgress >= 1.0
-                  ? 'bg-purple-500/20 text-purple-400'
-                  : isEmergency
-                  ? 'bg-amber-500/20 text-amber-400'
-                  : 'bg-emerald-500/20 text-emerald-400'
-              }`}
-            >
-              <Truck className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-white">
-                {dispatchProgress >= 1.0
-                  ? 'CAMPUS GATE REACHED • HANDOFF'
-                  : isEmergency
-                  ? 'REAL ROAD DISPATCH EN ROUTE'
-                  : 'DISPATCH STANDBY'}
-              </div>
-              <div className="text-[11px] text-slate-400">
-                Fire Squad Engine #07 • Ladder 2
-              </div>
-            </div>
+          <div className="text-[11px] font-bold text-slate-100 tracking-tight leading-tight">
+            {statusTelemetry.hudLine1}
           </div>
-
-          <div className="text-right">
-            <div className="text-[10px] text-slate-400 uppercase font-mono">Simulated Road ETA</div>
-            <div
-              className={`text-sm font-bold font-mono ${
-                dispatchProgress >= 1.0
-                  ? 'text-purple-400'
-                  : dispatchEta <= 10
-                  ? 'text-amber-400'
-                  : 'text-red-400'
-              }`}
-            >
-              {dispatchProgress >= 1.0 ? 'AT GATE (0s)' : `${Math.ceil(dispatchEta)}s`}
+          {isEmergency && (
+            <div className="text-[10px] font-mono font-bold text-amber-400">
+              {Math.round(dispatchProgress * 100)}%
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Timeline Progress Bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-slate-400">
-            <span>Station #07</span>
-            <span>Road Traversal: {Math.round(dispatchProgress * 100)}% ({((dispatchProgress * ROUTE_METRICS.totalMeters) / 1000).toFixed(2)} km)</span>
-            <span>South Main Gate</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden border border-slate-700/60">
-            <div
-              className={`h-full transition-all duration-150 ease-out ${
-                dispatchProgress >= 1.0
-                  ? 'bg-purple-500'
-                  : 'bg-gradient-to-r from-amber-500 via-sky-400 to-emerald-400'
-              }`}
-              style={{ width: `${Math.min(100, Math.max(0, dispatchProgress * 100))}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Detailed Meta Grid */}
-        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-900 text-[11px]">
-          <div className="bg-slate-900/60 p-2 rounded border border-slate-800/60">
-            <span className="text-slate-400 block text-[10px]">Destination</span>
-            <span className="font-semibold text-slate-200">
-              South Main Gate
-            </span>
-          </div>
-          <div className="bg-slate-900/60 p-2 rounded border border-slate-800/60">
-            <span className="text-slate-400 block text-[10px]">Siren Alarm</span>
-            <span className={`font-semibold ${!isMuted ? 'text-amber-400' : 'text-slate-400'}`}>
-              {!isMuted ? 'ACTIVE (Siren)' : 'MUTED'}
-            </span>
-          </div>
-          <div className="bg-slate-900/60 p-2 rounded border border-slate-800/60">
-            <span className="text-slate-400 block text-[10px]">Handoff Status</span>
-            <span className={`font-semibold ${dispatchProgress >= 1.0 ? 'text-purple-400' : 'text-slate-200'}`}>
-              {dispatchProgress >= 1.0 ? '3D Twin Active' : 'En Route (2.7 km)'}
-            </span>
-          </div>
+        <div className="text-[9.5px] font-medium text-slate-400 leading-tight mt-0.5 truncate">
+          {statusTelemetry.hudLine2}
         </div>
       </div>
     </div>
