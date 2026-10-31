@@ -64,6 +64,7 @@ export class NavigationGraph {
     const capacity = width * 1.3; // Persons/sec (SFPE egress capacity model)
 
     const fullEdge = {
+      ...edge,
       id: edge.id,
       from: edge.from,
       to: edge.to,

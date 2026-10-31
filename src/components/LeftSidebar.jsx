@@ -12,7 +12,8 @@ import {
   Flame,
   FileText,
   Info,
-  ChevronRight
+  ChevronRight,
+  Siren
 } from 'lucide-react';
 import { FLOOR_THEMES } from '../simulation/Doorways';
 
@@ -69,6 +70,15 @@ export const LeftSidebar = ({
 
   const menuItems = [
     { id: '3D_VIEW', label: 'Home View (3D)', icon: Home, badge: null, badgeColor: null },
+    {
+      id: 'COMMAND_CENTER',
+      label: 'Emergency Command Center',
+      icon: Siren,
+      iconColor: '#dc2626',
+      badge: 'Live',
+      badgeColor: '#fef2f2',
+      badgeText: '#dc2626'
+    },
     { id: 'FLOOR_VIEW', label: 'Floor Stack (BIM)', icon: Layers, badge: '10 Lvl', badgeColor: '#f1f5f9' },
     { id: 'STAIRS_FOCUS', label: 'Stairwell Cores', icon: Milestone, badge: '3 Cores', badgeColor: '#f0fdf4', badgeText: '#16a34a' },
     { id: 'ELEVATORS', label: 'Elevator Shafts', icon: ArrowUpDown, badge: '3', badgeColor: '#f1f5f9' },

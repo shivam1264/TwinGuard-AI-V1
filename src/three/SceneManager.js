@@ -8,6 +8,8 @@ import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
 import { CrowdOptimizer } from '../simulation/CrowdOptimizer.js';
 import { EmergencyVehiclesManager } from './EmergencyVehiclesManager.js';
+import { NavigationGraph } from '../simulation/NavigationGraph.js';
+import { RouteOptimizationEngine } from '../simulation/RouteOptimizationEngine.js';
 
 export class SceneManager {
   constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread) {
@@ -152,7 +154,26 @@ export class SceneManager {
 
   initSystems() {
     this.building = new Building3D(this.scene);
+    this.building.group.name = 'HeroBuilding';
     this.campusSite = new CampusSite(this.scene);
+    this.campusSite.sceneManager = this;
+    this.spatialModel = this.campusSite?.spatialModel || null;
+
+    // Authoritative 10-Storey Topological Navigation Graph & Optimization Engine
+    this.navigationGraph = new NavigationGraph(10, 3.8);
+    this.routeOptimizationEngine = new RouteOptimizationEngine(this.navigationGraph);
+
+    if (this.spatialModel) {
+      this.spatialModel.extendNavigationGraph(this.navigationGraph);
+      this.spatialModel.resolveGeometryReferences(this.campusSite);
+    }
+
+    if (typeof window !== 'undefined') {
+      window.__campusSpatialModel = this.spatialModel;
+      window.__sceneManager = this;
+      window.__navigationGraph = this.navigationGraph;
+      window.__routeOptimizationEngine = this.routeOptimizationEngine;
+    }
 
     // Hide legacy 260m ground plane from Building3D environment so CampusSite master plan is fully visible
     if (this.building && this.building.layers && this.building.layers.environment) {
@@ -448,7 +469,9 @@ export class SceneManager {
 
         singleTapTimeout = setTimeout(() => {
           const matchedRoom = this.getRoomAtClientPos(e.clientX, e.clientY);
-          // Room popup on click removed per user request
+          if (matchedRoom && this.onRoomSelect) {
+            this.onRoomSelect(matchedRoom);
+          }
         }, 260);
       }
     });
@@ -635,6 +658,9 @@ export class SceneManager {
     } else if (presetName === 'AXONOMETRIC') {
       targetPos.set(62, 68, 68);
       targetLook.set(0, 19, 0);
+    } else if (presetName === 'EXPLODED_VIEW' || presetName === 'EXPLODED') {
+      targetPos.set(90, 85, 95);
+      targetLook.set(0, 42, 0);
     } else if (presetName === 'SECTION') {
       targetPos.set(0, 20, 62);
       targetLook.set(0, 19, 0);
@@ -729,7 +755,11 @@ export class SceneManager {
     }
 
     if (mode === 'EXPLODED') {
-      this.setCameraPreset('AXONOMETRIC');
+      this.setCameraPreset('EXPLODED_VIEW');
+    } else if (mode === 'ALL') {
+      this.setCameraPreset('HERO_VIEW');
+    } else if (!isNaN(parseInt(mode, 10))) {
+      this.setCameraPreset(`FLOOR_${mode}`);
     }
   }
 
@@ -781,6 +811,94 @@ export class SceneManager {
         if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
         if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
       }
+    }
+  }
+
+  extinguishFire(roomId) {
+    if (this.fireSystem) {
+      this.fireSystem.extinguishFire(roomId);
+    }
+    if (this.navGrid) {
+      const room = this.building?.roomsData?.find(r => r.id === roomId);
+      if (room && this.navGrid.clearFireZone) {
+        this.navGrid.clearFireZone(room.center.x, room.center.z);
+      }
+    }
+  }
+
+  extinguishAll() {
+    if (this.fireSystem) {
+      this.fireSystem.extinguishAll();
+    }
+    if (this.navGrid) {
+      this.navGrid.resetDynamicHazards();
+    }
+  }
+
+  highlightRoom(roomId) {
+    if (!this.scene) return;
+    if (!this.roomHighlightBox) {
+      const box = new THREE.Box3();
+      this.roomHighlightBox = new THREE.Box3Helper(box, 0x00f0ff);
+      this.roomHighlightBox.visible = false;
+      this.scene.add(this.roomHighlightBox);
+    }
+    if (!roomId) {
+      this.roomHighlightBox.visible = false;
+      return;
+    }
+    const room = this.building?.roomsData?.find(r => r.id === roomId);
+    if (!room || !room.bounds) {
+      this.roomHighlightBox.visible = false;
+      return;
+    }
+    const b = room.bounds;
+    const floorH = this.building ? this.building.floorHeight : 3.8;
+    const baseY = (room.floor - 1) * floorH;
+    this.roomHighlightBox.box.min.set(b.minX, baseY + 0.05, b.minZ);
+    this.roomHighlightBox.box.max.set(b.maxX, baseY + floorH - 0.1, b.maxZ);
+    this.roomHighlightBox.visible = true;
+  }
+
+  unblockStairwell(coreName, floorNum = null) {
+    if (this.scenarioEngine && this.scenarioEngine.unblockStairwellCore) {
+      this.scenarioEngine.unblockStairwellCore(coreName, floorNum);
+    }
+    if (this.isSimulating) {
+      this.recalculateDynamicRoutes();
+    }
+  }
+
+  blockCorridor(corridorId, floorNum = 1) {
+    if (this.navGrid) {
+      // Mark corridor segment blocked
+      if (corridorId.includes('north')) {
+        this.navGrid.setFireZone(0, -1.3, 12);
+      } else if (corridorId.includes('south')) {
+        this.navGrid.setFireZone(0, 1.3, 12);
+      } else {
+        this.navGrid.setFireZone(0, 0, 8);
+      }
+    }
+    if (this.isSimulating) {
+      this.recalculateDynamicRoutes();
+    }
+  }
+
+  unblockCorridor(corridorId) {
+    if (this.navGrid) {
+      this.navGrid.resetDynamicHazards();
+      // Re-apply any active fires
+      if (this.fireSystem && this.fireSystem.activeFires) {
+        this.fireSystem.activeFires.forEach((f) => {
+          if (f.basePos) {
+            this.navGrid.setFireZone(f.basePos.x, f.basePos.z, 6.5);
+          }
+        });
+      }
+    }
+    if (this.isSimulating) {
+      this.recalculateDynamicRoutes();
     }
   }
 
@@ -944,6 +1062,10 @@ export class SceneManager {
       this.building.update(delta);
     }
 
+    if (this.campusSite && this.campusSite.update) {
+      this.campusSite.update(delta);
+    }
+
     if (this.emergencyManager) {
       const speed = this.isSimulating ? (this.simSpeed || 1.0) : 1.0;
       this.emergencyManager.update(delta, speed);
@@ -1014,6 +1136,44 @@ export class SceneManager {
 
   focusEmergencyStaging() {
     this.setCameraPreset('EMERGENCY_FOCUS');
+  }
+
+  zoomIn(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const dist = offset.length();
+    const newDist = Math.max(10, dist - delta);
+    offset.setLength(newDist);
+    this.camera.position.addVectors(this.controls.target, offset);
+    this.controls.update();
+  }
+
+  zoomOut(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    const dist = offset.length();
+    const newDist = Math.min(600, dist + delta);
+    offset.setLength(newDist);
+    this.camera.position.addVectors(this.controls.target, offset);
+    this.controls.update();
+  }
+
+  rotateCamera(deg = 45) {
+    if (!this.camera || !this.controls) return;
+    const rad = THREE.MathUtils.degToRad(deg);
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), rad);
+    this.camera.position.addVectors(this.controls.target, offset);
+    this.controls.update();
+  }
+
+  getCameraYaw() {
+    if (!this.camera || !this.controls) return 0;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    let angleRad = Math.atan2(offset.x, offset.z);
+    let deg = THREE.MathUtils.radToDeg(angleRad);
+    if (deg < 0) deg += 360;
+    return deg;
   }
 
   dispose() {
