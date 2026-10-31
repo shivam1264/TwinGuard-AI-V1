@@ -28,8 +28,18 @@ export class SceneManager {
     this._lastEvacuated = -1;
     this._lastElapsedSec = -1;
 
-    // Smooth Camera Animation Controller
     this.cameraTransition = null;
+
+    // Camera target bounds (prevents lost camera panning to infinite void)
+    this.campusCenter = new THREE.Vector3(0, 10, 18);
+    this.targetBounds = {
+      minX: -320,
+      maxX: 320,
+      minZ: -250,
+      maxZ: 250,
+      minY: 0.5,
+      maxY: 45
+    };
 
     this.initScene();
     this.initSystems();
@@ -70,10 +80,13 @@ export class SceneManager {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minPolarAngle = 0.02;
-    this.controls.maxPolarAngle = Math.PI * 0.48; // Clamped above ground plane to prevent seeing underneath
-    this.controls.screenSpacePanning = true;
-    this.controls.minDistance = 2.5;
-    this.controls.maxDistance = 640; // Allows smooth regional zoom out without hitting ceiling
+    this.controls.maxPolarAngle = Math.PI * 0.46; // Keep view above ground level
+    this.controls.screenSpacePanning = true; // Natural screen-space panning across campus
+    this.controls.minDistance = 12.0; // Prevent clipping through roofs or floors
+    this.controls.maxDistance = 420; // Sensible maximum zoom-out preventing lost context
+
+    // Set initial orbit target to spatial central campus area
+    this.controls.target.set(0, 10, 18);
 
     // Architectural Daylight Studio Lighting (Naturally lit, physically balanced)
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -445,11 +458,98 @@ export class SceneManager {
         clearTimeout(singleTapTimeout);
         singleTapTimeout = null;
       }
+      // 1. First check if a room in the main building was targeted
       const matchedRoom = this.getRoomAtClientPos(e.clientX, e.clientY);
       if (matchedRoom && this.onRoomDoubleTap) {
         this.onRoomDoubleTap(matchedRoom, { screenX: e.clientX, screenY: e.clientY });
+        return;
+      }
+
+      // 2. Otherwise raycast the broader campus environment (secondary buildings, site elements, lake, plazas)
+      const rect = this.container.getBoundingClientRect();
+      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+
+      // Check campus site objects
+      if (this.campusSite && this.campusSite.group) {
+        const hits = this.raycaster.intersectObjects(this.campusSite.group.children, true);
+        if (hits.length > 0) {
+          const hit = hits[0];
+          // Find if hitting a secondary building group
+          let targetObj = hit.object;
+          let foundBuilding = null;
+          while (targetObj && targetObj !== this.campusSite.group) {
+            if (targetObj.userData && (targetObj.userData.id?.startsWith('PLOT-') || targetObj.userData.name)) {
+              foundBuilding = targetObj;
+              break;
+            }
+            targetObj = targetObj.parent;
+          }
+
+          if (foundBuilding) {
+            const box = new THREE.Box3().setFromObject(foundBuilding);
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.z, 20);
+            this.focusTarget(center, maxDim * 1.8, { minY: 12 });
+            return;
+          }
+
+          // Otherwise focus hit point on site ground / road / plaza
+          this.focusTarget(hit.point, 50, { minY: 10 });
+          return;
+        }
+      }
+
+      // 3. Fallback ground plane intersection
+      const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      const groundHit = new THREE.Vector3();
+      if (this.raycaster.ray.intersectPlane(groundPlane, groundHit)) {
+        if (Math.abs(groundHit.x) < 320 && Math.abs(groundHit.z) < 250) {
+          this.focusTarget(groundHit, 55, { minY: 10 });
+        }
       }
     });
+  }
+
+  // Focus and frame any world position or object bounding box smoothly
+  focusTarget(position, distance = 60, options = {}) {
+    if (!this.camera || !this.controls) return;
+
+    const targetPos = new THREE.Vector3(position.x, position.y || 5, position.z);
+    
+    // Maintain current camera elevation angle and orientation relative to the target
+    const currentOffset = this.camera.position.clone().sub(this.controls.target);
+    const currentDist = currentOffset.length() || 60;
+    const dir = currentOffset.normalize();
+
+    // Use requested distance, clamped sensibly
+    const finalDist = Math.max(18, Math.min(distance, 180));
+    const newCamPos = targetPos.clone().add(dir.multiplyScalar(finalDist));
+
+    // Ensure camera stays above ground
+    if (newCamPos.y < (options.minY || 10)) {
+      newCamPos.y = options.minY || 10;
+    }
+
+    if (options.animate === false) {
+      this.controls.target.copy(targetPos);
+      this.camera.position.copy(newCamPos);
+      this.controls.update();
+      this.cameraTransition = null;
+    } else {
+      this.cameraTransition = {
+        startPos: this.camera.position.clone(),
+        endPos: newCamPos,
+        startTarget: this.controls.target.clone(),
+        endTarget: targetPos,
+        duration: options.duration || 0.75,
+        elapsed: 0
+      };
+    }
   }
 
   // Smooth, Cinematic Camera Transition to any preset
@@ -461,12 +561,14 @@ export class SceneManager {
 
     if (presetName === 'CAMPUS_HERO' || presetName === 'HERO_VIEW') {
       // Elevated architectural hero perspective showing the 10-storey tower, forecourt & entrance circus
-      targetPos.set(28, 30, 72);
-      targetLook.set(0, 16, 0);
+      // Balanced zoom showing the full building height, entrance canopy and surrounding campus context
+      // Target is set to central campus spatial area (0, 10, 18), NOT pinned to building geometry center
+      targetPos.set(52, 45, 125);
+      targetLook.set(0, 10, 18);
     } else if (presetName === 'CAMPUS_OVERVIEW') {
       // High aerial isometric view showing complete master plan, road ring & surrounding clusters
       targetPos.set(0, 240, 275);
-      targetLook.set(0, 8, 12);
+      targetLook.set(0, 5, 10);
     } else if (presetName === 'REGIONAL_OVERVIEW') {
       // Maximum zoom overview showing campus embedded in regional highway context
       targetPos.set(0, 360, 390);
@@ -474,11 +576,11 @@ export class SceneManager {
     } else if (presetName === 'CAMPUS_AERIAL') {
       // High-angle architectural perspective
       targetPos.set(0, 300, 25);
-      targetLook.set(0, 0, 0);
+      targetLook.set(0, 0, 10);
     } else if (presetName === 'TOP_DOWN') {
       // True 90-degree orthogonal master plan inspection view showing all 12 zones & road ring
-      targetPos.set(0, 310, 1);
-      targetLook.set(0, 0, 0);
+      targetPos.set(0, 310, 10);
+      targetLook.set(0, 0, 10);
     } else if (presetName === 'CUTAWAY_VIEW') {
       targetPos.set(16, 22, 64);
       targetLook.set(0, 19, 0);
@@ -487,16 +589,32 @@ export class SceneManager {
       targetLook.set(0, 18, 0);
     } else if (presetName === 'SOUTH_FACADE') {
       targetPos.set(0, 22, 75);
-      targetLook.set(0, 19, 0);
+      targetLook.set(0, 18, 0);
     } else if (presetName === 'NORTH_FACADE') {
       targetPos.set(0, 22, -75);
-      targetLook.set(0, 19, 0);
+      targetLook.set(0, 18, 0);
     } else if (presetName === 'EAST_FACADE') {
       targetPos.set(75, 22, 0);
-      targetLook.set(0, 19, 0);
+      targetLook.set(0, 18, 0);
     } else if (presetName === 'WEST_FACADE') {
       targetPos.set(-75, 22, 0);
-      targetLook.set(0, 19, 0);
+      targetLook.set(0, 18, 0);
+    } else if (presetName === 'EAST_CAMPUS') {
+      // Focus eastern technology & library quadrant
+      targetPos.set(220, 60, 120);
+      targetLook.set(210, 8, -20);
+    } else if (presetName === 'WEST_CAMPUS') {
+      // Focus western civic auditorium & sports complex
+      targetPos.set(-220, 60, 120);
+      targetLook.set(-210, 8, -10);
+    } else if (presetName === 'NORTH_ACADEMIC') {
+      // Focus northern academic cluster
+      targetPos.set(0, 70, -60);
+      targetLook.set(0, 8, -145);
+    } else if (presetName === 'SOUTH_GATE') {
+      // Focus southern arrival gateway & central lake
+      targetPos.set(0, 45, 290);
+      targetLook.set(0, 6, 210);
     } else if (presetName === 'EMERGENCY_FOCUS' || presetName === 'STAGING_AREA') {
       const targetSide = this.emergencyManager ? this.emergencyManager.targetGate.side : 'west';
       if (targetSide === 'west') {
@@ -802,6 +920,19 @@ export class SceneManager {
     this.updateCameraNavigation(delta);
 
     if (this.controls) {
+      // Dynamic boundary enforcement on orbit target (prevents panning into empty void)
+      if (this.targetBounds) {
+        const tb = this.targetBounds;
+        this.controls.target.x = Math.max(tb.minX, Math.min(tb.maxX, this.controls.target.x));
+        this.controls.target.z = Math.max(tb.minZ, Math.min(tb.maxZ, this.controls.target.z));
+        this.controls.target.y = Math.max(tb.minY, Math.min(tb.maxY, this.controls.target.y));
+      }
+
+      // Prevent camera from dipping underneath terrain
+      if (this.camera && this.camera.position.y < 1.5) {
+        this.camera.position.y = 1.5;
+      }
+
       this.controls.update();
     }
 

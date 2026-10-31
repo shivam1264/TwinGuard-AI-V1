@@ -20,6 +20,7 @@ import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { EmergencyControlModal } from './components/EmergencyControlModal';
 import { EvacueeCompanionView } from './components/EvacueeCompanionView';
 import { EvacueeQrModal } from './components/EvacueeQrModal';
+import GisMapDrawer from './components/gis/GisMapDrawer';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
@@ -111,9 +112,9 @@ export function App() {
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
   const [cameraYaw, setCameraYaw] = useState(0);
 
-  // Collapsible panels state (Default: expanded, clicking collapse shows icon rails)
-  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
-  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  // Collapsible panels state (Default: closed/collapsed on start as requested)
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(true);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(true);
 
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
   const [fireBubbleData, setFireBubbleData] = useState(null);
@@ -127,6 +128,8 @@ export function App() {
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
   const [isEvacueeQrOpen, setIsEvacueeQrOpen] = useState(false);
+  const [isGisOpen, setIsGisOpen] = useState(false);
+  const [isSirenMuted, setIsSirenMuted] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => (AIEngine && AIEngine.getActiveScenario ? AIEngine.getActiveScenario() : null));
 
@@ -177,6 +180,14 @@ export function App() {
 
     sceneManagerRef.current = manager;
     window.__sceneManager = manager;
+    window.__twinguardApp = {
+      startEvacuation: handleStartEvacuation,
+      reset: handleReset,
+      setSimSpeed: handleSetSpeed,
+      toggleGis: () => setIsGisOpen(prev => !prev),
+      getStats: () => stats,
+      getEmergencyStatus: () => emergencyStatus
+    };
     manager.syncOccupants(rooms);
 
     return () => {
@@ -194,6 +205,15 @@ export function App() {
     }
   }, [isLeftCollapsed, isRightCollapsed]);
 
+  const handleToggleSirenMute = () => {
+    if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
+      const newMuted = sceneManagerRef.current.emergencyVehicles.toggleMute();
+      setIsSirenMuted(newMuted);
+    } else {
+      setIsSirenMuted(!isSirenMuted);
+    }
+  };
+
   // Track camera rotation for real-time Compass Rose updates & Emergency Telemetry
   useEffect(() => {
     const interval = setInterval(() => {
@@ -204,7 +224,7 @@ export function App() {
       if (sceneManagerRef.current && sceneManagerRef.current.getEmergencyStatus) {
         const em = sceneManagerRef.current.getEmergencyStatus();
         if (em) {
-          setEmergencyStatus(em);
+          setEmergencyStatus({ ...em });
         }
       }
     }, 80);
@@ -499,6 +519,8 @@ export function App() {
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
         onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
         onOpenEvacueeQr={() => setIsEvacueeQrOpen(true)}
+        onOpenGis={() => setIsGisOpen(!isGisOpen)}
+        isGisOpen={isGisOpen}
         serverConnected={serverConnected}
       />
 
@@ -566,6 +588,8 @@ export function App() {
               onToggleExploded={() =>
                 handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
               }
+              onToggleGis={() => setIsGisOpen(!isGisOpen)}
+              isGisOpen={isGisOpen}
               rooms={rooms}
             />
           )}
@@ -745,6 +769,18 @@ export function App() {
       <EvacueeQrModal
         isOpen={isEvacueeQrOpen}
         onClose={() => setIsEvacueeQrOpen(false)}
+      />
+
+      {/* KILLER FEATURE 1: Live Interactive Satellite GIS + City Emergency Dispatch */}
+      <GisMapDrawer
+        isOpen={isGisOpen}
+        onClose={() => setIsGisOpen(false)}
+        emergencyStatus={emergencyStatus}
+        onFocusCampusView={() => {
+          handleSetCameraPreset('CAMPUS_HERO');
+        }}
+        isMuted={isSirenMuted}
+        onToggleMute={handleToggleSirenMute}
       />
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}

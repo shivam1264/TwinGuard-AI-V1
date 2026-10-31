@@ -399,6 +399,101 @@ export class NavigationGraph {
     const musterAlphaNode = this.nodes.get(musterAlphaId);
     const musterBravoNode = this.nodes.get(musterBravoId);
 
+    // Step 5.1 Indoor <-> Outdoor Graph Boundary Nodes & Edges
+    const pnodeWestId = 'campus_pnode_hero_west';
+    const pnodeEastId = 'campus_pnode_hero_east';
+    const pnodeSouthId = 'campus_pnode_hero_south';
+
+    this.addNode({
+      id: pnodeWestId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero West)',
+      pos: { x: -32.0, y: 0.15, z: 0.0 }
+    });
+
+    this.addNode({
+      id: pnodeEastId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero East)',
+      pos: { x: 32.0, y: 0.15, z: 0.0 }
+    });
+
+    this.addNode({
+      id: pnodeSouthId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero South Grand Plaza)',
+      pos: { x: 0.0, y: 0.15, z: 28.0 }
+    });
+
+    const pnodeWest = this.nodes.get(pnodeWestId);
+    const pnodeEast = this.nodes.get(pnodeEastId);
+    const pnodeSouth = this.nodes.get(pnodeSouthId);
+
+    // Connect Ground Exits to Boundary Pedestrian Nodes
+    this.addEdge({
+      id: 'edge_exit_a_to_pnode_west',
+      from: exitANodeId,
+      to: pnodeWestId,
+      fromPos: exitANode.pos,
+      toPos: pnodeWest.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 4.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_exit_b_to_pnode_east',
+      from: exitBNodeId,
+      to: pnodeEastId,
+      fromPos: exitBNode.pos,
+      toPos: pnodeEast.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 4.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_exit_c_to_pnode_south',
+      from: exitCNodeId,
+      to: pnodeSouthId,
+      fromPos: exitCNode.pos,
+      toPos: pnodeSouth.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 5.0,
+      isBidirectional: true
+    });
+
+    // Connect Boundary Nodes to Muster Zones
+    this.addEdge({
+      id: 'edge_pnode_south_to_muster_alpha',
+      from: pnodeSouthId,
+      to: musterAlphaId,
+      fromPos: pnodeSouth.pos,
+      toPos: musterAlphaNode.pos,
+      floor: 0,
+      type: EDGE_TYPES.SAFE_ZONE_PATH,
+      width: 6.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_pnode_west_to_muster_bravo',
+      from: pnodeWestId,
+      to: musterBravoId,
+      fromPos: pnodeWest.pos,
+      toPos: musterBravoNode.pos,
+      floor: 0,
+      type: EDGE_TYPES.SAFE_ZONE_PATH,
+      width: 4.0,
+      isBidirectional: true
+    });
+
     // Exit C -> Muster Alpha
     this.addEdge({
       id: 'edge_exit_c_to_muster_alpha',
