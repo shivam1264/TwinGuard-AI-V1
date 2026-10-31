@@ -121,6 +121,7 @@ export class AgentCrowd {
 
     this.pathLinesGroup = new THREE.Group();
     this.scene.add(this.pathLinesGroup);
+    this.routeLines = new Map(); // agentId -> { line, path, exitId }
     this.cachedStats = null;
   }
 
@@ -454,27 +455,8 @@ export class AgentCrowd {
   }
 
   assignRoutes(assignments) {
-    this.clearPathLines();
     const assignmentMap = new Map();
     assignments.forEach(a => assignmentMap.set(a.agentId, a));
-
-    // Dynamic trajectory ribbons (1 in every 4 agents to conserve draw calls)
-    const sampledAssignments = assignments.filter((_, idx) => idx % 4 === 0);
-    sampledAssignments.forEach(assignment => {
-      const points = assignment.path;
-      if (points && points.length > 1) {
-        const curvePoints = points.map(p => new THREE.Vector3(p.x, p.y + 0.15, p.z));
-        const lineGeo = new THREE.BufferGeometry().setFromPoints(curvePoints);
-        const lineMat = new THREE.LineBasicMaterial({
-          color: new THREE.Color(assignment.exitColor || 0x00f0ff),
-          transparent: true,
-          opacity: 0.55
-        });
-        const line = new THREE.Line(lineGeo, lineMat);
-        line.userData = { floor: assignment.floor || 1 };
-        this.pathLinesGroup.add(line);
-      }
-    });
 
     this.agents.forEach(agent => {
       const assignment = assignmentMap.get(agent.id);
@@ -501,6 +483,75 @@ export class AgentCrowd {
         agent.shirtMat.emissiveIntensity = 0.35;
       }
     });
+
+    this.syncRouteLines();
+  }
+
+  /**
+   * Create, update, or remove the per-agent route line so it always matches the
+   * agent's current EVACUATING state, assigned exit, and path. Rebuilds only
+   * when the path reference or exit changes.
+   */
+  syncRouteLines() {
+    if (!this.pathLinesGroup) return;
+
+    const isSingleFloor = this.floorMode && this.floorMode !== 'ALL' && this.floorMode !== 'EXPLODED';
+    const targetFloor = isSingleFloor ? parseInt(this.floorMode, 10) : null;
+    const activeIds = new Set();
+
+    for (const agent of this.agents) {
+      const path = agent.path;
+      const isActive = agent.state === 'EVACUATING' && Array.isArray(path) && path.length > 1;
+      if (!isActive) continue;
+
+      activeIds.add(agent.id);
+      let entry = this.routeLines.get(agent.id);
+      const needsRebuild = !entry || entry.path !== path || entry.exitId !== agent.currentExitId;
+
+      if (needsRebuild) {
+        if (entry) this._disposeRouteEntry(entry);
+        entry = this._createRouteEntry(agent, path);
+        this.routeLines.set(agent.id, entry);
+      }
+
+      entry.line.visible = !isSingleFloor || Number(agent.floor) === targetFloor;
+    }
+
+    for (const [agentId, entry] of this.routeLines) {
+      if (!activeIds.has(agentId)) {
+        this._disposeRouteEntry(entry);
+        this.routeLines.delete(agentId);
+      }
+    }
+
+    this.pathLinesGroup.visible = true;
+  }
+
+  _createRouteEntry(agent, path) {
+    const points = path.map(p => new THREE.Vector3(p.x, (p.y ?? 0) + 0.12, p.z));
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color: new THREE.Color(agent.assignedExitColor || 0x00f0ff),
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false
+    });
+    const line = new THREE.Line(geometry, material);
+    line.userData = {
+      agentId: agent.id,
+      exitId: agent.currentExitId || null,
+      floor: agent.floor || 1
+    };
+    this.pathLinesGroup.add(line);
+
+    return { line, path, exitId: agent.currentExitId || null };
+  }
+
+  _disposeRouteEntry(entry) {
+    const line = entry.line;
+    if (line.parent) line.parent.remove(line);
+    if (line.geometry) line.geometry.dispose();
+    if (line.material) line.material.dispose();
   }
 
   update(delta, simSpeed = 1.0) {
@@ -652,6 +703,8 @@ export class AgentCrowd {
       }
     }
 
+    this.syncRouteLines();
+
     const currentStats = {
       total: this.agents.length,
       evacuated: evacuatedCount,
@@ -705,20 +758,15 @@ export class AgentCrowd {
       }
     });
 
-    if (this.pathLinesGroup) {
-      if (mode === 'ALL' || mode === 'EXPLODED') {
-        this.pathLinesGroup.visible = true;
-      } else {
-        this.pathLinesGroup.children.forEach(line => {
-          if (line.userData && line.userData.floor) {
-            line.visible = Number(line.userData.floor) === targetFloorNum;
-          }
-        });
-      }
-    }
+    this.syncRouteLines();
   }
 
   clearPathLines() {
+    for (const entry of this.routeLines.values()) {
+      this._disposeRouteEntry(entry);
+    }
+    this.routeLines.clear();
+
     while (this.pathLinesGroup.children.length > 0) {
       const obj = this.pathLinesGroup.children[0];
       if (obj.geometry) obj.geometry.dispose();
@@ -735,6 +783,16 @@ export class AgentCrowd {
       this.group.remove(obj);
     }
     this.agents = [];
+  }
+
+  dispose() {
+    this.clear();
+    if (this.pathLinesGroup && this.pathLinesGroup.parent) {
+      this.pathLinesGroup.parent.remove(this.pathLinesGroup);
+    }
+    if (this.group && this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
   }
 
   /**

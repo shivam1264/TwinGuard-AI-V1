@@ -15,9 +15,11 @@ import {
 export const RightSidebar = ({
   isCollapsed = false,
   onToggleCollapse,
-  stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
+  stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0, waiting: 0, evacuating: 0 },
   exits = [],
   incidents = [],
+  strategy = null,
+  lastReroute = null,
   hasFire = false,
   onOpenAnalytics,
   onOpenIncidents
@@ -27,6 +29,14 @@ export const RightSidebar = ({
   const inTransit = stats.inTransit || Math.max(0, total - evacuated);
   const remaining = Math.max(0, total - evacuated);
   const evacProgress = total > 0 ? Math.min(100, Math.round((evacuated / total) * 100)) : 0;
+  const waiting = stats.waiting || 0;
+  const evacuating = stats.evacuating ?? inTransit;
+  const strategyLabel = strategy?.label || 'Load Balanced';
+  const strategyBehavior = strategy?.behavior || 'Load Balanced';
+  const strategyDescription = strategy?.description
+    || 'Routes are distributed across available exits using live load and congestion.';
+  const strategyNote = strategy?.note || null;
+  const isPhasedZone = strategy?.type === 'PHASED_ZONE' || strategy?.behavior === 'Phased Zone';
 
   // Circular progress ring calculation (SVG donut chart)
   const radius = 32;
@@ -344,6 +354,101 @@ export const RightSidebar = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── CARD 1B: ACTIVE STRATEGY ── */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '16px',
+          border: '1px solid #e2e8f0',
+          padding: '14px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+        }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center" style={{ gap: '8px' }}>
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{ width: '26px', height: '26px', borderRadius: '7px', background: '#eff6ff', color: '#2563eb' }}
+            >
+              <Activity style={{ width: '15px', height: '15px' }} />
+            </div>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+              Active Strategy
+            </span>
+          </div>
+
+          <span
+            style={{
+              fontSize: '9.5px',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              background: '#eff6ff',
+              color: '#2563eb',
+              border: '1px solid #bfdbfe',
+            }}
+          >
+            {strategyBehavior}
+          </span>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#0f172a', lineHeight: 1.25 }}>
+            {strategyLabel}
+          </div>
+          <p style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', lineHeight: 1.35 }}>
+            {strategyDescription}
+          </p>
+          {strategyNote && (
+            <p style={{ fontSize: '10.5px', color: '#b45309', marginTop: '5px', lineHeight: 1.35, fontWeight: 600 }}>
+              {strategyNote}
+            </p>
+          )}
+        </div>
+
+        <div
+          className="flex items-center justify-between"
+          style={{ padding: '8px 10px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0' }}
+        >
+          <div>
+            <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 600 }}>Waiting</div>
+            <div style={{ fontSize: '16px', fontWeight: 900, color: waiting > 0 ? '#d97706' : '#0f172a', lineHeight: 1.1 }}>
+              {waiting}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 600 }}>Evacuating</div>
+            <div style={{ fontSize: '16px', fontWeight: 900, color: '#2563eb', lineHeight: 1.1 }}>
+              {evacuating}
+            </div>
+          </div>
+        </div>
+
+        {isPhasedZone && waiting > 0 && (
+          <p style={{ fontSize: '10.5px', color: '#b45309', fontWeight: 600, lineHeight: 1.35 }}>
+            Phased release active: {waiting} agent{waiting === 1 ? '' : 's'} waiting intentionally.
+          </p>
+        )}
+
+        {lastReroute && (
+          <div style={{ padding: '8px 10px', borderRadius: '10px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+            <div style={{ fontSize: '9.5px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Latest Reroute
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a', marginTop: '3px' }}>
+              {lastReroute.title}
+            </div>
+            <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+              {lastReroute.subtitle}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── CARD 2: EMERGENCY STATUS (Red Container) ── */}

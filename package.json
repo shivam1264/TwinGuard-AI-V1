@@ -7,7 +7,7 @@
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"node server/index.js\" \"vite\"",
     "dev:client": "vite",
     "server": "node server/index.js",
-    "test": "node --test src/simulation/BuildingGraph.test.js src/simulation/HazardPropagation.test.js src/simulation/RiskAssessment.test.js src/simulation/Occupancy.test.js src/simulation/ExposureAssessment.test.js src/simulation/RoutingHazardAdapter.test.js src/simulation/Phase5CIntegration.test.js src/simulation/ZoneToGridMapper.test.js src/simulation/Phase5EIntegration.test.js",
+    "test": "node --test src/simulation/BuildingGraph.test.js src/simulation/HazardPropagation.test.js src/simulation/RiskAssessment.test.js src/simulation/Occupancy.test.js src/simulation/ExposureAssessment.test.js src/simulation/RoutingHazardAdapter.test.js src/simulation/Phase5CIntegration.test.js src/simulation/ZoneToGridMapper.test.js src/simulation/Phase5EIntegration.test.js src/three/AgentCrowd.routeLines.test.js src/three/HazardVisualizer.test.js src/three/ExitCongestionVisualizer.test.js src/ai/StrategyInfo.test.js src/simulation/RerouteEvents.test.js",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -29,6 +29,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.6.2",
     "concurrently": "^10.0.6",
+    "graphify": "^1.0.0",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
     "vite": "^6.0.7"

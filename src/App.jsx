@@ -19,6 +19,7 @@ import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
 import { EmergencyControlModal } from './components/EmergencyControlModal';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
+import { resolveStrategyInfo } from './ai/StrategyInfo';
 import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -116,6 +117,9 @@ export function App() {
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => {
     if (AIEngine && AIEngine.getActiveScenario) {
@@ -129,6 +133,10 @@ export function App() {
     occupants: true
   });
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
+  const [activeStrategyInfo, setActiveStrategyInfo] = useState(() =>
+    resolveStrategyInfo(null, AIEngine.getActiveStrategy?.())
+  );
+  const [lastReroute, setLastReroute] = useState(null);
   const [systemStatus, setSystemStatus] = useState("STANDBY");
   const [serverConnected, setServerConnected] = useState(false);
   const [stats, setStats] = useState({
@@ -138,42 +146,55 @@ export function App() {
     elapsedSeconds: 0
   });
 
-  const manager = new SceneManager(
-    threeCanvasRef.current,
-    (stats) => {
-      setStats({
-        total: stats.total,
-        evacuated: stats.evacuated,
-        inTransit: stats.inTransit,
-        elapsedSeconds: stats.elapsedSeconds
-      });
-      if (stats.isCompleted) {
-        setIsSimulating(false);
-        setSystemStatus('COMPLETED');
-      }
-    },
-    () => {
-      // Single click popup removed
-    },
-    (matchedRoom, screenPos) => {
-      // Double tap / double click: show minimalist fire trigger pill
-      setFireBubbleData({ room: matchedRoom, position: screenPos });
-    },
-    (newFacadeMode) => {
-      setFacadeMode(newFacadeMode);
-    },
-    (spreadRoomId) => {
-      handleTriggerFire(spreadRoomId, false);
-    }
-  );
-
   useEffect(() => {
+    if (!threeCanvasRef.current) return;
+
+    const manager = new SceneManager(
+      threeCanvasRef.current,
+      (stats) => {
+        setStats({
+          total: stats.total,
+          evacuated: stats.evacuated,
+          inTransit: stats.inTransit,
+          elapsedSeconds: stats.elapsedSeconds,
+          waiting: stats.waiting || 0,
+          evacuating: stats.evacuating || 0
+        });
+        if (stats.strategy) {
+          setActiveStrategyInfo(stats.strategy);
+        }
+        if (stats.rerouteEvents && stats.rerouteEvents.length > 0) {
+          setIncidents((prev) => [...stats.rerouteEvents, ...prev]);
+          setLastReroute(stats.rerouteEvents[0]);
+        }
+        if (stats.isCompleted) {
+          setIsSimulating(false);
+          setSystemStatus('COMPLETED');
+        }
+      },
+      () => {
+        // Single click popup removed
+      },
+      (matchedRoom, screenPos) => {
+        // Double tap / double click: show minimalist fire trigger pill
+        setFireBubbleData({ room: matchedRoom, position: screenPos });
+      },
+      (newFacadeMode) => {
+        setFacadeMode(newFacadeMode);
+      },
+      (spreadRoomId) => {
+        handleTriggerFire(spreadRoomId, false);
+      }
+    );
+
     sceneManagerRef.current = manager;
     window.__sceneManager = manager;
     manager.syncOccupants(rooms);
 
     return () => {
       manager.dispose();
+      if (sceneManagerRef.current === manager) sceneManagerRef.current = null;
+      if (window.__sceneManager === manager) delete window.__sceneManager;
     };
   }, []);
 
@@ -343,6 +364,9 @@ export function App() {
       }
       setIsSimulating(true);
       setSystemStatus('EVACUATING');
+      const appliedStrategy = selectedStrategy || AIEngine.getActiveStrategy?.();
+      setActiveStrategyInfo(resolveStrategyInfo(appliedStrategy?.type, appliedStrategy));
+      setLastReroute(null);
     }
   };
 
@@ -352,6 +376,9 @@ export function App() {
     const result = sceneManagerRef.current.startEvacuation();
     setIsSimulating(true);
     setSystemStatus('EVACUATING');
+    const appliedStrategy = AIEngine.getActiveStrategy?.();
+    setActiveStrategyInfo(resolveStrategyInfo(appliedStrategy?.type, appliedStrategy));
+    setLastReroute(null);
 
     if (result) {
       setExits(result.exitStats);
@@ -399,11 +426,15 @@ export function App() {
     setSystemStatus('STANDBY');
     setEmergencyStatus(null);
     setIncidents(INITIAL_INCIDENTS);
+    setLastReroute(null);
+    setActiveStrategyInfo(resolveStrategyInfo(null, AIEngine.getActiveStrategy?.()));
     setStats({
       total: calculateTotal(INITIAL_ROOMS),
       evacuated: 0,
       inTransit: calculateTotal(INITIAL_ROOMS),
-      elapsedSeconds: 0
+      elapsedSeconds: 0,
+      waiting: 0,
+      evacuating: 0
     });
 
     if (sceneManagerRef.current) {
@@ -584,6 +615,8 @@ export function App() {
           stats={stats}
           exits={exits}
           incidents={incidents}
+          strategy={activeStrategyInfo}
+          lastReroute={lastReroute}
           hasFire={hasAnyFire}
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
           onOpenIncidents={() => setIsIncidentsOpen(true)}
@@ -675,23 +708,27 @@ export function App() {
       )}
 
       {/* MODAL 7: Scenario Studio Modal (AI Engine) */}
-      <ScenarioConfigModal
-        isOpen={isScenarioModalOpen}
-        onClose={() => setIsScenarioModalOpen(false)}
-        currentScenario={activeScenario}
-        onApplyScenario={handleApplyScenario}
-        rooms={rooms}
-      />
+      {isScenarioModalOpen && (
+        <ScenarioConfigModal
+          isOpen={isScenarioModalOpen}
+          onClose={() => setIsScenarioModalOpen(false)}
+          currentScenario={activeScenario}
+          onApplyScenario={handleApplyScenario}
+          rooms={rooms}
+        />
+      )}
 
       {/* MODAL 8: AI Evacuation Strategy Ranker (TOPSIS Engine) */}
-      <StrategyRankModal
-        isOpen={isStrategyModalOpen}
-        onClose={() => setIsStrategyModalOpen(false)}
-        scenario={activeScenario}
-        rooms={rooms}
-        exits={exits}
-        onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
-      />
+      {isStrategyModalOpen && (
+        <StrategyRankModal
+          isOpen={isStrategyModalOpen}
+          onClose={() => setIsStrategyModalOpen(false)}
+          scenario={activeScenario}
+          rooms={rooms}
+          exits={exits}
+          onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
+        />
+      )}
 
       {/* MODAL 9: System Settings Modal */}
       {isSettingsOpen && (
@@ -703,16 +740,18 @@ export function App() {
       )}
 
       {/* MODAL 9: Building Information Modeling & Architectural Specs */}
-      <BuildingInfoModal
-        isOpen={isBuildingInfoOpen}
-        onClose={() => setIsBuildingInfoOpen(false)}
-        rooms={rooms}
-        exits={exits}
-        onSelectFloor={(floor) => {
-          handleSetFloorView(floor);
-          handleSetCameraPreset(`FLOOR_${floor}`);
-        }}
-      />
+      {isBuildingInfoOpen && (
+        <BuildingInfoModal
+          isOpen={isBuildingInfoOpen}
+          onClose={() => setIsBuildingInfoOpen(false)}
+          rooms={rooms}
+          exits={exits}
+          onSelectFloor={(floor) => {
+            handleSetFloorView(floor);
+            handleSetCameraPreset(`FLOOR_${floor}`);
+          }}
+        />
+      )}
 
       {/* MODAL 10: Emergency Control & Rapid Intervention Dispatch */}
       <EmergencyControlModal

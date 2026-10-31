@@ -4,6 +4,8 @@ import { Building3D } from './Building3D.js';
 import { CampusSite } from './site/CampusSite.js';
 import { FireParticles } from './FireParticles.js';
 import { AgentCrowd } from './AgentCrowd.js';
+import { HazardVisualizer } from './HazardVisualizer.js';
+import { ExitCongestionVisualizer } from './ExitCongestionVisualizer.js';
 import { NavGrid } from '../simulation/NavGrid.js';
 import { Pathfinder } from '../simulation/Pathfinder.js';
 import { NavigationGraph } from '../simulation/NavigationGraph.js';
@@ -13,6 +15,9 @@ import { advanceHazardState, injectFireSource, createHazardState } from '../simu
 import { assessRisk } from '../simulation/RiskAssessment.js';
 import { buildRoutingHazardContext, getExitRouteCondition, ROUTE_CONDITIONS } from '../simulation/RoutingHazardAdapter.js';
 import { ZoneToGridMapper, applyHazardStateToGrid } from '../simulation/ZoneToGridMapper.js';
+import { captureExitSnapshot, createRerouteEvent, diffExitAssignments } from '../simulation/RerouteEvents.js';
+import { resolveStrategyInfo } from '../ai/StrategyInfo.js';
+import { AIEngine } from '../ai/index.js';
 
 export class SimulationClock {
   constructor() {
@@ -84,6 +89,13 @@ export class SceneManager {
     this.isSimulating = false;
     this.elapsedSeconds = 0;
     this.routingHazardContext = null;
+    this.activeStrategyType = null;
+    this.activeStrategy = null;
+
+    // Module 7F: aggregated reroute events and strategy indicator
+    this.pendingRerouteEvents = [];
+    this.rerouteEventSeq = 0;
+    this._lastRerouteAt = 0;
 
     // Phase 5C: Live hazard state management
     this.hazardState = null;
@@ -242,6 +254,10 @@ export class SceneManager {
     // Phase 5C: Initialize building graph for hazard routing
     const rawGraph = createTowerGraph();
     this.buildingGraph = loadBuilding(rawGraph);
+    this.hazardVisualizer = new HazardVisualizer(this.scene, {
+      floorHeight: this.buildingGraph.data.floorHeightM
+    });
+    this.exitCongestionVisualizer = new ExitCongestionVisualizer(this.scene);
 
     // Phase 5D: Initialize zone-to-grid mapper for grid-level hazard integration
     this._zoneToGridMapper = new ZoneToGridMapper(this.navGrid);
@@ -676,6 +692,12 @@ export class SceneManager {
       this.fireSystem?.activeFires?.forEach(fire => {
         if (fire.group) fire.group.visible = isVisible;
       });
+      if (this.hazardVisualizer) {
+        this.hazardVisualizer.setVisible(isVisible);
+      }
+      if (this.exitCongestionVisualizer) {
+        this.exitCongestionVisualizer.setVisible(isVisible);
+      }
       if (this.building && this.building.layers && this.building.layers.mep) {
         this.building.layers.mep.visible = isVisible;
       }
@@ -696,6 +718,12 @@ export class SceneManager {
     if (this.fireSystem) {
       this.fireSystem.setFloorMode(mode);
     }
+    if (this.hazardVisualizer) {
+      this.hazardVisualizer.setFloorMode(mode);
+    }
+    if (this.exitCongestionVisualizer) {
+      this.exitCongestionVisualizer.setFloorMode(mode);
+    }
 
     if (mode === 'EXPLODED') {
       this.setCameraPreset('AXONOMETRIC');
@@ -715,13 +743,38 @@ export class SceneManager {
   }
 
   // Phase 5C: Hazard state management
+  resolveBuildingScenario(scenario) {
+    if (!scenario) return null;
+    if (Array.isArray(scenario.fires) && scenario.fires.length > 0) return scenario;
+
+    const roomId = scenario.hazard?.roomId;
+    const match = typeof roomId === 'string' ? roomId.match(/^f(\d+)_/) : null;
+    if (!match) return null;
+
+    return {
+      schemaVersion: 1,
+      id: scenario.id || 'ai-scenario',
+      name: scenario.name || scenario.id || 'AI Scenario',
+      fires: [{
+        id: `fire_${roomId}`,
+        zoneId: `L${match[1]}`,
+        startSec: 0,
+        intensity: 0.6
+      }]
+    };
+  }
+
   initializeHazardState(scenario) {
     if (!this.buildingGraph) return;
     this.activeScenario = scenario;
-    this.hazardState = applyScenario(this.buildingGraph, scenario);
+    const buildingScenario = this.resolveBuildingScenario(scenario);
+    this.hazardState = buildingScenario
+      ? applyScenario(this.buildingGraph, buildingScenario)
+      : createHazardState(this.buildingGraph, { scenarioId: scenario?.id });
     this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
     this.updateRoutingContext();
     this.applyHazardStateToGrid();
+    this.syncHazardVisualization();
   }
 
   advanceHazardState(dt) {
@@ -730,6 +783,17 @@ export class SceneManager {
     this.riskAssessment = assessRisk(this.hazardState, this.buildingGraph);
     this.updateRoutingContext();
     this.applyHazardStateToGrid();
+    this.syncHazardVisualization();
+  }
+
+  syncHazardVisualization() {
+    if (!this.hazardVisualizer) return;
+    this.hazardVisualizer.update({
+      graph: this.buildingGraph,
+      hazardState: this.hazardState,
+      riskAssessment: this.riskAssessment,
+      routingContext: this.routingHazardContext
+    });
   }
 
   applyHazardStateToGrid() {
@@ -751,6 +815,54 @@ export class SceneManager {
       expectedTimeSec: this.elapsedSeconds
     });
     this.routingHazardContext = context;
+  }
+
+  /**
+   * Apply route assignments and record an aggregated reroute event only when an
+   * agent's assigned exit actually changes. Routine refreshes that keep the same
+   * exit are ignored so the incident log is not flooded.
+   */
+  _applyAssignments(assignments, {
+    reason = 'Route reevaluation',
+    reasons = [],
+    severity = 'Info',
+    isInitial = false
+  } = {}) {
+    if (!assignments || assignments.length === 0) return [];
+
+    const previousExits = isInitial ? null : captureExitSnapshot(this.agentCrowd.agents);
+    this.agentCrowd.assignRoutes(assignments);
+
+    if (!previousExits) return [];
+
+    const changes = diffExitAssignments(previousExits, assignments);
+    if (changes.length === 0) return [];
+
+    // ponytail: 1s wall-clock throttle drops a second distinct reroute within 1s;
+    // switch to per-reason debounce if event fidelity matters.
+    const nowMs = Date.now();
+    if (nowMs - this._lastRerouteAt < 1000) {
+      return changes;
+    }
+
+    const event = createRerouteEvent({
+      changes,
+      reason,
+      reasons,
+      severity,
+      exits: this.crowdOptimizer?.exits || [],
+      elapsedSeconds: this.elapsedSeconds,
+      now: new Date(nowMs),
+      id: `reroute_${nowMs}_${this.rerouteEventSeq++}`
+    });
+
+    if (event) {
+      this._lastRerouteAt = nowMs;
+      this.pendingRerouteEvents.push(event);
+      this._lastStatsUpdate = 0;
+    }
+
+    return changes;
   }
 
   // Phase 5C: Check for urgent reevaluation - returns true if routes were updated
@@ -782,6 +894,7 @@ export class SceneManager {
 
     // Check if any active agent's current route has become prohibited
     let hasUrgentChange = false;
+    let prohibitedReasons = [];
     for (const agent of this.agentCrowd.agents) {
       if (agent.state === 'SAFE') continue;
       const currentExitId = agent.currentExitId;
@@ -791,6 +904,7 @@ export class SceneManager {
       const route = getExitRouteCondition(this.routingHazardContext, agent.floor, currentExitId);
       if (route && route.condition === ROUTE_CONDITIONS.PROHIBITED) {
         hasUrgentChange = true;
+        prohibitedReasons = route.reasons || [];
         break;
       }
     }
@@ -816,7 +930,11 @@ export class SceneManager {
         { routingContext: this.routingHazardContext }
       );
 
-      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      this._applyAssignments(optimizationResult.assignments, {
+        reason: 'Current route prohibited',
+        reasons: prohibitedReasons,
+        severity: 'Medium'
+      });
       // Update grid with latest hazard state after urgent reevaluation
       this.applyHazardStateToGrid();
       return true;
@@ -858,7 +976,10 @@ export class SceneManager {
       { routingContext: this.routingHazardContext, strategyType: this.activeStrategyType }
     );
 
-    this.agentCrowd.assignRoutes(optimizationResult.assignments);
+    this._applyAssignments(optimizationResult.assignments, {
+      reason: 'Routine route reevaluation',
+      severity: 'Info'
+    });
     // Update grid with latest hazard state after reevaluation
     this.applyHazardStateToGrid();
     return true;
@@ -898,10 +1019,7 @@ export class SceneManager {
       this.applyHazardStateToGrid();
     }
 
-    // Notify fire spread callback (for multi-room fire propagation)
-    if (this.onFireSpread) {
-      this.onFireSpread(roomId);
-    }
+    this.syncHazardVisualization();
 
     // Automatically trigger Emergency Support Vehicles to the nearest exit gate
     if (this.emergencyManager) {
@@ -928,7 +1046,10 @@ export class SceneManager {
       const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null;
       const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
       const optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap);
-      this.agentCrowd.assignRoutes(optimizationResult.assignments);
+      this._applyAssignments(optimizationResult.assignments, {
+        reason: 'Fire update re-optimization',
+        severity: 'Medium'
+      });
       if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
       if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
     }
@@ -961,7 +1082,10 @@ export class SceneManager {
         if (this.agentCrowd.rerouteAgents) {
           this.agentCrowd.rerouteAgents(newPlan.assignments);
         } else {
-          this.agentCrowd.assignRoutes(newPlan.assignments);
+          this._applyAssignments(newPlan.assignments, {
+            reason: 'Stairwell availability change',
+            severity: 'Info'
+          });
         }
         if (this.renderRouteOverlays) this.renderRouteOverlays(newPlan.assignments);
         if (this.updateExitHoloBadges) this.updateExitHoloBadges(newPlan.exitStats);
@@ -971,12 +1095,20 @@ export class SceneManager {
     return null;
   }
 
+  renderRouteOverlays() {
+    if (this.agentCrowd && this.agentCrowd.syncRouteLines) {
+      this.agentCrowd.syncRouteLines();
+    }
+  }
+
   startEvacuation(scenario = null, strategy = null) {
     this.isSimulating = true;
     this.elapsedSeconds = 0;
     this.pausedElapsedSeconds = 0;
     this.lastRoutingContextHash = null;
     this.reevaluationCooldown = 0;
+    this.pendingRerouteEvents = [];
+    this._lastRerouteAt = 0;
 
     // Start the clock
     if (!this._clock.running) {
@@ -1001,6 +1133,7 @@ export class SceneManager {
     const activeStrategy = strategy || (typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy() : null);
     const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
     this.activeStrategyType = strategyType;
+    this.activeStrategy = activeStrategy || null;
 
     let optimizationResult;
     if (this.crowdOptimizer) {
@@ -1010,9 +1143,9 @@ export class SceneManager {
     }
 
     if (optimizationResult && optimizationResult.assignments) {
-      this.agentCrowd.assignRoutes(optimizationResult.assignments);
-      this.renderRouteOverlays(optimizationResult.assignments);
-      this.updateExitHoloBadges(optimizationResult.exitStats);
+      this._applyAssignments(optimizationResult.assignments, { isInitial: true });
+      if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
+      if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
     }
 
     if (this.emergencyManager && !this.emergencyManager.isActive) {
@@ -1043,6 +1176,10 @@ export class SceneManager {
     this._lastEvacuated = -1;
     this._lastElapsedSec = -1;
     this.activeStrategyType = 'LOAD_BALANCED';
+    this.activeStrategy = null;
+    this.pendingRerouteEvents = [];
+    this.rerouteEventSeq = 0;
+    this._lastRerouteAt = 0;
     this.fireSystem.extinguishAll();
     this.navGrid.resetDynamicHazards();
     this.navGrid.clearCongestion();
@@ -1060,6 +1197,12 @@ export class SceneManager {
     // Phase 5D: Clear zone-to-grid mapper
     if (this._zoneToGridMapper) {
       this._zoneToGridMapper.clearAllDynamicHazards();
+    }
+    if (this.hazardVisualizer) {
+      this.hazardVisualizer.clear();
+    }
+    if (this.exitCongestionVisualizer) {
+      this.exitCongestionVisualizer.clear();
     }
     // Clear phased evacuation delays
     if (this.agentCrowd) {
@@ -1155,6 +1298,14 @@ export class SceneManager {
         this.navGrid.updateAgentCongestion(this.agentCrowd.agents);
       }
 
+      if (this.exitCongestionVisualizer) {
+        this.exitCongestionVisualizer.update({
+          exits: this.crowdOptimizer.exits,
+          agents: this.agentCrowd.agents,
+          navigationGraph: this.navigationGraph
+        });
+      }
+
       if (this.isSimulating) {
         const currentFloorSec = Math.floor(this.elapsedSeconds);
         const now = performance.now();
@@ -1169,8 +1320,20 @@ export class SceneManager {
           this._lastStatsUpdate = now;
           this._lastEvacuated = stats.evacuated;
           this._lastElapsedSec = currentFloorSec;
+
+          let waiting = 0;
+          let evacuating = 0;
+          for (const agent of this.agentCrowd.agents) {
+            if (agent.state === 'WAITING') waiting++;
+            else if (agent.state === 'EVACUATING') evacuating++;
+          }
+
           this.onStatsUpdate({
             ...stats,
+            waiting,
+            evacuating,
+            strategy: resolveStrategyInfo(this.activeStrategyType, this.activeStrategy),
+            rerouteEvents: this.pendingRerouteEvents.splice(0),
             elapsedSeconds: currentFloorSec,
             isCompleted: stats.inTransit === 0 && stats.total > 0
           });
@@ -1223,11 +1386,20 @@ export class SceneManager {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
+    if (this.agentCrowd) {
+      this.agentCrowd.dispose();
+    }
     if (this.campusSite) {
       this.campusSite.dispose();
     }
     if (this.emergencyManager) {
       this.emergencyManager.dispose();
+    }
+    if (this.hazardVisualizer) {
+      this.hazardVisualizer.dispose();
+    }
+    if (this.exitCongestionVisualizer) {
+      this.exitCongestionVisualizer.dispose();
     }
     if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
