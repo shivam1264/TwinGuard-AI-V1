@@ -99,6 +99,49 @@ body {
   color: #0f172a !important;
 }
 
+
+/* Universal Light Theme Style Overrides for Inline Styles and Glassmorphism */
+.theme-light aside,
+.theme-light [style*="background: linear-gradient(180deg, rgba(8, 16, 32"],
+.theme-light [style*="background: linear-gradient(180deg, #070d18"],
+.theme-light [style*="background: rgba(11, 22, 44"],
+.theme-light [style*="background: rgba(8, 16, 32"],
+.theme-light [style*="background: rgba(15, 23, 42"],
+.theme-light [style*="background: rgba(7, 13, 24"] {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.theme-light [style*="color: #ffffff"],
+.theme-light [style*="color: #f8fafc"],
+.theme-light [style*="color: rgb(255, 255, 255)"] {
+  color: #0f172a !important;
+}
+
+.theme-light [style*="color: #94a3b8"],
+.theme-light [style*="color: #cbd5e1"],
+.theme-light [style*="color: #64748b"] {
+  color: #475569 !important;
+}
+
+.theme-light button[style*="background: transparent"] {
+  background: transparent !important;
+  color: #475569 !important;
+}
+
+.theme-light button[style*="background: #2563eb"],
+.theme-light button[style*="linear-gradient(135deg, #1d4ed8"],
+.theme-light button[style*="linear-gradient(135deg, rgba(29, 78, 216"] {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+}
+
+.theme-light .cctv-scanlines::before {
+  opacity: 0.15;
+}
+
 .theme-light .glass-panel {
   background: rgba(255, 255, 255, 0.9) !important;
   border-color: #cbd5e1 !important;
