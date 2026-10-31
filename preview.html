@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Command Center Preview</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/preview.jsx"></script>
+    <script>
+      setTimeout(() => {
+        const cards = document.querySelectorAll('.rounded-2xl.bg-white');
+        let report = [];
+        cards.forEach((c, i) => {
+          const r = c.getBoundingClientRect();
+          const cs = getComputedStyle(c);
+          const overX = c.scrollWidth - c.clientWidth;
+          const overY = c.scrollHeight - c.clientHeight;
+          if (overX > 0 || overY > 0) {
+            report.push(`CARD#${i}[${(c.textContent || '').trim().slice(0, 26)}] w=${Math.round(r.width)} h=${Math.round(r.height)} pad=${cs.paddingLeft} overX=${overX} overY=${overY}`);
+          }
+        });
+        // Find any element whose right edge exceeds its parent card's content box
+        let spills = [];
+        cards.forEach((c, i) => {
+          const cr = c.getBoundingClientRect();
+          const cs = getComputedStyle(c);
+          const right = cr.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth);
+          c.querySelectorAll('*').forEach((el) => {
+            const er = el.getBoundingClientRect();
+            if (er.width > 0 && er.right > right + 1.5) {
+              spills.push(`SPILL card#${i} <${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ').slice(0, 3).join('.')}> right=${Math.round(er.right)} limit=${Math.round(right)}`);
+            }
+          });
+        });
+        document.title = `page=${document.documentElement.scrollWidth}x${document.documentElement.scrollHeight} vp=${window.innerWidth}x${window.innerHeight} || ` +
+          (report.length ? report.join(' ## ') : 'no-card-overflow') + ' || ' + (spills.length ? [...new Set(spills)].slice(0, 12).join(' ## ') : 'no-spill');
+      }, 2000);
+    </script>
+  </body>
+</html>

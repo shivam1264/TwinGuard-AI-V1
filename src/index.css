@@ -18,11 +18,11 @@
   --font-sans: 'Inter', sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Tailwind's own preflight (via @import "tailwindcss") already resets
+   box-sizing / margin / padding inside @layer base, so Tailwind's
+   spacing utilities (p-4, mb-3, px-2.5 …) correctly override it.
+   A plain unlayered `* { margin: 0; padding: 0 }` would beat every
+   utility class and break card/panel padding across the app. */
 
 body {
   background-color: var(--bg-primary);
