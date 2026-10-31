@@ -103,7 +103,7 @@ export const TopHeader = ({
 
       {/* ── Center: Main Navigation Tabs (Matching Image) ── */}
       <nav
-        className="hidden md:flex items-center"
+        className="hidden lg:flex items-center"
         style={{
           background: '#f8fafc',
           padding: '4px',
@@ -128,9 +128,9 @@ export const TopHeader = ({
                   borderRadius: '11px',
                   background: '#2563eb',
                   boxShadow: '0 2px 8px -1px rgba(37, 99, 235, 0.4)',
-                  color: '#ffffff',
+                  
                   gap: '8px',
-                  border: 'none',
+                  
                 }}
               >
                 <Icon style={{ width: '15px', height: '15px' }} />
@@ -198,18 +198,18 @@ export const TopHeader = ({
             height: '36px',
             padding: '0 14px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
-            color: '#ffffff',
+            background: '#ffffff',
+            border: '1px solid #cbd5e1',
+            color: '#334155',
             gap: '8px',
-            border: 'none',
-            boxShadow: '0 2px 8px -1px rgba(79, 70, 229, 0.4)',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
             fontWeight: 700,
             fontSize: '12px'
           }}
           title="Open Scannable QR Code for Live Mobile Evacuee Companion Demo"
         >
           <Smartphone style={{ width: '15px', height: '15px' }} />
-          <span>📱 Evacuee Mobile View</span>
+          <span>Mobile Companion</span>
         </button>
 
         {/* Facility Selector Pill */}

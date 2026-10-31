@@ -142,7 +142,7 @@ export const ViewportOverlay = ({
       </div>
 
       {/* ── Right Side: Floating Vertical Level Stack [Layers] [L10]..[L1] ── */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-5 flex flex-col pointer-events-auto" style={{ gap: '4px' }}>
+      <div className="absolute top-1/2 -translate-y-1/2 right-3 md:right-5 flex flex-col pointer-events-auto z-10" style={{ gap: '4px' }}>
         {/* Top Layers Icon Pill */}
         <button
           onClick={onToggleExploded}
