@@ -192,6 +192,11 @@ export class CrowdOptimizer {
     this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     agents.forEach((agent, index) => {
+      // Ignore occupants who have already safely evacuated outside the building
+      if (agent.state === 'SAFE' || agent.isEvacuated) {
+        return;
+      }
+
       let bestExit = null;
       let bestRoute = null;
       let bestScore = Infinity;

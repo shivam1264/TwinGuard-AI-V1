@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { NeuralBottleneckForecaster } from './NeuralBottleneckForecaster.jsx';
 import {
   Building2,
   Building,
@@ -1228,6 +1229,14 @@ export const BottleneckAnalytics = React.memo(({
           </div>
         </div>
       </div>
+
+      {/* ── 4. PREDICTIVE NEURAL BOTTLENECK FORECASTER (ML MODEL) ── */}
+      <NeuralBottleneckForecaster
+        inTransit={inTransit}
+        rooms={rooms}
+        exits={exits}
+        elapsed={elapsed}
+      />
     </div>
   );
 });

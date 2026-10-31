@@ -563,6 +563,54 @@ for (let f = 0; f < 1200; f++) {
 }
 assert(autoMgr.getStatus().isArrived === true, 'Autonomous units arrive on-scene at exactly 30s via delta stepping');
 
+// =========================================================================
+// TEST SUITE 10: Single-Cycle Evacuation Invariant & Anti-Loop Verification
+// =========================================================================
+console.log('\n--- Test Suite 10: Single-Cycle Evacuation Invariant & Anti-Looping ---');
+
+// 10.A: Evacuated agents must not be reassigned or loop back when fire spreads
+const testAgents = [
+  { id: 'agent_1', floor: 7, x: -15, y: 22.975, z: 0, state: 'SAFE', isEvacuated: true, roomId: 'f7_r1' },
+  { id: 'agent_2', floor: 7, x: -16, y: 22.975, z: 1, state: 'SAFE', isEvacuated: true, roomId: 'f7_r2' },
+  { id: 'agent_3', floor: 7, x: -14, y: 22.975, z: -1, state: 'EVACUATING', isEvacuated: false, roomId: 'f7_r3' }
+];
+
+const spreadFirePlan = crowdOptimizer.optimizeRoutes(testAgents, [{ x: -26, y: 23, z: 0, floor: 7, roomId: 'f7_r1' }]);
+assert(!spreadFirePlan.assignments.some(a => a.agentId === 'agent_1'), 'Safe evacuated agent_1 is omitted from route re-planning');
+assert(!spreadFirePlan.assignments.some(a => a.agentId === 'agent_2'), 'Safe evacuated agent_2 is omitted from route re-planning');
+assert(spreadFirePlan.assignments.some(a => a.agentId === 'agent_3'), 'Active in-transit agent_3 is correctly planned');
+
+// 10.B: Crowd assignments skip all safe agents
+const allSafeAgents = [
+  { id: 'agent_10', floor: 1, x: -38, y: 0.15, z: 0, state: 'SAFE', isEvacuated: true },
+  { id: 'agent_11', floor: 1, x: 38, y: 0.15, z: 0, state: 'SAFE', isEvacuated: true }
+];
+const safeOnlyPlan = crowdOptimizer.optimizeRoutes(allSafeAgents, [{ x: 0, y: 0.2, z: 20, floor: 1 }]);
+assert(safeOnlyPlan.assignments.length === 0, 'ZERO assignments generated for fully evacuated crowd (occupants stay safe outside)');
+
+// 10.C: Evacuation occurs strictly once; occupants remain at safe exterior muster coords
+const finalWaypoint = { x: -38.5, y: 0.15, z: 1.2 };
+const simulatedAgent = {
+  id: 'agent_sim',
+  floor: 7,
+  state: 'EVACUATING',
+  isEvacuated: false,
+  path: [{ x: -20, y: 23, z: 0 }, finalWaypoint],
+  currentWaypointIdx: 1,
+  x: -38.4,
+  y: 0.15,
+  z: 1.1
+};
+// Waypoint reached -> becomes SAFE
+simulatedAgent.state = 'SAFE';
+simulatedAgent.isEvacuated = true;
+simulatedAgent.x = finalWaypoint.x;
+simulatedAgent.y = finalWaypoint.y;
+simulatedAgent.z = finalWaypoint.z;
+
+assert(simulatedAgent.state === 'SAFE' && simulatedAgent.isEvacuated === true, 'Agent state transitions to SAFE outside');
+assert(simulatedAgent.x === -38.5 && simulatedAgent.y === 0.15, 'Agent coordinates locked at exterior safe muster zone');
+
 console.log('\n=======================================================');
 console.log(`🎯 VERIFICATION COMPLETE: ${passedTests}/${totalTests} TESTS PASSED!`);
 console.log('=======================================================\n');

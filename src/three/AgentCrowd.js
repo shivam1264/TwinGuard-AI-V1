@@ -748,13 +748,13 @@ export class AgentCrowd {
 
     this.agents.forEach(agent => {
       agent.displayPos = null;
-      agent.mesh.position.y = (agent.state === 'SAFE') ? 0.15 : agent.y;
+      agent.mesh.position.y = (agent.state === 'SAFE' || agent.isEvacuated) ? 0.15 : agent.y;
 
       if (mode === 'ALL' || mode === 'EXPLODED') {
         agent.mesh.visible = true;
       } else {
         const isOnTargetFloor = Number(agent.floor) === targetFloorNum;
-        agent.mesh.visible = isOnTargetFloor;
+        agent.mesh.visible = (agent.state === 'SAFE' || agent.isEvacuated) ? (targetFloorNum === 1) : isOnTargetFloor;
       }
     });
 
