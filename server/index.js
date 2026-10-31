@@ -3,6 +3,11 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -15,6 +20,10 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+
+// Serve built client frontend from dist/
+const distPath = path.resolve(__dirname, '../dist');
+app.use(express.static(distPath));
 
 const FLOOR_THEMES = {
   1: { name: 'Ground & Logistics', prefix: 'L1' },
@@ -277,6 +286,11 @@ app.get('/api/network-ip', (req, res) => {
   } catch (err) {
     res.json({ success: false, bestLanIp: '10.229.123.50', addresses: [] });
   }
+});
+
+// Catch-all route to serve index.html for Single Page Application routing
+app.get('*', (req, res) => {
+  res.sendFile(path.resolve(distPath, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
