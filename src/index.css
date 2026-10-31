@@ -1,28 +1,44 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #f1f5f9;
-  --bg-secondary: #ffffff;
-  --bg-card: rgba(255, 255, 255, 0.95);
-  --bg-card-hover: #ffffff;
-  --border-cyan: rgba(59, 130, 246, 0.2);
-  --border-cyan-glow: rgba(59, 130, 246, 0.5);
-  --neon-cyan: #2563eb;
+  --theme-mode: dark;
+  --bg-primary: #070d18;
+  --bg-secondary: #0c162d;
+  --bg-card: rgba(11, 22, 44, 0.85);
+  --bg-card-hover: rgba(18, 34, 66, 0.95);
+  --border-cyan: rgba(56, 189, 248, 0.22);
+  --border-cyan-glow: rgba(56, 189, 248, 0.45);
+  --neon-cyan: #38bdf8;
+  --neon-blue: #2563eb;
   --neon-green: #10b981;
   --neon-red: #ef4444;
   --neon-amber: #f59e0b;
-  --text-primary: #0f172a;
-  --text-muted: #64748b;
-  --font-hud: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-sans: 'Inter', sans-serif;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --font-hud: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* Tailwind's own preflight (via @import "tailwindcss") already resets
-   box-sizing / margin / padding inside @layer base, so Tailwind's
-   spacing utilities (p-4, mb-3, px-2.5 …) correctly override it.
-   A plain unlayered `* { margin: 0; padding: 0 }` would beat every
-   utility class and break card/panel padding across the app. */
+/* Light Theme Variables */
+.theme-light {
+  --theme-mode: light;
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #e2e8f0;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: #ffffff;
+  --border-cyan: rgba(37, 99, 235, 0.25);
+  --border-cyan-glow: rgba(37, 99, 235, 0.4);
+  --neon-cyan: #0284c7;
+  --neon-blue: #1d4ed8;
+  --neon-green: #059669;
+  --neon-red: #dc2626;
+  --neon-amber: #d97706;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+}
 
 body {
   background-color: var(--bg-primary);
@@ -32,21 +48,97 @@ body {
   height: 100vh;
   width: 100vw;
   user-select: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Glassmorphism Panels */
+/* Global Theme Adaptation Layer (Ensures 100% complete UI transitions smoothly) */
+.theme-light body,
+.theme-light {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.theme-light [class*="bg-[#070d18]"],
+.theme-light [class*="bg-[#081020]"],
+.theme-light [class*="bg-[#0b1528]"],
+.theme-light [class*="bg-[#0c162d]"],
+.theme-light [class*="bg-slate-950"],
+.theme-light [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+.theme-light [class*="bg-slate-900/"],
+.theme-light [class*="bg-slate-950/"] {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+}
+
+.theme-light [class*="bg-slate-800"] {
+  background-color: #f8fafc !important;
+  color: #1e293b !important;
+}
+
+.theme-light [class*="border-sky-500"],
+.theme-light [class*="border-slate-800"],
+.theme-light [class*="border-slate-700"] {
+  border-color: #cbd5e1 !important;
+}
+
+.theme-light [class*="text-slate-400"] {
+  color: #64748b !important;
+}
+
+.theme-light [class*="text-slate-300"],
+.theme-light [class*="text-slate-200"],
+.theme-light [class*="text-slate-100"] {
+  color: #1e293b !important;
+}
+
+.theme-light [class*="text-white"] {
+  color: #0f172a !important;
+}
+
+.theme-light .glass-panel {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8 !important;
+}
+
+/* Sci-Fi / Command Center Glassmorphism Panels */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.96);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 20px 0 rgba(15, 23, 42, 0.05);
+  background: rgba(11, 22, 44, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-glow {
+  background: rgba(11, 24, 52, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 25px -4px rgba(37, 99, 235, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
 .glass-panel-danger {
-  background: rgba(254, 242, 242, 0.95);
-  border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 4px 20px 0 rgba(239, 68, 68, 0.15);
+  background: rgba(45, 14, 20, 0.85);
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(239, 68, 68, 0.25), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
 }
 
 /* HUD Typography */
@@ -69,26 +161,26 @@ body {
   display: block;
   position: absolute;
   top: 0; left: 0; bottom: 0; right: 0;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.35) 50%), linear-gradient(90deg, rgba(0, 180, 255, 0.03), rgba(0, 255, 150, 0.01), rgba(0, 180, 255, 0.03));
   z-index: 5;
   background-size: 100% 3px, 6px 100%;
   pointer-events: none;
 }
 
-/* Custom Scrollbar */
+/* Dark Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.8);
+  background: rgba(7, 13, 24, 0.8);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(56, 189, 248, 0.25);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8);
+  background: rgba(56, 189, 248, 0.5);
 }
 
 /* Badge styling */

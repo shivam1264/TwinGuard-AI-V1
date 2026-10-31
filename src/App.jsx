@@ -23,6 +23,13 @@ import { EvacueeCompanionView } from './components/EvacueeCompanionView';
 import { EvacueeQrModal } from './components/EvacueeQrModal';
 import { SosAlertModal } from './components/SosAlertModal';
 import GisMapDrawer from './components/gis/GisMapDrawer';
+import { LoginModal } from './components/LoginModal';
+import { ScenariosView } from './components/ScenariosView';
+import { StrategyRankerView } from './components/StrategyRankerView';
+import { IncidentsView } from './components/IncidentsView';
+import { AnalyticsView } from './components/AnalyticsView';
+import { ReportsView } from './components/ReportsView';
+import { DynamicLeftSidebar } from './components/DynamicLeftSidebar';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { X, Video, BarChart3 } from 'lucide-react';
 
@@ -115,6 +122,32 @@ export function App() {
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
   const [cameraYaw, setCameraYaw] = useState(0);
 
+  // Theme Mode: 'dark' (default) or 'light'
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('twinguard_theme') || 'dark';
+  });
+
+  const handleToggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('twinguard_theme', next);
+      if (next === 'light') {
+        document.documentElement.classList.add('theme-light');
+      } else {
+        document.documentElement.classList.remove('theme-light');
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('theme-light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+    }
+  }, [theme]);
+
   // Collapsible panels state (Default: closed/collapsed on start as requested)
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(true);
   const [isRightCollapsed, setIsRightCollapsed] = useState(true);
@@ -133,7 +166,8 @@ export function App() {
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
   const [isEvacueeQrOpen, setIsEvacueeQrOpen] = useState(false);
   const [activeSosAlert, setActiveSosAlert] = useState(null);
-  const [isGisOpen, setIsGisOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isGisOpen, setIsGisOpen] = useState(true); // Free Fire style persistent radar HUD on 3D view
   const [isSirenMuted, setIsSirenMuted] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => (AIEngine && AIEngine.getActiveScenario ? AIEngine.getActiveScenario() : null));
@@ -203,15 +237,29 @@ export function App() {
     };
   }, []);
 
-  // Smoothly trigger Three.js resize when panels collapse or expand
+  // Smoothly trigger Three.js resize during sidebar collapse/expand animation
   useEffect(() => {
-    if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
-      const timer = setTimeout(() => {
+    if (!sceneManagerRef.current || !sceneManagerRef.current.handleResize) return;
+
+    let startTime = performance.now();
+    let animationFrameId;
+
+    const smoothlyResize = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
         sceneManagerRef.current.handleResize();
-      }, 310);
-      return () => clearTimeout(timer);
-    }
-  }, [isLeftCollapsed, isRightCollapsed]);
+      }
+      if (elapsed < 320) {
+        animationFrameId = requestAnimationFrame(smoothlyResize);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(smoothlyResize);
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [isLeftCollapsed]);
 
   const handleToggleSirenMute = () => {
     if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
@@ -539,17 +587,45 @@ export function App() {
   const hasAnyFire = rooms.some((r) => r.hasFire);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans select-none">
+    <div
+      className={`flex flex-col h-screen w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
+        theme === 'dark' ? 'bg-[#070d18] text-slate-100' : 'bg-[#f1f5f9] text-slate-900'
+      }`}
+    >
       {/* 1. TOP HEADER (Matching Image 1) */}
       <TopHeader
-        activeTab={activeTab}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        activeTab={
+          activeSidebarMode === 'INFO'
+            ? 'BUILDING_INFO'
+            : activeSidebarMode === 'COMMAND_CENTER'
+            ? 'COMMAND_CENTER'
+            : activeTab
+        }
         onSelectTab={(tab) => {
+          if (tab === 'BUILDING_INFO') {
+            setActiveSidebarMode('INFO');
+            setActiveTab('LIVE_VIEW');
+            return;
+          }
+          if (tab === 'COMMAND_CENTER') {
+            setActiveSidebarMode('COMMAND_CENTER');
+            setActiveTab('COMMAND_CENTER');
+            return;
+          }
+          if (activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER') {
+            setActiveSidebarMode('3D_VIEW');
+          }
           setActiveTab(tab);
           if (tab === 'LIVE_VIEW') {
+            setActiveSidebarMode('3D_VIEW');
             setIsCctvOpen(false);
             setIsAnalyticsOpen(false);
             setIsIncidentsOpen(false);
             setIsReportsOpen(false);
+          } else if (tab === 'SETTINGS') {
+            setIsSettingsOpen(true);
           }
         }}
         incidentCount={incidents.length}
@@ -565,61 +641,115 @@ export function App() {
         onOpenGis={() => setIsGisOpen(!isGisOpen)}
         isGisOpen={isGisOpen}
         serverConnected={serverConnected}
+        onOpenLogin={() => setIsLoginOpen(true)}
       />
 
-      {/* 2. MAIN WORKSPACE (Collapsible Left Sidebar + Center 3D Digital Twin Viewport + Collapsible Right Sidebar) */}
+      {/* 2. MAIN WORKSPACE (Collapsible Left Sidebar only on 3D Live View + Center 3D Digital Twin Viewport) */}
       <div className="flex-1 flex overflow-hidden w-full relative">
-        {/* Left Sidebar (Collapsible with icon-only rail) */}
-        <LeftSidebar
-          isCollapsed={isLeftCollapsed}
-          onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
-          activeMode={activeSidebarMode}
-          onSelectMode={(mode) => {
-            setActiveSidebarMode(mode);
-            if (mode === '3D_VIEW') {
-              handleSetCameraPreset('HERO_VIEW');
-              handleSetFloorView('ALL');
-            } else if (mode === 'COMMAND_CENTER') {
-              setActiveSidebarMode('COMMAND_CENTER');
-            } else if (mode === 'FLOOR_VIEW') {
-              handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED');
-              handleSetFacadeMode('CUTAWAY');
-            } else if (mode === 'STAIRS_FOCUS') {
-              handleSetCameraPreset('STAIRS_FOCUS');
-              handleSetFacadeMode('CUTAWAY');
-            } else if (mode === 'ELEVATORS') {
-              handleSetCameraPreset('ELEVATORS');
-              handleSetFacadeMode('CUTAWAY');
-            } else if (mode === 'CCTV') {
-              setIsCctvOpen(true);
-            } else if (mode === 'SYSTEMS') {
-              setIsAnalyticsOpen(true);
-            } else if (mode === 'EMERGENCY') {
-              setIsEmergencyControlOpen(true);
-            } else if (mode === 'INFO') {
-              setActiveSidebarMode('INFO');
-            }
-          }}
-          activeFloorView={activeFloorView}
-          onSelectFloor={handleSetFloorView}
-          rooms={rooms}
-          onOpenCctv={() => setIsCctvOpen(true)}
-          onOpenSystems={() => setIsAnalyticsOpen(true)}
-          onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
-          onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
-          onSetCameraPreset={handleSetCameraPreset}
-          isSimulating={isSimulating}
-          elapsedSeconds={stats.elapsedSeconds}
-          emergencyStatus={emergencyStatus}
-        />
+        {/* Dynamic Contextual Left Sidebar (Only visible on 3D Live View / LIVE_VIEW) */}
+        {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
+          <DynamicLeftSidebar
+            isCollapsed={isLeftCollapsed}
+            onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
+            activeTab={activeSidebarMode === 'INFO' ? 'BUILDING_INFO' : (activeSidebarMode === 'COMMAND_CENTER' ? 'COMMAND_CENTER' : activeTab)}
+            onSelectTab={setActiveTab}
+            activeMode={activeSidebarMode}
+            onSelectMode={(mode) => {
+              setActiveSidebarMode(mode);
+              if (mode === '3D_VIEW') {
+                handleSetCameraPreset('HERO_VIEW');
+                handleSetFloorView('ALL');
+              } else if (mode === 'STAIRS_FOCUS') {
+                handleSetCameraPreset('STAIRS_FOCUS');
+                handleSetFacadeMode('CUTAWAY');
+              } else if (mode === 'CCTV') {
+                setIsCctvOpen(true);
+              } else if (mode === 'SYSTEMS') {
+                setIsAnalyticsOpen(true);
+              } else if (mode === 'EMERGENCY') {
+                setIsEmergencyControlOpen(true);
+              }
+            }}
+            activeFloorView={activeFloorView}
+            onSelectFloor={handleSetFloorView}
+            isSimulating={isSimulating}
+            simSpeed={simSpeed}
+            onStartEvacuation={handleStartEvacuation}
+            onPauseResume={handlePauseResume}
+            onReset={handleReset}
+            onSetSpeed={handleSetSpeed}
+            elapsedSeconds={stats.elapsedSeconds}
+            onOpenCctv={() => setIsCctvOpen(true)}
+            onOpenSystems={() => setIsAnalyticsOpen(true)}
+            onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
+            rooms={rooms}
+            exits={exits}
+            incidents={incidents}
+          />
+        )}
 
-        {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f1f5f9] relative overflow-hidden">
-          {/* Main Three.js 3D Viewport Slot */}
+        {/* Central Dynamic Workspace (Switches between 3D Command Center, AI Scenarios Studio, Strategy Ranker, and Incidents View) */}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#070d18] relative overflow-hidden">
+          {/* 1. AI SCENARIOS VIEW (Matching Reference Image 3) */}
+          {activeTab === 'SCENARIOS' && (
+            <ScenariosView
+              rooms={rooms}
+              currentScenario={activeScenario}
+              onApplyScenario={handleApplyScenario}
+              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 2. STRATEGY RANKER VIEW (Matching Reference Image 4) */}
+          {activeTab === 'STRATEGY_RANKER' && (
+            <StrategyRankerView
+              scenario={activeScenario}
+              rooms={rooms}
+              exits={exits}
+              onApplyStrategy={handleApplyStrategyToSimulation}
+              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 3. INCIDENTS COMMAND CENTER VIEW (Matching Reference Image 5) */}
+          {activeTab === 'INCIDENTS' && (
+            <IncidentsView
+              incidents={incidents}
+              onStartEvacuation={handleStartEvacuation}
+              onOpenGis={() => setIsGisOpen(true)}
+              onOpenCctv={() => setIsCctvOpen(true)}
+              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 4. PREDICTIVE ANALYTICS & FLOW INTELLIGENCE VIEW (Matching User Reference Image) */}
+          {activeTab === 'ANALYTICS' && (
+            <AnalyticsView
+              stats={stats}
+              rooms={rooms}
+              exits={exits}
+              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 5. LIFE SAFETY AUDIT & COMPLIANCE REPORTS VIEW */}
+          {activeTab === 'REPORTS' && (
+            <ReportsView
+              stats={stats}
+              exits={exits}
+              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* Main Three.js 3D Viewport Slot (Preserved completely intact; hidden when in 2D views) */}
           <div
             ref={mainSlotRef}
             className="w-full h-full relative overflow-hidden"
-            style={{ display: (activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER') ? 'none' : 'block' }}
+            style={{
+              display: (activeTab === 'SCENARIOS' || activeTab === 'STRATEGY_RANKER' || activeTab === 'INCIDENTS' || activeTab === 'ANALYTICS' || activeTab === 'REPORTS' || activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER' || activeTab === 'COMMAND_CENTER')
+                ? 'none'
+                : 'block'
+            }}
           >
             <div
               ref={threeCanvasRef}
@@ -628,7 +758,7 @@ export function App() {
           </div>
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          {activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
+          {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
             <ViewportOverlay
               facadeMode={facadeMode}
               onSetFacadeMode={handleSetFacadeMode}
@@ -637,11 +767,16 @@ export function App() {
               cameraYaw={cameraYaw}
               onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
               onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
+              onPanLeft={() => sceneManagerRef.current && sceneManagerRef.current.panLeft(6)}
+              onPanRight={() => sceneManagerRef.current && sceneManagerRef.current.panRight(6)}
+              onMoveForward={() => sceneManagerRef.current && sceneManagerRef.current.moveForward(6)}
+              onMoveBackward={() => sceneManagerRef.current && sceneManagerRef.current.moveBackward(6)}
               onResetView={(preset) => handleSetCameraPreset(preset)}
               onToggleExploded={() =>
                 handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
               }
               onToggleGis={() => setIsGisOpen(!isGisOpen)}
+              onToggleFullscreen={handleToggleFullscreen}
               isGisOpen={isGisOpen}
               rooms={rooms}
             />
@@ -670,9 +805,9 @@ export function App() {
             </div>
           )}
 
-          {/* EMERGENCY COMMAND CENTER DASHBOARD (Full-Screen Dedicated View Matching Target Reference) */}
+          {/* EMERGENCY COMMAND CENTER DASHBOARD (Rendered inline inside workspace, maintaining top header and overall layout) */}
           {activeSidebarMode === 'COMMAND_CENTER' && (
-            <div className="fixed inset-0 z-50 overflow-hidden bg-[#f4f6fa]">
+            <div className="absolute inset-0 z-20 overflow-hidden bg-[#f4f6fa] flex flex-col">
               <EmergencyCommandCenterPage
                 threeCanvasRef={threeCanvasRef}
                 mainSlotRef={mainSlotRef}
@@ -712,10 +847,12 @@ export function App() {
                 }}
                 onSwitchTo3D={() => {
                   setActiveSidebarMode('3D_VIEW');
+                  setActiveTab('LIVE_VIEW');
                   handleSetCameraPreset('HERO_VIEW');
                 }}
                 onClose={() => {
                   setActiveSidebarMode('3D_VIEW');
+                  setActiveTab('LIVE_VIEW');
                   handleSetCameraPreset('HERO_VIEW');
                 }}
               />
@@ -723,32 +860,7 @@ export function App() {
           )}
         </div>
 
-        {/* Right Sidebar (Collapsible with icon-only rail) */}
-        <RightSidebar
-          isCollapsed={isRightCollapsed}
-          onToggleCollapse={() => setIsRightCollapsed(!isRightCollapsed)}
-          stats={stats}
-          exits={exits}
-          incidents={incidents}
-          hasFire={hasAnyFire}
-          onOpenAnalytics={() => setIsAnalyticsOpen(true)}
-          onOpenIncidents={() => setIsIncidentsOpen(true)}
-        />
       </div>
-
-      {/* 3. BOTTOM CONTROL DOCK (Start Evacuation, Reset, Speed, BIM Layers, Camera View - Matching Image 1) */}
-      <BottomControlDock
-        isSimulating={isSimulating}
-        simSpeed={simSpeed}
-        onStartEvacuation={handleStartEvacuation}
-        onPauseResume={handlePauseResume}
-        onReset={handleReset}
-        onSetSpeed={handleSetSpeed}
-        onSetCameraPreset={handleSetCameraPreset}
-        bimLayers={bimLayers}
-        onToggleBimLayer={handleToggleBimLayer}
-        onToggleFullscreen={handleToggleFullscreen}
-      />
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
@@ -839,16 +951,15 @@ export function App() {
         onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
       />
 
-      {/* MODAL 9: System Settings Modal */}
+      {/* MODAL 9: Combined Profile & System Settings Modal */}
       {isSettingsOpen && (
         <SettingsModal
           onClose={() => setIsSettingsOpen(false)}
-          onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
-          onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
+          onOpenLogin={() => setIsLoginOpen(true)}
         />
       )}
 
-      {/* MODAL 9: Building Information Modeling & Architectural Specs */}
+      {/* MODAL 10: Building Information Modeling & Architectural Specs */}
       <BuildingInfoModal
         isOpen={isBuildingInfoOpen}
         onClose={() => setIsBuildingInfoOpen(false)}
@@ -888,17 +999,26 @@ export function App() {
         />
       )}
 
-      {/* KILLER FEATURE 1: Live Interactive Satellite GIS + City Emergency Dispatch */}
-      <GisMapDrawer
-        isOpen={isGisOpen}
-        onClose={() => setIsGisOpen(false)}
-        emergencyStatus={emergencyStatus}
-        onFocusCampusView={() => {
-          handleSetCameraPreset('CAMPUS_HERO');
-        }}
-        isMuted={isSirenMuted}
-        onToggleMute={handleToggleSirenMute}
+      {/* LOGIN & AUTHENTICATION PORTAL (Matching Image 1) */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onLoginSuccess={() => setIsLoginOpen(false)}
       />
+
+      {/* KILLER FEATURE 1: Live Interactive Satellite GIS Mini-Map (Free Fire style Top-Right Radar HUD) */}
+      {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
+        <GisMapDrawer
+          isOpen={isGisOpen}
+          onClose={() => setIsGisOpen(false)}
+          emergencyStatus={emergencyStatus}
+          onFocusCampusView={() => {
+            handleSetCameraPreset('CAMPUS_HERO');
+          }}
+          isMuted={isSirenMuted}
+          onToggleMute={handleToggleSirenMute}
+        />
+      )}
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}
       {fireBubbleData && (

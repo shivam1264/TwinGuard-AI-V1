@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Box,
   Building2,
   Calendar,
   Compass,
-  ChevronDown,
-  Video,
   AlertTriangle,
   FileText,
   Settings,
-  Home,
   Sparkles,
   Trophy,
   Smartphone,
-  QrCode
+  LayoutDashboard,
+  Bell,
+  LineChart,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export const TopHeader = ({
   activeTab = 'LIVE_VIEW',
   onSelectTab,
   incidentCount = 3,
+  theme = 'dark',
+  onToggleTheme,
   onOpenCctv,
   onOpenAnalytics,
   onOpenIncidents,
@@ -29,6 +33,7 @@ export const TopHeader = ({
   onOpenBuildingInfo,
   onOpenEvacueeQr,
   onOpenGis,
+  onOpenLogin,
   isGisOpen = false,
   serverConnected = true
 }) => {
@@ -57,59 +62,133 @@ export const TopHeader = ({
   };
 
   const navItems = [
-    { id: 'SCENARIOS', label: 'AI Scenarios', icon: Sparkles, onClick: () => { onSelectTab('SCENARIOS'); if (onOpenScenarioStudio) onOpenScenarioStudio(); } },
-    { id: 'STRATEGY_RANKER', label: 'Strategy Ranker', icon: Trophy, onClick: () => { onSelectTab('STRATEGY_RANKER'); if (onOpenStrategyRanker) onOpenStrategyRanker(); } },
-    { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle, badge: incidentCount > 0 ? incidentCount : null, onClick: () => { onSelectTab('INCIDENTS'); if (onOpenIncidents) onOpenIncidents(); } },
-    { id: 'REPORTS', label: 'Reports', icon: FileText, onClick: () => { onSelectTab('REPORTS'); if (onOpenReports) onOpenReports(); } },
-    { id: 'SETTINGS', label: 'Settings', icon: Settings, onClick: () => { onSelectTab('SETTINGS'); if (onOpenSettings) onOpenSettings(); } },
+    {
+      id: 'LIVE_VIEW',
+      label: '3D Digital Twin',
+      icon: Box,
+      onClick: () => onSelectTab('LIVE_VIEW')
+    },
+    {
+      id: 'COMMAND_CENTER',
+      label: 'Command Center',
+      icon: LayoutDashboard,
+      onClick: () => onSelectTab('COMMAND_CENTER')
+    },
+    {
+      id: 'BUILDING_INFO',
+      label: 'Building Info',
+      icon: Building2,
+      onClick: () => onSelectTab('BUILDING_INFO')
+    },
+    {
+      id: 'SCENARIOS',
+      label: 'AI Scenarios',
+      icon: Sparkles,
+      onClick: () => onSelectTab('SCENARIOS')
+    },
+    {
+      id: 'STRATEGY_RANKER',
+      label: 'Strategy Ranker',
+      icon: Trophy,
+      onClick: () => onSelectTab('STRATEGY_RANKER')
+    },
+    {
+      id: 'INCIDENTS',
+      label: 'Incidents',
+      icon: AlertTriangle,
+      badge: incidentCount > 0 ? incidentCount : null,
+      onClick: () => onSelectTab('INCIDENTS')
+    },
+    {
+      id: 'ANALYTICS',
+      label: 'Analytics',
+      icon: LineChart,
+      onClick: () => onSelectTab('ANALYTICS')
+    },
+    {
+      id: 'REPORTS',
+      label: 'Reports',
+      icon: FileText,
+      onClick: () => onSelectTab('REPORTS')
+    }
   ];
 
   return (
     <header
-      className="h-16 px-6 flex items-center justify-between shrink-0 z-30 select-none"
+      className="h-16 px-4 sm:px-6 flex items-center justify-between shrink-0 z-30 select-none backdrop-blur-md transition-colors duration-300"
       style={{
-        background: '#ffffff',
-        borderBottom: '1px solid #e2e8f0',
-        fontFamily: "'Inter', system-ui, sans-serif",
+        background: theme === 'dark'
+          ? 'linear-gradient(180deg, rgba(8, 16, 32, 0.95) 0%, rgba(6, 12, 24, 0.9) 100%)'
+          : 'linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%)',
+        borderBottom: theme === 'dark' ? '1px solid rgba(56, 189, 248, 0.16)' : '1px solid #e2e8f0',
+        boxShadow: theme === 'dark' ? '0 4px 24px rgba(0, 0, 0, 0.45)' : '0 2px 12px rgba(0, 0, 0, 0.05)',
+        fontFamily: "'Inter', system-ui, sans-serif"
       }}
     >
       {/* ── Left: Brand Identity (TWINGUARD AI) ── */}
-      <div className="flex items-center" style={{ gap: '12px' }}>
+      <div className="flex items-center gap-3">
         <div
-          className="flex items-center justify-center shrink-0"
+          className="flex items-center justify-center shrink-0 cursor-pointer transition-transform hover:scale-105"
+          onClick={() => onSelectTab('LIVE_VIEW')}
           style={{
             width: '40px',
             height: '40px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            border: '1px solid #bfdbfe',
-            color: '#2563eb',
-            boxShadow: '0 2px 6px -1px rgba(37, 99, 235, 0.15)',
+            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(56, 189, 248, 0.15) 100%)',
+            border: '1px solid rgba(56, 189, 248, 0.35)',
+            boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)'
           }}
         >
-          <Building2 style={{ width: '22px', height: '22px' }} />
+          {/* Cyan Glowing 3-Bar Tower Icon */}
+          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
+            <path
+              d="M3 20V12L8 8V20M8 20V4L16 4V20M16 20V9L21 13V20"
+              stroke="#38bdf8"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
         <div>
-          <div className="flex items-center" style={{ gap: '6px' }}>
-            <span style={{ fontSize: '15px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
-              TWINGUARD <span style={{ color: '#2563eb' }}>AI</span>
+          <div className="flex items-center gap-1.5">
+            <span
+              style={{
+                fontSize: '15px',
+                fontWeight: 900,
+                color: theme === 'dark' ? '#f8fafc' : '#0f172a',
+                letterSpacing: '-0.02em',
+                lineHeight: 1
+              }}
+            >
+              TWINGUARD <span style={{ color: '#0284c7', textShadow: theme === 'dark' ? '0 0 12px rgba(56, 189, 248, 0.6)' : 'none' }}>AI</span>
             </span>
           </div>
-          <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', marginTop: '3px', lineHeight: 1 }}>
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#94a3b8',
+              marginTop: '3px',
+              lineHeight: 1,
+              letterSpacing: '0.02em'
+            }}
+          >
             Digital Twin Command Platform
           </div>
         </div>
       </div>
 
-      {/* ── Center: Main Navigation Tabs (Matching Image) ── */}
+      {/* ── Center: Main Navigation Tabs ── */}
       <nav
-        className="hidden lg:flex items-center"
+        className="hidden xl:flex items-center"
         style={{
-          background: '#f8fafc',
+          background: 'rgba(11, 22, 44, 0.75)',
           padding: '4px',
           borderRadius: '14px',
           gap: '3px',
-          border: '1px solid #e2e8f0',
+          border: '1px solid rgba(56, 189, 248, 0.18)',
+          boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.4)'
         }}
       >
         {navItems.map((item) => {
@@ -126,15 +205,35 @@ export const TopHeader = ({
                   height: '36px',
                   padding: '0 16px',
                   borderRadius: '11px',
-                  background: '#2563eb',
-                  boxShadow: '0 2px 8px -1px rgba(37, 99, 235, 0.4)',
-                  
+                  background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
+                  boxShadow: '0 2px 10px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
                   gap: '8px',
-                  
+                  border: '1px solid rgba(96, 165, 250, 0.4)'
                 }}
               >
                 <Icon style={{ width: '15px', height: '15px' }} />
                 <span style={{ fontSize: '12px', fontWeight: 700 }}>{item.label}</span>
+                {item.badge && item.badge > 0 && (
+                  <span
+                    style={{
+                      fontSize: '9.5px',
+                      fontWeight: 900,
+                      background: '#ef4444',
+                      color: '#ffffff',
+                      borderRadius: '50%',
+                      width: '17px',
+                      height: '17px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginLeft: '2px',
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
+                    }}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </button>
             );
           }
@@ -146,20 +245,20 @@ export const TopHeader = ({
               className="flex items-center cursor-pointer transition-all focus:outline-none relative"
               style={{
                 height: '36px',
-                padding: '0 14px',
+                padding: '0 13px',
                 borderRadius: '11px',
                 background: 'transparent',
-                color: '#475569',
+                color: theme === 'dark' ? '#94a3b8' : '#475569',
                 gap: '7px',
-                border: 'none',
+                border: 'none'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#ffffff';
-                e.currentTarget.style.color = '#0f172a';
+                e.currentTarget.style.background = theme === 'dark' ? 'rgba(56, 189, 248, 0.08)' : 'rgba(37, 99, 235, 0.08)';
+                e.currentTarget.style.color = theme === 'dark' ? '#f8fafc' : '#0f172a';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = '#475569';
+                e.currentTarget.style.color = theme === 'dark' ? '#94a3b8' : '#475569';
               }}
             >
               <Icon style={{ width: '15px', height: '15px' }} />
@@ -178,6 +277,7 @@ export const TopHeader = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginLeft: '2px',
+                    boxShadow: '0 0 6px rgba(239, 68, 68, 0.6)'
                   }}
                 >
                   {item.badge}
@@ -188,151 +288,76 @@ export const TopHeader = ({
         })}
       </nav>
 
-      {/* ── Right: Evacuee Mobile View, Facility Selector, Clock, & Avatar ── */}
-      <div className="flex items-center" style={{ gap: '12px' }}>
-        {/* Evacuee Mobile View Action Button */}
-        <button
-          onClick={onOpenEvacueeQr}
-          className="hidden sm:flex items-center cursor-pointer transition-all hover:scale-105 active:scale-95 select-none"
-          style={{
-            height: '36px',
-            padding: '0 14px',
-            borderRadius: '12px',
-            background: '#ffffff',
-            border: '1px solid #cbd5e1',
-            color: '#334155',
-            gap: '8px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
-            fontWeight: 700,
-            fontSize: '12px'
-          }}
-          title="Open Scannable QR Code for Live Mobile Evacuee Companion Demo"
-        >
-          <Smartphone style={{ width: '15px', height: '15px' }} />
-          <span>Mobile Companion</span>
-        </button>
-
-        {/* Facility Selector Pill */}
-        <div
-          onClick={onOpenBuildingInfo}
-          className="flex items-center cursor-pointer transition-colors hover:bg-slate-50"
-          style={{
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '6px 12px',
-            gap: '10px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
-          }}
-          title="Facility Location & Building Information"
-        >
-          <div
-            className="flex items-center justify-center shrink-0"
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
-              background: '#f0fdf4',
-              border: '1px solid #d1fae5',
-              color: '#16a34a',
-            }}
-          >
-            <Building2 style={{ width: '15px', height: '15px' }} />
-          </div>
-          <div className="text-left">
-            <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-              10-Storey Tower
-            </div>
-            <div style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: 500 }}>
-              Office Facility
-            </div>
-          </div>
-          <ChevronDown style={{ width: '13px', height: '13px', color: '#94a3b8' }} />
-        </div>
-
-        {/* Date & Time Pill */}
-        <div
-          className="flex items-center"
-          style={{
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '6px 12px',
-            gap: '8px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
-          }}
-        >
-          <Calendar style={{ width: '15px', height: '15px', color: '#64748b' }} />
-          <div className="text-left">
-            <div style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', lineHeight: 1 }}>
-              {formatDate(currentTime)}
-            </div>
-            <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', marginTop: '2px', lineHeight: 1 }}>
-              {formatTime(currentTime)}
-            </div>
-          </div>
-        </div>
-
-        {/* Live Satellite GIS Mini-Map Tactical Toggle Button */}
-        {onOpenGis && (
+      {/* ── Right: Theme Toggle, Mobile Evacuee, Clock, & Profile/Settings ── */}
+      <div className="flex items-center gap-2.5">
+        {/* Dark / Light Mode Toggle Button */}
+        {onToggleTheme && (
           <button
-            onClick={onOpenGis}
-            className="flex items-center cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-sm"
+            onClick={onToggleTheme}
+            className="flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 w-9 h-9 rounded-xl"
             style={{
-              background: isGisOpen
-                ? 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)'
-                : '#ffffff',
-              border: isGisOpen ? '1px solid #3b82f6' : '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '6px 12px',
-              gap: '7px',
-              color: isGisOpen ? '#ffffff' : '#0f172a',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+              background: theme === 'dark' ? 'rgba(15, 23, 42, 0.8)' : '#ffffff',
+              border: theme === 'dark' ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+              color: theme === 'dark' ? '#f59e0b' : '#2563eb',
+              boxShadow: theme === 'dark' ? '0 0 10px rgba(245, 158, 11, 0.2)' : '0 2px 6px rgba(0, 0, 0, 0.08)'
             }}
-            title={isGisOpen ? 'Close GIS Tactical Mini-Map' : 'Open GIS Tactical Mini-Map'}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
-            <Compass
-              style={{
-                width: '14px',
-                height: '14px',
-                color: isGisOpen ? '#60a5fa' : '#2563eb'
-              }}
-            />
-            <span style={{ fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.02em' }}>
-              GIS
-            </span>
-            <span
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                background: isGisOpen ? '#10b981' : '#94a3b8',
-                boxShadow: isGisOpen ? '0 0 6px #10b981' : 'none',
-                display: 'inline-block',
-                transition: 'all 0.2s ease',
-              }}
-            />
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4 text-blue-600" />
+            )}
           </button>
         )}
 
-        {/* User Avatar Badge */}
-        <div
-          className="flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
+        {/* Mobile Evacuee Companion Button */}
+        <button
+          onClick={onOpenEvacueeQr}
+          className="hidden md:flex items-center cursor-pointer transition-all hover:scale-105 active:scale-95"
           style={{
-            width: '36px',
             height: '36px',
-            borderRadius: '50%',
-            background: '#dcfce7',
-            border: '1px solid #bbf7d0',
-            color: '#15803d',
-            fontSize: '12px',
-            fontWeight: 800,
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+            padding: '0 12px',
+            borderRadius: '11px',
+            background: theme === 'dark' ? 'rgba(15, 23, 42, 0.75)' : '#ffffff',
+            border: theme === 'dark' ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            color: theme === 'dark' ? '#38bdf8' : '#0284c7',
+            gap: '7px',
+            fontWeight: 700,
+            fontSize: '11.5px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
           }}
-          title="Security Officer: S. Kumar"
+          title="Open Scannable QR Code for Live Mobile Evacuee Companion"
         >
-          SK
-        </div>
+          <Smartphone style={{ width: '14px', height: '14px' }} />
+          <span>Mobile Evacuee</span>
+        </button>
+
+        {/* Combined Profile & Settings Controller Pill */}
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl cursor-pointer transition-all hover:scale-105 active:scale-95 border"
+            style={{
+              background: theme === 'dark' ? 'rgba(15, 23, 42, 0.9)' : '#ffffff',
+              borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.25)' : '#cbd5e1',
+              color: theme === 'dark' ? '#f1f5f9' : '#0f172a',
+              boxShadow: theme === 'dark' ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 6px rgba(0,0,0,0.06)'
+            }}
+            title="Profile & System Settings"
+          >
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-600 to-sky-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">
+              SM
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-[11px] font-bold leading-tight" style={{ color: theme === 'dark' ? '#ffffff' : '#0f172a' }}>
+                Shivansh
+              </span>
+              <span className="text-[9px] font-medium leading-tight text-sky-500">Settings</span>
+            </div>
+            <Settings className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+          </button>
+        )}
       </div>
     </header>
   );

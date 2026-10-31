@@ -40,3 +40,9 @@ __pycache__/
 *.sln
 *.sw?
 ~$*.docx
+
+# Test results & Playwright
+test-results/
+playwright-report/
+blob-report/
+

@@ -1167,6 +1167,44 @@ export class SceneManager {
     this.controls.update();
   }
 
+  panLeft(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const forward = new THREE.Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
+    const left = new THREE.Vector3(-forward.z, 0, forward.x).normalize();
+    const step = left.multiplyScalar(delta);
+    this.camera.position.add(step);
+    this.controls.target.add(step);
+    this.controls.update();
+  }
+
+  panRight(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const forward = new THREE.Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
+    const right = new THREE.Vector3(forward.z, 0, -forward.x).normalize();
+    const step = right.multiplyScalar(delta);
+    this.camera.position.add(step);
+    this.controls.target.add(step);
+    this.controls.update();
+  }
+
+  moveForward(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const forward = new THREE.Vector3().subVectors(this.controls.target, this.camera.position).setY(0).normalize();
+    const step = forward.multiplyScalar(delta);
+    this.camera.position.add(step);
+    this.controls.target.add(step);
+    this.controls.update();
+  }
+
+  moveBackward(delta = 6) {
+    if (!this.camera || !this.controls) return;
+    const backward = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).setY(0).normalize();
+    const step = backward.multiplyScalar(delta);
+    this.camera.position.add(step);
+    this.controls.target.add(step);
+    this.controls.update();
+  }
+
   rotateCamera(deg = 45) {
     if (!this.camera || !this.controls) return;
     const rad = THREE.MathUtils.degToRad(deg);
