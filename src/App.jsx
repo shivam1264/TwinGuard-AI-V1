@@ -191,7 +191,8 @@ export function App() {
       setSimSpeed: handleSetSpeed,
       toggleGis: () => setIsGisOpen(prev => !prev),
       getStats: () => stats,
-      getEmergencyStatus: () => emergencyStatus
+      getEmergencyStatus: () => emergencyStatus,
+      sceneManager: manager
     };
     manager.syncOccupants(rooms);
 
