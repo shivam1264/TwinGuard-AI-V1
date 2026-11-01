@@ -275,6 +275,18 @@ export function App() {
     };
   }, []);
 
+  // Force 3D resize when switching to LIVE_VIEW so canvas immediately adapts
+  useEffect(() => {
+    if (activeTab === 'LIVE_VIEW' && sceneManagerRef.current && sceneManagerRef.current.handleResize) {
+      const timer = setTimeout(() => {
+        if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
+          sceneManagerRef.current.handleResize();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+
   // Phase 5C: Pass active scenario to SceneManager when loaded
   useEffect(() => {
     if (sceneManagerRef.current && activeScenario) {

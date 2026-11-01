@@ -444,3 +444,15 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Ensure Three.js canvas always fills 100% of its container without letterboxing */
+.cursor-grab canvas,
+[ref="threeCanvasRef"] canvas,
+.three-canvas-slot canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+}
