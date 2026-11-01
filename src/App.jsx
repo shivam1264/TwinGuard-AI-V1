@@ -3,7 +3,6 @@ import { io } from 'socket.io-client';
 import { SceneManager } from './three/SceneManager';
 import { TopHeader } from './components/TopHeader';
 import { LeftSidebar } from './components/LeftSidebar';
-import { RightSidebar } from './components/RightSidebar';
 import { BottomControlDock } from './components/BottomControlDock';
 import { ViewportOverlay } from './components/ViewportOverlay';
 import { CCTVMultiviewer } from './components/CCTVMultiviewer';
@@ -162,7 +161,6 @@ export function App() {
 
   // Collapsible panels state (Default: closed/collapsed on start as requested)
   const [isLeftCollapsed, setIsLeftCollapsed] = useState(true);
-  const [isRightCollapsed, setIsRightCollapsed] = useState(true);
 
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
   const [selected3DRoom, setSelected3DRoom] = useState(null);
@@ -1005,21 +1003,6 @@ export function App() {
             </div>
           )}
         </div>
-
-        {/* Right Sidebar (Collapsible with icon-only rail) */}
-        <RightSidebar
-          isCollapsed={isRightCollapsed}
-          onToggleCollapse={() => setIsRightCollapsed(!isRightCollapsed)}
-          stats={stats}
-          exits={exits}
-          incidents={incidents}
-          strategy={activeStrategyInfo}
-          lastReroute={lastReroute}
-          hasFire={hasAnyFire}
-          onOpenAnalytics={() => setIsAnalyticsOpen(true)}
-          onOpenIncidents={() => setIsIncidentsOpen(true)}
-          onOpenGis={() => setIsGisOpen(true)}
-        />
       </div>
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
@@ -1219,3 +1202,4 @@ export function App() {
     </div>
   );
 }
+
