@@ -52,10 +52,10 @@ export const ViewportOverlay = ({
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
       {/* ── Top-Left: View Mode Selector Pills & Compass Rose (Matching Image 2) ── */}
-      <div className="absolute top-4 left-4 flex flex-col pointer-events-auto gap-3">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex flex-col pointer-events-auto gap-2 sm:gap-3 max-w-[calc(100vw-24px)]">
         {/* Pills: [Exterior] [Interior] [Top View] [Exploded] */}
         <div
-          className="flex items-center backdrop-blur-md p-1 rounded-xl gap-1 transition-colors"
+          className="flex flex-wrap items-center backdrop-blur-md p-1 rounded-xl gap-1 transition-colors max-w-full"
           style={{
             background: isDark ? 'rgba(11, 22, 44, 0.85)' : 'rgba(255, 255, 255, 0.95)',
             border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
@@ -255,7 +255,7 @@ export const ViewportOverlay = ({
       </div>
 
       {/* ── Left-Side: Vertical Floor Stack Selector [Exploded] [L10..L1] [ALL] (Transferred to Left) ── */}
-      <div className={`absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto z-10 gap-1 backdrop-blur-md px-1.5 py-2 rounded-2xl border shadow-2xl transition-colors ${
+      <div className={`absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto z-10 gap-1 backdrop-blur-md px-1 sm:px-1.5 py-1.5 sm:py-2 rounded-2xl border shadow-2xl transition-colors max-h-[68vh] overflow-y-auto no-scrollbar ${
         isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
       }`}>
         {/* Exploded BIM Stack Pill at top */}
@@ -336,13 +336,13 @@ export const ViewportOverlay = ({
       </div>
 
       {/* ── Bottom-Right: Viewport Navigation [Zoom In, Zoom Out, Left, Right, Forward, Back] ── */}
-      <div className={`absolute bottom-4 right-4 flex items-center pointer-events-auto gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-2xl transition-colors ${
+      <div className={`absolute bottom-3 right-3 sm:bottom-4 sm:right-4 flex items-center pointer-events-auto gap-0.5 sm:gap-1 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl border shadow-2xl transition-colors ${
         isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
       }`}>
         {/* Zoom In */}
         <button
           onClick={onZoomIn}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Zoom In"
@@ -353,7 +353,7 @@ export const ViewportOverlay = ({
         {/* Zoom Out */}
         <button
           onClick={onZoomOut}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Zoom Out"
@@ -366,7 +366,7 @@ export const ViewportOverlay = ({
         {/* Left */}
         <button
           onClick={onPanLeft}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Move Left"
@@ -377,7 +377,7 @@ export const ViewportOverlay = ({
         {/* Right */}
         <button
           onClick={onPanRight}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Move Right"
@@ -388,7 +388,7 @@ export const ViewportOverlay = ({
         {/* Forward */}
         <button
           onClick={onMoveForward}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Move Forward"
@@ -399,7 +399,7 @@ export const ViewportOverlay = ({
         {/* Back / Backward */}
         <button
           onClick={onMoveBackward}
-          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
             isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
           }`}
           title="Move Back"

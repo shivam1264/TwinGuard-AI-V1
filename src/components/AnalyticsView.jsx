@@ -111,10 +111,10 @@ const AnalyticsViewComponent = ({
       </div>
 
       {/* ── 2. Main Content Grid (Left Rail + Right Analytics Dashboard) ── */}
-      <div className="flex-1 flex min-w-0 p-5 gap-5 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row min-w-0 p-3 sm:p-5 gap-4 sm:gap-5 overflow-y-auto lg:overflow-hidden">
         {/* ── Left Modules Navigation Rail ── */}
         <div
-          className="w-64 shrink-0 flex flex-col p-3 rounded-2xl gap-2 h-fit"
+          className="w-full lg:w-64 shrink-0 grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-col p-3 rounded-2xl gap-2 h-fit"
           style={{
             background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
             border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
@@ -178,7 +178,7 @@ const AnalyticsViewComponent = ({
         {/* ── Right Dashboard Layout ── */}
         <div className="flex-1 flex flex-col gap-4 overflow-y-auto no-scrollbar">
           {/* Top 5 KPI Cards Row */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* KPI 1 */}
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"

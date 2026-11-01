@@ -26,9 +26,13 @@ import {
 const TACTICAL_GIS_STYLES = `
   .leaflet-container {
     background-color: #0b1528 !important;
+    background: #0b1528 !important;
     width: 100% !important;
     height: 100% !important;
     outline: none !important;
+  }
+  .leaflet-tile-pane, .leaflet-pane {
+    background-color: #0b1528 !important;
   }
 
   .tactical-gis-pulse-marker {
@@ -434,7 +438,7 @@ export default function GisMapDrawer({
       if (rafId) cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+          mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
         }
       });
     });
@@ -455,12 +459,15 @@ export default function GisMapDrawer({
 
     const smoothlyResizeMap = (now) => {
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
       }
-      if (now - startTime < 380) {
+      if (now - startTime < 320) {
         animId = requestAnimationFrame(smoothlyResizeMap);
       } else if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+        if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+          tileLayerRef.current._update();
+        }
         if (dispatchProgress > 0 && dispatchProgress < 1.0) {
           const posState = getInterpolatedRoutePosition(dispatchProgress);
           mapInstanceRef.current.panTo([posState.lat, posState.lng]);
@@ -472,17 +479,18 @@ export default function GisMapDrawer({
 
     animId = requestAnimationFrame(smoothlyResizeMap);
 
-    const timeouts = [50, 100, 200, 300, 350, 420].map((delay) =>
-      setTimeout(() => {
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+    const finishTimeout = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+        if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+          tileLayerRef.current._update();
         }
-      }, delay)
-    );
+      }
+    }, 350);
 
     return () => {
       if (animId) cancelAnimationFrame(animId);
-      timeouts.forEach(clearTimeout);
+      clearTimeout(finishTimeout);
     };
   }, [isExpanded, isMinimized]);
 
@@ -512,7 +520,7 @@ export default function GisMapDrawer({
       {isMinimized && (
         <button
           onClick={() => setIsMinimized(false)}
-          className="fixed top-18 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+          className="fixed top-16 sm:top-18 right-3 sm:right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
           style={{
             background: isDark ? 'rgba(7, 18, 38, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: isDark ? '1.5px solid #00d2ff' : '1.5px solid #0284c7',
@@ -535,15 +543,18 @@ export default function GisMapDrawer({
       <div
         onTransitionEnd={() => {
           if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+            mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+            if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+              tileLayerRef.current._update();
+            }
           }
         }}
-        className={`fixed top-18 right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
+        className={`fixed top-16 sm:top-18 right-3 sm:right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
           isMinimized ? 'hidden' : 'flex'
         } ${
           isExpanded
-            ? 'w-[440px] h-[440px]'
-            : 'w-[230px] h-[240px]'
+            ? 'w-[min(440px,calc(100vw-24px))] h-[min(440px,calc(100vh-140px))]'
+            : 'w-[min(230px,calc(100vw-24px))] h-[220px] sm:h-[240px]'
         }`}
         style={{
           background: isDark ? 'rgba(6, 14, 28, 0.96)' : 'rgba(255, 255, 255, 0.96)',

@@ -310,7 +310,7 @@ export function ScenariosViewComponent({
       </div>
 
       {/* ── Numbered Stepper Bar (1 Scenario, 2 Environment, 3 Hazards, 4 Simulation) ── */}
-      <div className="flex items-center justify-between gap-2 max-w-4xl py-1">
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 max-w-4xl py-1 overflow-x-auto no-scrollbar">
         {steps.map((st, idx) => {
           const Icon = st.icon;
           const isActive = currentStep === st.num;

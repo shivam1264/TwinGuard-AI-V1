@@ -747,12 +747,14 @@ export function App() {
 
   return (
     <div
-      className={`flex flex-col h-screen w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
+      className={`flex flex-col h-screen h-[100dvh] w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
         theme === 'dark' ? 'theme-dark bg-[#070d18] text-slate-100' : 'theme-light bg-[#f1f5f9] text-slate-900'
       }`}
     >
       {/* 1. TOP HEADER */}
       <TopHeader
+        onToggleSidebar={() => setIsLeftCollapsed((prev) => !prev)}
+        isSidebarCollapsed={isLeftCollapsed}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
