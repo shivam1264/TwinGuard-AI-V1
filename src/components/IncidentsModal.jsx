@@ -298,10 +298,8 @@ export const IncidentsModal = ({
 
               {/* Incident Location Floating Card (Matching Image 5) */}
               <div
-                className="absolute bottom-3 left-3 p-3 rounded-2xl backdrop-blur-md flex flex-col gap-1.5 text-xs"
+                className={`absolute bottom-3 left-3 p-3 rounded-2xl backdrop-blur-md flex flex-col gap-1.5 text-xs shadow-xl ${isDark ? 'bg-[#081020]/90 border border-sky-400/30 text-white' : 'bg-white/95 border border-slate-300 text-slate-900'}`}
                 style={{
-                  background: 'rgba(8, 16, 32, 0.85)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
                   width: '210px'
                 }}
               >
@@ -310,20 +308,20 @@ export const IncidentsModal = ({
                   <span>Incident Location</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                  <span className="text-slate-400">Floor</span>
+                  <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Floor</span>
                   <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Level 7</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                  <span className="text-slate-400">Area</span>
+                  <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Area</span>
                   <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>West Stair Core (A)</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                  <span className="text-slate-400">Affected Zone</span>
+                  <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Affected Zone</span>
                   <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Stairwell + Adj.</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                  <span className="text-slate-400">Affected Occupants</span>
-                  <span className="font-bold text-red-400">42</span>
+                  <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Affected Occupants</span>
+                  <span className="font-bold text-red-500">42</span>
                 </div>
               </div>
             </div>
@@ -352,10 +350,10 @@ export const IncidentsModal = ({
                     />
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-slate-400">{step.time}</span>
+                        <span className={`font-mono text-[10px] ${isDark ? "text-slate-400" : "text-slate-600 font-bold"}`}>{step.time}</span>
                         <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{step.title}</span>
                       </div>
-                      <div className={`text-[10.5px] ${isDark ? "text-slate-400" : "text-slate-600"}`}>{step.detail}</div>
+                      <div className={`text-[10.5px] ${isDark ? "text-slate-400" : "text-slate-700 font-medium"}`}>{step.detail}</div>
                     </div>
                   </div>
                 ))}

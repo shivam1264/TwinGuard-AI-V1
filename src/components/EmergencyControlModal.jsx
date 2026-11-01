@@ -498,7 +498,7 @@ export function EmergencyControlModal({
                   className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all cursor-pointer text-left min-w-0 overflow-hidden ${
                     isSelected
                       ? (isDark ? 'border-2 border-blue-500 bg-blue-950/40 shadow-xs' : 'border-2 border-[#2563eb] bg-white shadow-xs')
-                      : (isDark ? 'border-slate-800 bg-slate-900/70 hover:border-slate-700' : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]')
+                      : (isDark ? 'border-slate-700 bg-slate-900/90 hover:border-slate-600' : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]')
                   }`}
                 >
                   {isSelected ? (
@@ -506,7 +506,7 @@ export function EmergencyControlModal({
                       <CheckCircle2 className="w-4 h-4 fill-[#2563eb] text-white" />
                     </div>
                   ) : (
-                    <div className="w-4 h-4 rounded-full border border-[#cbd5e1] shrink-0" />
+                    <div className={`w-4 h-4 rounded-full border shrink-0 ${isDark ? "border-slate-500" : "border-[#cbd5e1]"}`} />
                   )}
 
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-slate-800 text-slate-300" : "bg-[#f1f5f9] text-[#64748b]"}`}>
@@ -517,9 +517,7 @@ export function EmergencyControlModal({
                     <div className={`text-xs font-bold truncate ${isDark ? "text-white" : "text-[#14213d]"}`}>
                       {g.name}
                     </div>
-                    <div className="text-[11px] text-[#64748b] truncate">
-                      {g.desc}
-                    </div>
+                    <div className={`text-[11px] truncate ${isDark ? "text-slate-300" : "text-[#64748b]"}`}>{g.desc}</div>
                   </div>
 
                   {isNearest && (

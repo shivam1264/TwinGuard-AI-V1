@@ -1727,11 +1727,12 @@ function EmergencyCommandCenterPageComponent({
               showToast(mode === 'simulation' ? 'Switched to Live IoT Sensor Stream' : 'Simulation Mode Active');
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
-              mode === 'simulation' ? (isDark ? 'bg-blue-950/70 border-blue-500/50 text-blue-300' : 'bg-blue-100/90 border-blue-300 text-blue-800')
+              mode === 'simulation'
+                ? (isDark ? 'bg-blue-950/70 border-blue-500/50 text-blue-300' : 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/20')
                 : (isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700')
             }`}
           >
-            <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
+            <FlaskConical className={`w-3.5 h-3.5 ${mode === 'simulation' ? (isDark ? 'text-blue-400' : 'text-white') : 'text-blue-500'}`} />
             <span>{mode === 'simulation' ? 'Sim Mode' : 'Live Mode'}</span>
           </button>
 
@@ -2249,7 +2250,7 @@ function EmergencyCommandCenterPageComponent({
                       className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate ${
                         isSel
                           ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
-                          : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70')
+                          : (isDark ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/90 font-bold')
                       }`}
                     >
                       {cat.label}
@@ -2433,7 +2434,7 @@ function EmergencyCommandCenterPageComponent({
                     >
                       {action.status && (
                         <span className={`absolute top-1 right-1.5 text-[7.5px] font-black px-1 py-0.2 rounded-full leading-tight uppercase tracking-wider ${
-                          action.isActive ? 'bg-black/30 text-white' : (isDark ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200')
+                          action.isActive ? 'bg-black/40 text-white' : (isDark ? 'bg-slate-800 text-slate-200 border border-slate-700' : 'bg-slate-200/90 text-slate-800 border border-slate-300 font-bold')
                         }`}>
                           {action.status}
                         </span>
@@ -2441,7 +2442,11 @@ function EmergencyCommandCenterPageComponent({
                       <Icon
                         className={`w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover:scale-110 transition-transform mb-1 shrink-0 ${iconCls} ${action.isActive ? 'animate-pulse' : ''}`}
                       />
-                      <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">{action.label}</span>
+                      <span className={`text-[10px] sm:text-[10.5px] font-bold leading-tight text-center ${
+                        action.isActive ? 'text-white' : (isDark ? 'text-slate-200' : 'text-slate-800')
+                      }`}>
+                        {action.label}
+                      </span>
                     </button>
                   );
                 })}

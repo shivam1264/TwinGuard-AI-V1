@@ -649,9 +649,9 @@ export const CCTVMultiviewer = React.memo(({
                       gap: '5px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
-                      background: room.hasFire ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#fff1f2',
-                      color: room.hasFire ? '#ffffff' : '#e11d48',
-                      border: room.hasFire ? 'none' : '1px solid #fecdd3',
+                      background: room.hasFire ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fff1f2'),
+                      color: room.hasFire ? '#ffffff' : (isDark ? '#f87171' : '#e11d48'),
+                      border: room.hasFire ? 'none' : (isDark ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #fecdd3'),
                       boxShadow: room.hasFire ? '0 2px 8px -1px rgba(239, 68, 68, 0.4)' : 'none',
                     }}
                     onMouseEnter={(e) => {
