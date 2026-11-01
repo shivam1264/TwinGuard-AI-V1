@@ -55,9 +55,9 @@ const TACTICAL_GIS_STYLES = `
     animation: vehiclePulse 1.4s infinite ease-in-out;
   }
   @keyframes vehiclePulse {
-    0% { filter: drop-shadow(0 0 2px #ef4444); }
-    50% { filter: drop-shadow(0 0 8px #ef4444) drop-shadow(0 0 14px rgba(239,68,68,0.6)); }
-    100% { filter: drop-shadow(0 0 2px #ef4444); }
+    0% { filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.7)); }
+    50% { filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.9)) drop-shadow(0 0 8px rgba(56, 189, 248, 0.5)); }
+    100% { filter: drop-shadow(0 0 2px rgba(239, 68, 68, 0.7)); }
   }
   .gis-fire-truck-container {
     display: flex;
@@ -155,6 +155,11 @@ export default function GisMapDrawer({
   const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [mapMode, setMapMode] = useState('satellite'); // 'satellite' | 'streets'
+
+  const smoothProgressRef = useRef(0);
+  const targetProgressRef = useRef(0);
+  const hasAutoExpandedRef = useRef(false);
+  const hasAutoMinimizedRef = useRef(false);
 
   // Authoritative simulation state from emergencyStatus
   const isEmergency = Boolean(emergencyStatus && emergencyStatus.isActive);
@@ -377,56 +382,123 @@ export default function GisMapDrawer({
     tileLayerRef.current = newLayer;
   }, [mapMode]);
 
-  // Update Emergency Vehicle Position, Heading, Travelled Trail & Gate Pulse in Real-Time
+  // Keep target progress ref up to date with live simulation telemetry
   useEffect(() => {
-    if (!mapInstanceRef.current || !vehicleMarkerRef.current) return;
-    const posState = getInterpolatedRoutePosition(dispatchProgress);
+    targetProgressRef.current = dispatchProgress;
+  }, [dispatchProgress]);
 
-    // Update coordinates
-    vehicleMarkerRef.current.setLatLng([posState.lat, posState.lng]);
+  // Auto-Expand on movement start and Auto-Minimize on destination arrival
+  useEffect(() => {
+    if (!isEmergency || dispatchProgress === 0) {
+      hasAutoExpandedRef.current = false;
+      hasAutoMinimizedRef.current = false;
+      smoothProgressRef.current = 0;
+      return;
+    }
 
-    // Update dynamic SVG rotation based on road heading & pulsing state
-    const isPulsing = isEmergency && dispatchProgress < 1.0;
-    const updatedIcon = L.divIcon({
-      className: 'custom-div-icon',
-      html: createTacticalFireTruckSvg(posState.heading, isPulsing),
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
-    vehicleMarkerRef.current.setIcon(updatedIcon);
-
-    // Update travelled route trail
-    if (travelledRoutePolylineRef.current) {
-      const travelledCoords = getTravelledRoute(dispatchProgress);
-      travelledRoutePolylineRef.current.setLatLngs(travelledCoords);
-
-      if (dispatchProgress >= 1.0) {
-        travelledRoutePolylineRef.current.setStyle({ color: '#10b981', weight: 4 });
-      } else {
-        travelledRoutePolylineRef.current.setStyle({ color: '#38bdf8', weight: 4 });
+    // Auto-expand when movement starts (if minimized)
+    if (isEmergency && dispatchProgress > 0 && dispatchProgress < 0.98) {
+      if (!hasAutoExpandedRef.current) {
+        hasAutoExpandedRef.current = true;
+        if (isMinimized) {
+          setIsMinimized(false);
+        }
+        if (!isExpanded) {
+          setIsExpanded(true);
+        }
       }
     }
 
-    // Main Gate subtle pulse upon arrival (dispatchProgress >= 0.95)
-    const gateEl = document.getElementById('gis-main-gate-marker');
-    if (gateEl) {
-      if (dispatchProgress >= 0.95 && dispatchProgress <= 1.05) {
-        gateEl.classList.add('tactical-gate-pulse');
-      } else {
-        gateEl.classList.remove('tactical-gate-pulse');
+    // Auto-minimize when destination reached
+    if (isEmergency && (dispatchProgress >= 0.98 || phase === 'AT_CAMPUS_GATE' || phase === 'ON_SCENE')) {
+      if (!hasAutoMinimizedRef.current && hasAutoExpandedRef.current) {
+        hasAutoMinimizedRef.current = true;
+        const timer = setTimeout(() => {
+          setIsMinimized(true);
+        }, 1200);
+        return () => clearTimeout(timer);
       }
     }
+  }, [isEmergency, dispatchProgress, phase, isMinimized, isExpanded]);
 
-    // Smooth auto-follow vehicle when actively en route in compact mini-map
-    if (isEmergency && dispatchProgress > 0 && dispatchProgress < 1.0 && !isExpanded) {
-      mapInstanceRef.current.panTo([posState.lat, posState.lng], {
-        animate: true,
-        duration: 0.25
-      });
-    } else if (dispatchProgress === 0 && mapInstanceRef.current && !isExpanded) {
-      mapInstanceRef.current.setView([28.5028, 77.0850], 14, { animate: false });
-    }
-  }, [dispatchProgress, isEmergency, isExpanded]);
+  // Smooth continuous 60 FPS vehicle movement along road polyline
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let animId = null;
+    let lastTime = performance.now();
+
+    const renderFrame = (now) => {
+      const dt = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (mapInstanceRef.current && vehicleMarkerRef.current) {
+        const targetP = targetProgressRef.current;
+        let curP = smoothProgressRef.current;
+
+        if (isEmergency && targetP > 0) {
+          const diff = targetP - curP;
+          if (diff > 0) {
+            // Smoothly interpolate towards target progress without jumping
+            curP = Math.min(targetP, curP + Math.max(diff * 8 * dt, (1.0 / 30.0) * dt));
+          } else if (diff < 0) {
+            curP = targetP;
+          }
+        } else {
+          curP = targetP;
+        }
+
+        smoothProgressRef.current = curP;
+
+        const posState = getInterpolatedRoutePosition(curP);
+
+        // Update vehicle position
+        vehicleMarkerRef.current.setLatLng([posState.lat, posState.lng]);
+
+        // Smoothly rotate vehicle marker along road heading
+        const el = vehicleMarkerRef.current.getElement();
+        if (el) {
+          const container = el.querySelector('.gis-fire-truck-container');
+          if (container) {
+            container.style.transform = `rotate(${posState.heading}deg)`;
+          }
+        }
+
+        // Update travelled route trail
+        if (travelledRoutePolylineRef.current) {
+          const travelledCoords = getTravelledRoute(curP);
+          travelledRoutePolylineRef.current.setLatLngs(travelledCoords);
+          if (curP >= 0.98) {
+            travelledRoutePolylineRef.current.setStyle({ color: '#10b981', weight: 3.5 });
+          } else {
+            travelledRoutePolylineRef.current.setStyle({ color: '#38bdf8', weight: 3.5 });
+          }
+        }
+
+        // Gate arrival pulse
+        const gateEl = document.getElementById('gis-main-gate-marker');
+        if (gateEl) {
+          if (curP >= 0.95 && curP <= 1.05) {
+            gateEl.classList.add('tactical-gate-pulse');
+          } else {
+            gateEl.classList.remove('tactical-gate-pulse');
+          }
+        }
+
+        // Auto-follow vehicle smoothly in compact mini-map
+        if (isEmergency && curP > 0 && curP < 0.98 && !isExpanded) {
+          mapInstanceRef.current.panTo([posState.lat, posState.lng], { animate: false });
+        }
+      }
+
+      animId = requestAnimationFrame(renderFrame);
+    };
+
+    animId = requestAnimationFrame(renderFrame);
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [isOpen, isEmergency, isExpanded]);
 
   // ResizeObserver: auto-detect any container dimension changes and immediately notify Leaflet
   useEffect(() => {
