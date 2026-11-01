@@ -625,7 +625,7 @@ export class EmergencyVehiclesManager {
     this.updateVehiclePositions(0.0);
 
     // Turn emergency siren alarm ON by default when dispatched
-    this.startSirenAudio();
+    this.muteSiren();
   }
 
   setVehiclesVisibility(visible) {
@@ -825,7 +825,7 @@ export class EmergencyVehiclesManager {
         this.audioCtx.resume().catch(() => {});
       }
       if (this.isActive && !this.isSirenMuted && !this.sirenOsc) {
-        this.startSirenAudio();
+        this.muteSiren();
       }
     };
     window.addEventListener('click', unlock, { passive: true });
@@ -834,7 +834,7 @@ export class EmergencyVehiclesManager {
   }
 
   startSirenAudio() {
-    this.isSirenMuted = false;
+    this.isSirenMuted = true; return; // Siren audio disabled
     try {
       if (typeof window === 'undefined') return;
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
@@ -909,7 +909,7 @@ export class EmergencyVehiclesManager {
     } else {
       this.muteSiren();
     }
-    return !this.isSirenMuted;
+    return false;
   }
 
     // ==========================================================================

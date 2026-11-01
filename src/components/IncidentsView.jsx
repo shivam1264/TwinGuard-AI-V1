@@ -131,7 +131,7 @@ const IncidentsViewComponent = ({
       </div>
 
       {/* ── Active Incident Hero Strip (Matching Reference Image 5) ── */}
-      <div className="px-5 py-3 rounded-2xl flex items-center justify-between bg-red-500/10 border border-red-500/25">
+      <div className="px-4 sm:px-5 py-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 bg-red-500/10 border border-red-500/25">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-red-500/25 border border-red-500/50 flex items-center justify-center text-red-400">
             <Flame className="w-5 h-5 animate-pulse" />
@@ -151,7 +151,7 @@ const IncidentsViewComponent = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-xs font-mono">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-6 text-xs font-mono">
           <div>
             <span className="text-slate-400 block text-[10px] font-sans">Incident ID</span>
             <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>INC-2026-107</span>

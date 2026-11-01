@@ -275,6 +275,18 @@ export function App() {
     };
   }, []);
 
+  // Force 3D resize when switching to LIVE_VIEW so canvas immediately adapts
+  useEffect(() => {
+    if (activeTab === 'LIVE_VIEW' && sceneManagerRef.current && sceneManagerRef.current.handleResize) {
+      const timer = setTimeout(() => {
+        if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
+          sceneManagerRef.current.handleResize();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab]);
+
   // Phase 5C: Pass active scenario to SceneManager when loaded
   useEffect(() => {
     if (sceneManagerRef.current && activeScenario) {
@@ -307,9 +319,12 @@ export function App() {
   }, [isLeftCollapsed]);
 
   const handleToggleSirenMute = () => {
-    if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
-      const newMuted = sceneManagerRef.current.emergencyVehicles.toggleMute();
-      setIsSirenMuted(newMuted);
+    if (sceneManagerRef.current && sceneManagerRef.current.toggleEmergencySiren) {
+      const isAudible = sceneManagerRef.current.toggleEmergencySiren();
+      setIsSirenMuted(!isAudible);
+    } else if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
+      const isAudible = sceneManagerRef.current.emergencyVehicles.toggleMute();
+      setIsSirenMuted(!isAudible);
     } else {
       setIsSirenMuted(!isSirenMuted);
     }
@@ -548,6 +563,9 @@ export function App() {
     }
     if (sceneManagerRef.current) {
       if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
+      if (facadeMode === 'FULL') {
+        handleSetFacadeMode('CUTAWAY');
+      }
       const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
       if (result) {
         if (result.exitStats) setExits(result.exitStats);
@@ -565,6 +583,9 @@ export function App() {
   const handleStartEvacuation = () => {
     if (!sceneManagerRef.current) return;
     if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
+    if (facadeMode === 'FULL') {
+      handleSetFacadeMode('CUTAWAY');
+    }
     const result = sceneManagerRef.current.startEvacuation();
     if (!result && sceneManagerRef.current.evacuationCompleted) return;
     setIsSimulating(true);
@@ -752,12 +773,14 @@ export function App() {
 
   return (
     <div
-      className={`flex flex-col h-screen w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
+      className={`flex flex-col h-screen h-[100dvh] w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
         theme === 'dark' ? 'theme-dark bg-[#070d18] text-slate-100' : 'theme-light bg-[#f1f5f9] text-slate-900'
       }`}
     >
       {/* 1. TOP HEADER */}
       <TopHeader
+        onToggleSidebar={() => setIsLeftCollapsed((prev) => !prev)}
+        isSidebarCollapsed={isLeftCollapsed}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
@@ -922,6 +945,7 @@ export function App() {
                 handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
               }
               onToggleGis={() => setIsGisOpen(!isGisOpen)}
+              onOpenBuildingInfo={() => handleSelectTab('BUILDING_INFO')}
               onToggleFullscreen={handleToggleFullscreen}
               isGisOpen={isGisOpen}
               rooms={rooms}

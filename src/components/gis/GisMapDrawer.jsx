@@ -24,6 +24,17 @@ import {
 
 // Custom tactical Leaflet and HUD styles
 const TACTICAL_GIS_STYLES = `
+  .leaflet-container {
+    background-color: #0b1528 !important;
+    background: #0b1528 !important;
+    width: 100% !important;
+    height: 100% !important;
+    outline: none !important;
+  }
+  .leaflet-tile-pane, .leaflet-pane {
+    background-color: #0b1528 !important;
+  }
+
   .tactical-gis-pulse-marker {
     display: flex;
     align-items: center;
@@ -233,7 +244,9 @@ export default function GisMapDrawer({
 
       // Base Satellite Tile Layer
       const baseLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-        maxZoom: 19
+        maxZoom: 19,
+        keepBuffer: 6,
+        updateWhenIdle: false
       }).addTo(map);
       tileLayerRef.current = baseLayer;
 
@@ -357,7 +370,9 @@ export default function GisMapDrawer({
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
     const newLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-      maxZoom: 19
+      maxZoom: 19,
+      keepBuffer: 6,
+      updateWhenIdle: false
     }).addTo(mapInstanceRef.current);
     tileLayerRef.current = newLayer;
   }, [mapMode]);
@@ -413,19 +428,70 @@ export default function GisMapDrawer({
     }
   }, [dispatchProgress, isEmergency, isExpanded]);
 
-  // Invalidate map size on expand/collapse or minimize/restore
+  // ResizeObserver: auto-detect any container dimension changes and immediately notify Leaflet
   useEffect(() => {
-    if (mapInstanceRef.current && !isMinimized) {
-      setTimeout(() => {
-        mapInstanceRef.current.invalidateSize();
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    let rafId = null;
+    const ro = new ResizeObserver(() => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+        }
+      });
+    });
+
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  // Smoothly invalidate map size continuously on expand/collapse or minimize/restore during CSS transition
+  useEffect(() => {
+    if (!mapInstanceRef.current || isMinimized) return;
+
+    let startTime = performance.now();
+    let animId;
+
+    const smoothlyResizeMap = (now) => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+      }
+      if (now - startTime < 320) {
+        animId = requestAnimationFrame(smoothlyResizeMap);
+      } else if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+        if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+          tileLayerRef.current._update();
+        }
         if (dispatchProgress > 0 && dispatchProgress < 1.0) {
           const posState = getInterpolatedRoutePosition(dispatchProgress);
           mapInstanceRef.current.panTo([posState.lat, posState.lng]);
         } else {
-          mapInstanceRef.current.setView([28.5028, 77.0850], isExpanded ? 14 : 14);
+          mapInstanceRef.current.setView([28.5028, 77.0850], 14);
         }
-      }, 100);
-    }
+      }
+    };
+
+    animId = requestAnimationFrame(smoothlyResizeMap);
+
+    const finishTimeout = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+        if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+          tileLayerRef.current._update();
+        }
+      }
+    }, 350);
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      clearTimeout(finishTimeout);
+    };
   }, [isExpanded, isMinimized]);
 
   // Zoom helpers
@@ -454,7 +520,7 @@ export default function GisMapDrawer({
       {isMinimized && (
         <button
           onClick={() => setIsMinimized(false)}
-          className="fixed top-18 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+          className="fixed top-16 sm:top-18 right-3 sm:right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
           style={{
             background: isDark ? 'rgba(7, 18, 38, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             border: isDark ? '1.5px solid #00d2ff' : '1.5px solid #0284c7',
@@ -475,12 +541,20 @@ export default function GisMapDrawer({
 
       {/* Main Map Container: kept mounted in DOM via display:none/block so Leaflet state and canvas never get destroyed */}
       <div
-        className={`fixed top-18 right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
+        onTransitionEnd={() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize({ pan: false, debounceMoveend: false });
+            if (tileLayerRef.current && typeof tileLayerRef.current._update === 'function') {
+              tileLayerRef.current._update();
+            }
+          }
+        }}
+        className={`fixed top-16 sm:top-18 right-3 sm:right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
           isMinimized ? 'hidden' : 'flex'
         } ${
           isExpanded
-            ? 'w-[440px] h-[440px]'
-            : 'w-[230px] h-[240px]'
+            ? 'w-[min(440px,calc(100vw-24px))] h-[min(440px,calc(100vh-140px))]'
+            : 'w-[min(230px,calc(100vw-24px))] h-[220px] sm:h-[240px]'
         }`}
         style={{
           background: isDark ? 'rgba(6, 14, 28, 0.96)' : 'rgba(255, 255, 255, 0.96)',
@@ -535,8 +609,8 @@ export default function GisMapDrawer({
       </div>
 
       {/* ── 2. Interactive Map Container with Floating HUD Controls ── */}
-      <div className={`relative flex-1 w-full overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-slate-100'}`}>
-        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#0b1528]">
+        <div ref={mapContainerRef} className="absolute inset-0 z-0 w-full h-full" />
 
         {/* Left Floating Dock Controls: [Layers, Target/Recenter, Zoom +, Zoom -] */}
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">

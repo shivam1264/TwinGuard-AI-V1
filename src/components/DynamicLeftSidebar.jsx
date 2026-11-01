@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  X,
   Box,
   LayoutDashboard,
   Building2,
@@ -143,7 +144,7 @@ export const DynamicLeftSidebar = React.memo(({
           items: [
             { id: 'SPECS', label: 'Architectural Specs', icon: Building2, color: isDark ? '#38bdf8' : '#0284c7', badge: '10 L' },
             { id: 'STAIRS', label: 'Emergency Stair Cores', icon: Milestone, color: '#10b981', badge: '3 Cores' },
-            { id: 'EXITS', label: 'Ground Egress Portals', icon: MapPin, color: '#f59e0b', badge: '4 Gates' }
+            { id: 'EXITS', label: 'Ground Egress Portals', icon: MapPin, color: '#f59e0b', badge: '3 Exits' }
           ]
         };
       case 'SCENARIOS':
@@ -191,31 +192,52 @@ export const DynamicLeftSidebar = React.memo(({
   const contextData = getContextItems();
 
   return (
-    <aside
-      className={`flex flex-col shrink-0 select-none z-20 backdrop-blur-md transition-all duration-300 ease-out will-change-[width] overflow-hidden ${
-        isDark ? 'theme-dark' : 'theme-light'
-      }`}
-      style={{
-        width: isCollapsed ? '64px' : '240px',
-        background: isDark
-          ? 'linear-gradient(180deg, #081020 0%, #060c18 100%)'
-          : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
-        borderRight: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
-        boxShadow: isDark ? '4px 0 24px rgba(0, 0, 0, 0.45)' : '4px 0 20px rgba(0, 0, 0, 0.05)',
-        fontFamily: "'Inter', system-ui, sans-serif"
-      }}
-    >
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-40 md:hidden"
+          onClick={onToggleCollapse}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`flex flex-col shrink-0 select-none backdrop-blur-md transition-all duration-300 ease-out overflow-hidden ${
+          isDark ? 'theme-dark' : 'theme-light'
+        } ${
+          isCollapsed
+            ? 'w-0 -translate-x-full overflow-hidden pointer-events-none md:w-16 md:translate-x-0 md:pointer-events-auto md:relative md:z-20'
+            : 'fixed inset-y-0 left-0 z-50 w-[260px] max-w-[85vw] translate-x-0 shadow-2xl md:relative md:w-60 md:z-20 md:shadow-none'
+        }`}
+        style={{
+          background: isDark
+            ? 'linear-gradient(180deg, #081020 0%, #060c18 100%)'
+            : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+          borderRight: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
+          boxShadow: isDark ? '4px 0 24px rgba(0, 0, 0, 0.45)' : '4px 0 20px rgba(0, 0, 0, 0.05)',
+          fontFamily: "'Inter', system-ui, sans-serif"
+        }}
+      >
       {/* ── Top Header / Collapse Bar (Only Open/Close Toggle) ── */}
       <div
-        className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-end'} px-2.5 min-h-[48px] h-[48px] overflow-hidden w-full transition-colors`}
+        className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} px-2.5 min-h-[48px] h-[48px] overflow-hidden w-full transition-colors`}
         style={{
           borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #e2e8f0'
         }}
       >
-        {/* Collapse/Expand Toggle Button */}
+        {!isCollapsed && (
+          <div className="flex items-center gap-1.5 pl-1.5">
+            <span className="text-xs font-bold" style={{ color: isDark ? '#ffffff' : '#0f172a' }}>
+              Navigation
+            </span>
+          </div>
+        )}
+
+        {/* Desktop Collapse/Expand Toggle */}
         <button
           onClick={onToggleCollapse}
-          className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
+          className="hidden md:flex w-7 h-7 rounded-lg items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
           style={{
             background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9',
             border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
@@ -228,6 +250,21 @@ export const DynamicLeftSidebar = React.memo(({
           ) : (
             <PanelLeftClose className="w-4 h-4" />
           )}
+        </button>
+
+        {/* Mobile Close Button */}
+        <button
+          onClick={onToggleCollapse}
+          className="flex md:hidden w-7 h-7 rounded-lg items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
+          style={{
+            background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            color: isDark ? '#38bdf8' : '#0284c7'
+          }}
+          title="Close Navigation"
+          aria-label="Close Navigation"
+        >
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -254,7 +291,12 @@ export const DynamicLeftSidebar = React.memo(({
             return (
               <button
                 key={item.id}
-                onClick={() => onSelectTab && onSelectTab(item.id)}
+                onClick={() => {
+                  if (onSelectTab) onSelectTab(item.id);
+                  if (typeof window !== 'undefined' && window.innerWidth < 768 && onToggleCollapse) {
+                    onToggleCollapse();
+                  }
+                }}
                 className={`w-10 h-10 mx-auto rounded-xl flex items-center justify-center cursor-pointer transition-all relative group ${
                   !isActive
                     ? (isDark ? 'hover:bg-sky-500/10 hover:border-sky-500/30' : 'hover:bg-slate-100 hover:border-slate-300')
@@ -289,7 +331,12 @@ export const DynamicLeftSidebar = React.memo(({
           return (
             <button
               key={item.id}
-              onClick={() => onSelectTab && onSelectTab(item.id)}
+              onClick={() => {
+                  if (onSelectTab) onSelectTab(item.id);
+                  if (typeof window !== 'undefined' && window.innerWidth < 768 && onToggleCollapse) {
+                    onToggleCollapse();
+                  }
+                }}
               className="w-full flex items-center h-10 px-3 rounded-xl cursor-pointer transition-all relative group overflow-hidden"
               style={{
                 background: isActive
@@ -527,5 +574,6 @@ export const DynamicLeftSidebar = React.memo(({
         )}
       </div>
     </aside>
+    </>
   );
 });

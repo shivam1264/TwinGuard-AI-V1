@@ -798,7 +798,8 @@ export class AgentCrowd {
       }
     }
 
-    this.syncRouteLines();
+    // Route lines are maintained via assignRoutes / rerouteAgents / setFloorMode.
+    // Avoid rebuilding/disposing geometry on every single animation frame.
 
     const currentStats = {
       total: this.agents.length,

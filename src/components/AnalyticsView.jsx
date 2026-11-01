@@ -531,9 +531,9 @@ const AnalyticsViewComponent = ({
       </div>
 
       {/* ── 2. Main Executive Content Container ── */}
-      <div className="flex-1 p-5 md:p-6 flex flex-col gap-5 max-w-[1700px] w-full mx-auto">
+      <div className="flex-1 p-3 sm:p-5 md:p-6 flex flex-col gap-5 max-w-[1700px] w-full mx-auto overflow-y-auto">
         {/* Top 5 KPI Summary Cards Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
           {/* KPI 1 */}
           <div
             className="p-3.5 rounded-2xl flex items-center gap-3 transition-all"

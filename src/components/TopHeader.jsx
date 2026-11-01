@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Menu,
   Box,
   Building2,
   Calendar,
@@ -19,6 +20,8 @@ import {
 } from 'lucide-react';
 
 export const TopHeader = ({
+  onToggleSidebar,
+  isSidebarCollapsed = true,
   activeTab = 'LIVE_VIEW',
   onSelectTab,
   incidentCount = 3,
@@ -89,14 +92,29 @@ export const TopHeader = ({
       }}
     >
       {/* ── Left: Brand Identity (TWINGUARD AI) ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className="md:hidden flex items-center justify-center w-9 h-9 rounded-xl border transition-all cursor-pointer shrink-0"
+            style={{
+              background: theme === 'dark' ? 'rgba(15, 23, 42, 0.8)' : '#ffffff',
+              borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.25)' : '#cbd5e1',
+              color: theme === 'dark' ? '#38bdf8' : '#0284c7'
+            }}
+            aria-label={isSidebarCollapsed ? "Open navigation menu" : "Close navigation menu"}
+            title="Navigation Menu"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        )}
         <div
           className="flex items-center justify-center shrink-0 cursor-pointer transition-transform hover:scale-105"
           onClick={() => onSelectTab && onSelectTab('LIVE_VIEW')}
           style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '12px',
+            width: '38px',
+            height: '38px',
+            borderRadius: '11px',
             background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(56, 189, 248, 0.15) 100%)',
             border: '1px solid rgba(56, 189, 248, 0.35)',
             boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)'
@@ -104,7 +122,7 @@ export const TopHeader = ({
           title="Return to 3D Digital Twin"
         >
           {/* Cyan Glowing 3-Bar Tower Icon */}
-          <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
+          <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 sm:w-6 sm:h-6">
             <path
               d="M3 20V12L8 8V20M8 20V4L16 4V20M16 20V9L21 13V20"
               stroke="#38bdf8"
@@ -129,6 +147,7 @@ export const TopHeader = ({
             </span>
           </div>
           <div
+            className="hidden min-[420px]:block"
             style={{
               fontSize: '10px',
               fontWeight: 600,
@@ -237,6 +256,21 @@ export const TopHeader = ({
           <span>Mobile Evacuee</span>
         </button>
 
+        <button
+          onClick={onOpenEvacueeQr}
+          className="flex md:hidden items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 w-9 h-9 rounded-xl"
+          style={{
+            background: theme === 'dark' ? 'rgba(15, 23, 42, 0.75)' : '#ffffff',
+            border: theme === 'dark' ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            color: theme === 'dark' ? '#38bdf8' : '#0284c7',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+          }}
+          title="Mobile Evacuee Companion"
+          aria-label="Mobile Evacuee Companion"
+        >
+          <Smartphone className="w-4 h-4" />
+        </button>
+
         {/* Combined Profile & Settings Controller Pill */}
         {onOpenSettings && (
           <button
@@ -253,7 +287,7 @@ export const TopHeader = ({
             <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-emerald-600 to-sky-500 flex items-center justify-center text-[10px] font-black text-white shadow-sm">
               SM
             </div>
-            <div className="flex flex-col text-left">
+            <div className="hidden sm:flex flex-col text-left">
               <span className="text-[11px] font-bold leading-tight" style={{ color: theme === 'dark' ? '#ffffff' : '#0f172a' }}>
                 Shivansh
               </span>

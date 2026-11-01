@@ -27,6 +27,8 @@ body {
   font-family: var(--font-sans);
   overflow: hidden;
   height: 100vh;
+  height: 100dvh;
+  width: 100vw;
   width: 100vw;
   user-select: none;
   transition: background-color 0.25s ease, color 0.25s ease;
@@ -432,4 +434,25 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+/* Safe Cross-Browser No Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ensure Three.js canvas always fills 100% of its container without letterboxing */
+.cursor-grab canvas,
+[ref="threeCanvasRef"] canvas,
+.three-canvas-slot canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
 }

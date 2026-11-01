@@ -178,7 +178,15 @@ export class SceneManager {
       powerPreference: 'high-performance',
       precision: 'mediump'
     });
-    this.renderer.setSize(width, height);
+    this.renderer.setSize(width, height, false);
+    if (this.renderer.domElement) {
+      this.renderer.domElement.style.width = '100%';
+      this.renderer.domElement.style.height = '100%';
+      this.renderer.domElement.style.display = 'block';
+      this.renderer.domElement.style.position = 'absolute';
+      this.renderer.domElement.style.top = '0';
+      this.renderer.domElement.style.left = '0';
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
 
     // Enable hardware percentage-closer filtered architectural shadows with cached autoUpdate
@@ -256,8 +264,9 @@ export class SceneManager {
     this._lastH = 0;
     this.handleResize = () => {
       if (!this.container || this.isDisposed) return;
-      const w = Math.floor(this.container.clientWidth || window.innerWidth || 1200);
-      const h = Math.floor(this.container.clientHeight || (window.innerHeight - 56) || 800);
+      const rect = this.container.getBoundingClientRect ? this.container.getBoundingClientRect() : null;
+      const w = Math.floor((rect && rect.width) || this.container.clientWidth || window.innerWidth || 1200);
+      const h = Math.floor((rect && rect.height) || this.container.clientHeight || (window.innerHeight - 56) || 800);
       if (w <= 0 || h <= 0) return;
       if (this._lastW === w && this._lastH === h) return;
       this._lastW = w;
@@ -265,18 +274,31 @@ export class SceneManager {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h, false);
+      if (this.renderer.domElement) {
+        this.renderer.domElement.style.width = '100%';
+        this.renderer.domElement.style.height = '100%';
+        this.renderer.domElement.style.display = 'block';
+      }
       if (this.renderer.shadowMap) {
         this.renderer.shadowMap.needsUpdate = true;
       }
+      this._shadowNeedsUpdate = true;
     };
 
     window.addEventListener('resize', this.handleResize);
 
     if (typeof ResizeObserver !== 'undefined' && this.container) {
+      let roRafId = null;
       this.resizeObserver = new ResizeObserver(() => {
-        this.handleResize();
+        if (roRafId) cancelAnimationFrame(roRafId);
+        roRafId = requestAnimationFrame(() => {
+          this.handleResize();
+        });
       });
       this.resizeObserver.observe(this.container);
+      if (this.container.parentElement) {
+        this.resizeObserver.observe(this.container.parentElement);
+      }
     }
   }
 
@@ -3117,17 +3139,17 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
-      // Calculate simulation delta
-      const simDelta = this.isSimulating ? delta * this.simSpeed : 0;
+      // Calculate simulation delta scaled by simulation speed
+      const effectiveSimDelta = simDelta * this.simSpeed;
 
       // Phase 5C: Advance hazard state and update routing context BEFORE agent movement
       if (this.isSimulating && this.hazardState && this.buildingGraph) {
         // 1. Advance simulation time
-        this.elapsedSeconds += simDelta;
+        this.elapsedSeconds += effectiveSimDelta;
 
         // 2. Advance hazard propagation (includes updateRoutingContext + applyHazardStateToGrid)
-        this.advanceHazardState(simDelta);
-        this.reevaluationCooldown -= simDelta;
+        this.advanceHazardState(effectiveSimDelta);
+        this.reevaluationCooldown -= effectiveSimDelta;
 
         // 3. Check for urgent reevaluation (newly prohibited current routes)
         const urgentReeval = this.checkUrgentReevaluation();
@@ -3202,11 +3224,6 @@ export class SceneManager {
       if (this._shadowNeedsUpdate) {
         this.renderer.shadowMap.needsUpdate = true;
         this._shadowNeedsUpdate = false;
-      } else if (this.isSimulating || (this.emergencyManager && this.emergencyManager.isActive)) {
-        this._shadowFrameCounter = (this._shadowFrameCounter + 1) % 4;
-        if (this._shadowFrameCounter === 0) {
-          this.renderer.shadowMap.needsUpdate = true;
-        }
       }
     }
 
@@ -3255,6 +3272,12 @@ export class SceneManager {
 
   toggleEmergencySpray() {
     return this.emergencyManager ? this.emergencyManager.toggleSpray() : false;
+  }
+
+  get emergencyVehicles() {
+    return {
+      toggleMute: () => (this.emergencyManager ? this.emergencyManager.toggleSirenAudio() : false)
+    };
   }
 
   focusEmergencyStaging() {
