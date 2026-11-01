@@ -26,6 +26,7 @@ import ambulanceImg from '../assets/emergency/ambulance.png';
 import rescueTruckImg from '../assets/emergency/rescue_truck.png';
 
 export function EmergencyControlModal({
+  theme = 'dark',
   isOpen,
   onClose,
   sceneManager,
@@ -76,6 +77,7 @@ export function EmergencyControlModal({
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
+  const isDark = theme === 'dark';
 
   const currentSec = telemetry ? telemetry.elapsedSeconds : elapsedSeconds;
   const isArrived = telemetry ? telemetry.isArrived : currentSec >= 30;
@@ -147,7 +149,7 @@ export function EmergencyControlModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[1020px] min-w-0 max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden bg-white rounded-3xl shadow-2xl p-5 sm:p-7 border border-[#e2e8f0] flex flex-col font-sans select-none relative my-auto"
+        className={`w-full max-w-[1020px] min-w-0 max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden ${isDark ? 'bg-[#0c162d] border-sky-500/25 text-slate-100' : 'bg-white border-[#e2e8f0] text-slate-900'} rounded-3xl shadow-2xl p-5 sm:p-7 border flex flex-col font-sans select-none relative my-auto`}
         style={{
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.15), 0 0 1px rgba(0,0,0,0.1)'
         }}
@@ -161,21 +163,21 @@ export function EmergencyControlModal({
             </div>
             <div className="min-w-0">
               <div className="flex items-center flex-wrap gap-x-2.5 gap-y-1">
-                <h2 className="text-lg font-bold text-[#14213d] tracking-tight">
+                <h2 className={`text-lg font-bold tracking-tight ${isDark ? "text-white" : "text-[#14213d]"}`}>
                   Emergency Control & Tactical Dispatch
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-[#fee2e2] text-[#ef3340] border border-[#fecdd3] shrink-0">
                   {isArrived ? 'ON SCENE' : (telemetry?.isActive ? 'EN ROUTE' : 'STANDBY')}
                 </span>
               </div>
-              <p className="text-xs text-[#64748b] font-medium mt-0.5">
+              <p className={`text-xs font-medium mt-0.5 ${isDark ? "text-slate-400" : "text-[#64748b]"}`}>
                 Multi-Agency Incident Command • 30-Second Guaranteed On-Scene Response
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] hover:text-[#1e293b] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer shrink-0 ${isDark ? "bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white" : "bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] hover:text-[#1e293b]"}`}
             title="Close Panel"
           >
             <X className="w-4 h-4" />
@@ -183,10 +185,10 @@ export function EmergencyControlModal({
         </div>
 
         {/* ─── 2. 30-SECOND RAPID INTERVENTION PROTOCOL BANNER ─── */}
-        <div className="w-full bg-[#fff5f5] border border-[#fecdd3]/80 rounded-2xl px-4 sm:px-5 py-3.5 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-3 shrink-0">
+        <div className={`w-full rounded-2xl px-4 sm:px-5 py-3.5 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-3 shrink-0 border ${isDark ? "bg-red-950/30 border-red-500/30 text-white" : "bg-[#fff5f5] border-[#fecdd3]/80"}`}>
           {/* Left Section: Timer & ETA */}
           <div className="flex items-center gap-3 min-w-0 basis-[250px] grow">
-            <div className="w-9 h-9 rounded-full bg-[#fee2e2] flex items-center justify-center text-[#ef3340] shrink-0">
+            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isDark ? "bg-red-900/60 text-red-300" : "bg-[#fee2e2] text-[#ef3340]"}`}>
               <Timer className="w-5 h-5" />
             </div>
             <div className="min-w-0">
@@ -205,7 +207,7 @@ export function EmergencyControlModal({
           </div>
 
           {/* Subtle Vertical Divider 1 */}
-          <div className="h-10 w-[1px] bg-[#fecdd3] shrink-0 hidden lg:block" />
+          <div className={`h-10 w-[1px] shrink-0 hidden lg:block ${isDark ? "bg-red-500/20" : "bg-[#fecdd3]"}`} />
 
           {/* Middle Section: Target Staging Gate */}
           <div className="flex items-center gap-3 min-w-0 basis-[210px] grow">
@@ -216,7 +218,7 @@ export function EmergencyControlModal({
               <div className="text-[11px] text-[#64748b] font-medium leading-none">
                 Target Staging Gate
               </div>
-              <div className="text-[13px] font-bold text-[#14213d] leading-tight mt-1 truncate">
+              <div className={`text-[13px] font-bold leading-tight mt-1 truncate ${isDark ? "text-white" : "text-[#14213d]"}`}>
                 {targetGate.name}
               </div>
               <div className="text-[10px] text-[#64748b] leading-none mt-0.5 truncate">
@@ -226,20 +228,20 @@ export function EmergencyControlModal({
           </div>
 
           {/* Subtle Vertical Divider 2 */}
-          <div className="h-10 w-[1px] bg-[#fecdd3] shrink-0 hidden lg:block" />
+          <div className={`h-10 w-[1px] shrink-0 hidden lg:block ${isDark ? "bg-red-500/20" : "bg-[#fecdd3]"}`} />
 
           {/* Right Section: Actions */}
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             <button
               onClick={handleFocusStaging}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#334155] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${isDark ? "text-slate-200 bg-slate-900/90 border-slate-700 hover:bg-slate-800" : "text-[#334155] bg-white border-[#e2e8f0] hover:bg-[#f8fafc]"}`}
             >
               <Eye className="w-3.5 h-3.5 text-[#64748b] shrink-0" />
               <span>View Staging Gate</span>
             </button>
             <button
               onClick={handleToggleSiren}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#334155] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${isDark ? "text-slate-200 bg-slate-900/90 border-slate-700 hover:bg-slate-800" : "text-[#334155] bg-white border-[#e2e8f0] hover:bg-[#f8fafc]"}`}
             >
               {isSirenOn ? (
                 <>
@@ -260,7 +262,7 @@ export function EmergencyControlModal({
         <div className="w-full px-1 sm:px-2 py-1 mb-4 shrink-0">
           <div className="relative flex items-center justify-between gap-2">
             {/* Base connecting line */}
-            <div className="absolute top-[6px] left-4 right-4 h-[1.5px] bg-[#e2e8f0] -z-0" />
+            <div className={`absolute top-[6px] left-4 right-4 h-[1.5px] -z-0 ${isDark ? "bg-slate-800" : "bg-[#e2e8f0]"}`} />
             {/* Dynamic active progress line */}
             <div
               className="absolute top-[6px] left-4 h-[1.5px] bg-[#ef3340] transition-all duration-300 -z-0"
@@ -269,16 +271,16 @@ export function EmergencyControlModal({
 
             {/* Milestone 0s */}
             <div className="flex flex-col items-start z-10 min-w-0">
-              <div className="flex items-center gap-1.5 bg-white pr-2">
+              <div className={`flex items-center gap-1.5 pr-2 ${isDark ? "bg-[#0c162d]" : "bg-white"}`}>
                 <div className={`w-3 h-3 rounded-full shrink-0 ${currentSec >= 0 ? 'bg-[#ef3340] ring-4 ring-[#fee2e2]' : 'bg-[#cbd5e1]'}`} />
-                <span className="text-xs font-bold text-[#14213d]">0s</span>
+                <span className={`text-xs font-bold ${isDark ? "text-white" : "text-[#14213d]"}`}>0s</span>
               </div>
               <span className="text-[11px] text-[#ef3340] font-medium mt-1 leading-tight">↓ Dispatch Alarm</span>
             </div>
 
             {/* Milestone 10s */}
             <div className="flex flex-col items-center z-10 min-w-0">
-              <div className="flex items-center gap-1.5 bg-white px-2">
+              <div className={`flex items-center gap-1.5 px-2 ${isDark ? "bg-[#0c162d]" : "bg-white"}`}>
                 <div className={`w-3 h-3 rounded-full shrink-0 ${currentSec >= 10 ? 'bg-[#ef3340] ring-4 ring-[#fee2e2]' : 'bg-[#cbd5e1]'}`} />
                 <span className="text-xs font-bold text-[#64748b]">10s</span>
               </div>
@@ -287,7 +289,7 @@ export function EmergencyControlModal({
 
             {/* Milestone 20s */}
             <div className="flex flex-col items-center z-10 min-w-0">
-              <div className="flex items-center gap-1.5 bg-white px-2">
+              <div className={`flex items-center gap-1.5 px-2 ${isDark ? "bg-[#0c162d]" : "bg-white"}`}>
                 <div className={`w-3 h-3 rounded-full shrink-0 ${currentSec >= 20 ? 'bg-[#ef3340] ring-4 ring-[#fee2e2]' : 'bg-[#cbd5e1]'}`} />
                 <span className="text-xs font-bold text-[#64748b]">20s</span>
               </div>
@@ -296,7 +298,7 @@ export function EmergencyControlModal({
 
             {/* Milestone 30s */}
             <div className="flex flex-col items-end z-10 min-w-0">
-              <div className="flex items-center gap-1.5 bg-white pl-2">
+              <div className={`flex items-center gap-1.5 pl-2 ${isDark ? "bg-[#0c162d]" : "bg-white"}`}>
                 <div className={`w-3 h-3 rounded-full shrink-0 ${isArrived ? 'bg-[#10b981] ring-4 ring-[#dcfce7]' : 'bg-[#cbd5e1]'}`} />
                 <span className="text-xs font-bold text-[#64748b]">30s</span>
               </div>
@@ -310,11 +312,11 @@ export function EmergencyControlModal({
         {/* ─── 4. ACTIVE EMERGENCY SUPPORT UNITS HEADER ─── */}
         <div className="flex items-center justify-between flex-wrap gap-x-3 gap-y-1.5 mb-3.5 shrink-0">
           <div className="flex items-center gap-2.5 flex-wrap min-w-0">
-            <Users className="w-4 h-4 text-[#14213d] shrink-0" />
-            <h3 className="text-[15px] font-bold text-[#14213d] tracking-tight">
+            <Users className={`w-4 h-4 shrink-0 ${isDark ? "text-white" : "text-[#14213d]"}`} />
+            <h3 className={`text-[15px] font-bold tracking-tight ${isDark ? "text-white" : "text-[#14213d]"}`}>
               Active Emergency Support Units
             </h3>
-            <span className="bg-[#eff6ff] text-[#2563eb] border border-[#dbeafe] text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0">
+            <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full shrink-0 border ${isDark ? "bg-blue-950/60 text-blue-300 border-blue-500/30" : "bg-[#eff6ff] text-[#2563eb] border-[#dbeafe]"}`}>
               3 Vehicles in Convoy
             </span>
           </div>
@@ -327,7 +329,7 @@ export function EmergencyControlModal({
         {/* ─── 5. THE THREE VEHICLE CARDS (3 COLUMNS) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-4 shrink-0">
           {/* Card 1 — Fire Extinguisher Squad */}
-          <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0">
+          <div className={`rounded-2xl border p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0 ${isDark ? "bg-slate-900/80 border-sky-500/20" : "bg-white border-[#e2e8f0]"}`}>
             <div className="min-w-0">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -335,7 +337,7 @@ export function EmergencyControlModal({
                     <Truck className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-[#14213d] leading-snug">Fire Extinguisher Squad</h4>
+                    <h4 className={`text-xs font-bold leading-snug ${isDark ? "text-white" : "text-[#14213d]"}`}>Fire Extinguisher Squad</h4>
                     <div className="text-[10px] text-[#64748b] font-medium leading-tight">Engine 1 • Tactical Pumper</div>
                   </div>
                 </div>
@@ -350,15 +352,15 @@ export function EmergencyControlModal({
 
               <div className="flex items-center justify-between gap-2 mt-2 min-w-0">
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">💧</span>
                     <span className="truncate">4,000L Foam/Water</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">⏱</span>
                     <span className="truncate">High Pressure System</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">🪜</span>
                     <span className="truncate">50m Aerial Tower</span>
                   </div>
@@ -375,7 +377,7 @@ export function EmergencyControlModal({
           </div>
 
           {/* Card 2 — Ambulance Emergency Support */}
-          <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0">
+          <div className={`rounded-2xl border p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0 ${isDark ? "bg-slate-900/80 border-sky-500/20" : "bg-white border-[#e2e8f0]"}`}>
             <div className="min-w-0">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -383,7 +385,7 @@ export function EmergencyControlModal({
                     <Cross className="w-4 h-4 rotate-45" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-[#14213d] leading-snug">Ambulance Emergency Support</h4>
+                    <h4 className={`text-xs font-bold leading-snug ${isDark ? "text-white" : "text-[#14213d]"}`}>Ambulance Emergency Support</h4>
                     <div className="text-[10px] text-[#64748b] font-medium leading-tight">Medic 1 • Advanced Life Support</div>
                   </div>
                 </div>
@@ -398,15 +400,15 @@ export function EmergencyControlModal({
 
               <div className="flex items-center justify-between gap-2 mt-2 min-w-0">
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">❤️</span>
                     <span className="truncate">Trauma &amp; Burn Care</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">🏥</span>
                     <span className="truncate">Rapid Field Triage</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">🫁</span>
                     <span className="truncate">Oxygen Resuscitation</span>
                   </div>
@@ -423,7 +425,7 @@ export function EmergencyControlModal({
           </div>
 
           {/* Card 3 — Tactical Rescue Team */}
-          <div className="bg-white rounded-2xl border border-[#e2e8f0] p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0">
+          <div className={`rounded-2xl border p-4 shadow-xs hover:shadow-sm transition-all flex flex-col justify-between overflow-hidden min-w-0 ${isDark ? "bg-slate-900/80 border-sky-500/20" : "bg-white border-[#e2e8f0]"}`}>
             <div className="min-w-0">
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex items-start gap-2.5 min-w-0 flex-1">
@@ -431,7 +433,7 @@ export function EmergencyControlModal({
                     <HardHat className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-xs font-bold text-[#14213d] leading-snug">Tactical Rescue Team</h4>
+                    <h4 className={`text-xs font-bold leading-snug ${isDark ? "text-white" : "text-[#14213d]"}`}>Tactical Rescue Team</h4>
                     <div className="text-[10px] text-[#64748b] font-medium leading-tight">Rescue 1 • Search &amp; Incident Command</div>
                   </div>
                 </div>
@@ -446,15 +448,15 @@ export function EmergencyControlModal({
 
               <div className="flex items-center justify-between gap-2 mt-2 min-w-0">
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">👥</span>
                     <span className="truncate">Search &amp; Extraction</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">⚔️</span>
                     <span className="truncate">Thermal Cameras</span>
                   </div>
-                  <div className="bg-[#f8fafc] border border-[#e2e8f0] rounded-full px-2.5 py-1 text-[10.5px] font-medium text-[#334155] flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden">
+                  <div className={`rounded-full px-2.5 py-1 text-[10.5px] font-medium flex items-center gap-1.5 min-w-0 max-w-full overflow-hidden border ${isDark ? "bg-slate-950/80 border-slate-700/80 text-slate-300" : "bg-[#f8fafc] border-[#e2e8f0] text-[#334155]"}`}>
                     <span className="shrink-0">🪢</span>
                     <span className="truncate">High-Rise Equipment</span>
                   </div>
@@ -475,7 +477,8 @@ export function EmergencyControlModal({
         <div className="mb-4 shrink-0">
           <div className="flex items-center gap-2">
             <MapPin className="w-3.5 h-3.5 text-[#ef3340] fill-[#ef3340]/20" />
-            <h4 className="text-xs font-bold text-[#14213d]">
+            <h4 className={`text-xs font-bold ${isDark ? "text-white" : "text-[#14213d]"}`}>
+              
               Automatic Nearest Ground Exit Gate Staging
             </h4>
           </div>
@@ -494,8 +497,8 @@ export function EmergencyControlModal({
                   onClick={() => handleManualDispatch(g.id, true)}
                   className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all cursor-pointer text-left min-w-0 overflow-hidden ${
                     isSelected
-                      ? 'border-2 border-[#2563eb] bg-white shadow-xs'
-                      : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]'
+                      ? (isDark ? 'border-2 border-blue-500 bg-blue-950/40 shadow-xs' : 'border-2 border-[#2563eb] bg-white shadow-xs')
+                      : (isDark ? 'border-slate-800 bg-slate-900/70 hover:border-slate-700' : 'border-[#e2e8f0] bg-white hover:border-[#cbd5e1]')
                   }`}
                 >
                   {isSelected ? (
@@ -506,12 +509,12 @@ export function EmergencyControlModal({
                     <div className="w-4 h-4 rounded-full border border-[#cbd5e1] shrink-0" />
                   )}
 
-                  <div className="w-8 h-8 rounded-lg bg-[#f1f5f9] flex items-center justify-center text-[#64748b] shrink-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isDark ? "bg-slate-800 text-slate-300" : "bg-[#f1f5f9] text-[#64748b]"}`}>
                     <Landmark className="w-4 h-4" />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-[#14213d] truncate">
+                    <div className={`text-xs font-bold truncate ${isDark ? "text-white" : "text-[#14213d]"}`}>
                       {g.name}
                     </div>
                     <div className="text-[11px] text-[#64748b] truncate">
@@ -531,7 +534,7 @@ export function EmergencyControlModal({
         </div>
 
         {/* ─── 7. FOOTER ROW ─── */}
-        <div className="flex items-center justify-between flex-wrap gap-x-4 gap-y-2.5 pt-3.5 border-t border-[#f1f5f9] mt-auto shrink-0">
+        <div className={`flex items-center justify-between flex-wrap gap-x-4 gap-y-2.5 pt-3.5 border-t mt-auto shrink-0 ${isDark ? "border-slate-800" : "border-[#f1f5f9]"}`}>
           <div className="flex items-center gap-2 text-xs text-[#64748b] font-medium min-w-0">
             <ShieldCheck className="w-4 h-4 text-[#64748b] shrink-0" />
             <span>Rapid Intervention Standard: NFPA 1710 Life Safety Code</span>
@@ -540,14 +543,14 @@ export function EmergencyControlModal({
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               onClick={() => handleManualDispatch(targetGate.id, true)}
-              className="bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#ef3340] font-bold text-xs px-4 py-2 rounded-xl border border-[#fecdd3] flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+              className={`font-bold text-xs px-4 py-2 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${isDark ? "bg-red-950/60 hover:bg-red-900/80 text-red-300 border-red-500/40" : "bg-[#fff1f2] hover:bg-[#ffe4e6] text-[#ef3340] border-[#fecdd3]"}`}
             >
               <Timer className="w-3.5 h-3.5 text-[#ef3340]" />
               <span>Re-Trigger 30s Dispatch</span>
             </button>
             <button
               onClick={onClose}
-              className="bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#334155] font-bold text-xs px-4 py-2 rounded-xl border border-[#e2e8f0] transition-all cursor-pointer"
+              className={`font-bold text-xs px-4 py-2 rounded-xl border transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700" : "bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#334155] border-[#e2e8f0]"}`}
             >
               Close Panel
             </button>

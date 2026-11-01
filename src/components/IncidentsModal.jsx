@@ -16,6 +16,7 @@ import {
 import building3dImg from '../assets/building/building_3d_render.png';
 
 export const IncidentsModal = ({
+  theme = 'dark',
   incidents = [],
   onClose,
   onFocusRoom,
@@ -23,6 +24,7 @@ export const IncidentsModal = ({
   onOpenGis,
   onOpenCctv
 }) => {
+  const isDark = theme === 'dark';
   const [filter, setFilter] = useState('ALL');
   const [activeTab, setActiveTab] = useState('EXTERIOR'); // 'EXTERIOR' | 'INTERIOR' | 'TOP_VIEW' | 'FLOORS'
   const [selectedIncident, setSelectedIncident] = useState('L7');
@@ -92,27 +94,27 @@ export const IncidentsModal = ({
   const levels = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-150 select-none overflow-y-auto">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 ${isDark ? 'bg-slate-950/85 theme-dark' : 'bg-slate-900/40 theme-light'} backdrop-blur-md animate-in fade-in duration-150 select-none overflow-y-auto`}>
       {/* Full Modal Container Matching Image 5 */}
       <div
-        className="w-full max-w-7xl rounded-3xl overflow-hidden flex flex-col border border-sky-500/30 shadow-2xl my-auto"
+        className={`w-full max-w-7xl rounded-3xl overflow-hidden flex flex-col border ${isDark ? 'border-sky-500/30' : 'border-slate-200'} shadow-2xl my-auto`}
         style={{
-          background: 'linear-gradient(180deg, #070d19 0%, #0c162d 100%)',
-          boxShadow: '0 0 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(37, 99, 235, 0.25)',
+          background: isDark ? 'linear-gradient(180deg, #070d19 0%, #0c162d 100%)' : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+          boxShadow: isDark ? '0 0 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(37, 99, 235, 0.25)' : '0 25px 60px -15px rgba(0, 0, 0, 0.15)',
           fontFamily: "'Inter', system-ui, sans-serif"
         }}
       >
         {/* ── Top Header Banner (Matching Image 5) ── */}
-        <div className="px-6 py-4 flex items-center justify-between border-b border-sky-500/20 bg-slate-900/40">
+        <div className={`px-6 py-4 flex items-center justify-between border-b ${isDark ? 'border-sky-500/20 bg-slate-900/40' : 'border-slate-200 bg-slate-50/80'}`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white leading-tight">
+              <h2 className={`text-lg font-black leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Incidents Command Center
               </h2>
-              <p className="text-xs text-slate-400 font-medium">
+              <p className={`text-xs font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 Real-time detection, tracking, and coordinated response for building incidents.
               </p>
             </div>
@@ -130,13 +132,13 @@ export const IncidentsModal = ({
               <span>RESOLVED (Today): 5</span>
             </div>
 
-            <div className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300 text-xs font-bold font-mono">
+            <div className={`px-3 py-1.5 rounded-xl ${isDark ? 'bg-slate-800/80 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-700'} border text-xs font-bold font-mono`}>
               TOTAL: 8
             </div>
 
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-colors ml-2"
+              className={`w-8 h-8 rounded-xl ${isDark ? 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900'} border flex items-center justify-center cursor-pointer transition-colors ml-2`}
             >
               <X className="w-4 h-4" />
             </button>
@@ -151,14 +153,14 @@ export const IncidentsModal = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-white">
+                <span className={`text-sm font-black ${isDark ? "text-white" : "text-slate-900"}`}>
                   CASE: L7 – WEST STAIR FIRE
                 </span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-red-500 text-white">
                   CRITICAL
                 </span>
               </div>
-              <div className="text-xs text-slate-300">
+              <div className={`text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 Active fire with smoke spread in West Stair Core (A)
               </div>
             </div>
@@ -167,11 +169,11 @@ export const IncidentsModal = ({
           <div className="flex items-center gap-6 text-xs font-mono">
             <div>
               <span className="text-slate-400 block text-[10px] font-sans">Incident ID</span>
-              <span className="font-bold text-white">INC-2026-107</span>
+              <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>INC-2026-107</span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px] font-sans">Started At</span>
-              <span className="font-bold text-white">11:43:12 PM</span>
+              <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>11:43:12 PM</span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px] font-sans">Elapsed Time</span>
@@ -210,7 +212,7 @@ export const IncidentsModal = ({
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-white">{inc.title}</span>
+                      <span className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{inc.title}</span>
                       <span
                         className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded"
                         style={{
@@ -222,8 +224,8 @@ export const IncidentsModal = ({
                         {inc.severity}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-1">{inc.subtitle}</div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-2 pt-1 border-t border-slate-800">
+                    <div className={`text-[11px] mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>{inc.subtitle}</div>
+                    <div className={`flex items-center justify-between text-[10px] ${isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-200"} font-mono mt-2 pt-1 border-t`}>
                       <span>{inc.time}</span>
                       <span>{inc.level}</span>
                     </div>
@@ -303,21 +305,21 @@ export const IncidentsModal = ({
                   width: '210px'
                 }}
               >
-                <div className="font-bold text-white flex items-center gap-1.5">
+                <div className={`font-bold flex items-center gap-1.5 ${isDark ? "text-white" : "text-slate-900"}`}>
                   <span className="w-2 h-2 rounded-full bg-red-500" />
                   <span>Incident Location</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
                   <span className="text-slate-400">Floor</span>
-                  <span className="font-bold text-white">Level 7</span>
+                  <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Level 7</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
                   <span className="text-slate-400">Area</span>
-                  <span className="font-bold text-white">West Stair Core (A)</span>
+                  <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>West Stair Core (A)</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
                   <span className="text-slate-400">Affected Zone</span>
-                  <span className="font-bold text-white">Stairwell + Adj.</span>
+                  <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Stairwell + Adj.</span>
                 </div>
                 <div className="text-[11px] text-slate-300 flex justify-between font-mono">
                   <span className="text-slate-400">Affected Occupants</span>
@@ -331,7 +333,7 @@ export const IncidentsModal = ({
           <div className="lg:col-span-3 flex flex-col justify-between gap-3">
             {/* Timeline */}
             <div className="flex flex-col gap-2">
-              <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <div className={`text-xs font-bold flex items-center gap-1.5 ${isDark ? "text-slate-300" : "text-slate-800"}`}>
                 <Clock className="w-4 h-4 text-sky-400" />
                 <span>Incident Timeline</span>
               </div>
@@ -351,9 +353,9 @@ export const IncidentsModal = ({
                     <div>
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-[10px] text-slate-400">{step.time}</span>
-                        <span className="font-bold text-white">{step.title}</span>
+                        <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{step.title}</span>
                       </div>
-                      <div className="text-[10.5px] text-slate-400">{step.detail}</div>
+                      <div className={`text-[10.5px] ${isDark ? "text-slate-400" : "text-slate-600"}`}>{step.detail}</div>
                     </div>
                   </div>
                 ))}

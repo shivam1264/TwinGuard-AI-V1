@@ -73,7 +73,7 @@ const TelemetryRow = ({ label, value, bad = false, warn = false, neutral = false
   </div>
 );
 
-export function EmergencyCommandCenterPage({
+function EmergencyCommandCenterPageComponent({
   theme = 'dark',
   threeCanvasRef,
   mainSlotRef,
@@ -155,8 +155,8 @@ export function EmergencyCommandCenterPage({
   useEffect(() => {
     const timer = setInterval(() => {
       if (sceneManager && sceneManager.getCameraYaw) {
-        const yaw = sceneManager.getCameraYaw();
-        setCompassYaw(Math.round(yaw));
+        const yaw = Math.round(sceneManager.getCameraYaw());
+        setCompassYaw((prev) => (prev === yaw ? prev : yaw));
       }
     }, 200);
     return () => clearInterval(timer);
@@ -462,7 +462,7 @@ export function EmergencyCommandCenterPage({
           ? sceneManager.blockedCorridorSegments.size || 0
           : 0);
 
-      setEnvTelemetry({
+      const nextTelem = {
         power: {
           mainGrid: haz.powerGridFailure ? 'OFFLINE' : 'ONLINE',
           emergencyLighting: haz.powerGridFailure ? 'ACTIVE' : 'INACTIVE',
@@ -485,6 +485,29 @@ export function EmergencyCommandCenterPage({
           evacuating: agentStats ? agentStats.inTransit || 0 : null,
           blockedRoutes
         }
+      };
+
+      setEnvTelemetry((prev) => {
+        if (!prev) return nextTelem;
+        if (
+          prev.power.mainGrid === nextTelem.power.mainGrid &&
+          prev.power.emergencyLighting === nextTelem.power.emergencyLighting &&
+          prev.power.affectedZones === nextTelem.power.affectedZones &&
+          prev.hvac.fans === nextTelem.hvac.fans &&
+          prev.hvac.smokePropagation === nextTelem.hvac.smokePropagation &&
+          prev.hvac.avgExposureRate === nextTelem.hvac.avgExposureRate &&
+          prev.hvac.exposedAgents === nextTelem.hvac.exposedAgents &&
+          prev.structural.corridor === nextTelem.structural.corridor &&
+          prev.structural.westConnection === nextTelem.structural.westConnection &&
+          prev.structural.affected === nextTelem.structural.affected &&
+          prev.structural.rerouted === nextTelem.structural.rerouted &&
+          prev.summary.activeHazards === nextTelem.summary.activeHazards &&
+          prev.summary.evacuating === nextTelem.summary.evacuating &&
+          prev.summary.blockedRoutes === nextTelem.summary.blockedRoutes
+        ) {
+          return prev;
+        }
+        return nextTelem;
       });
     };
     read();
@@ -1327,9 +1350,18 @@ export function EmergencyCommandCenterPage({
       setSegmentInfo(null);
       return undefined;
     }
-    const read = () => setSegmentInfo(sceneManager.getSegmentOccupancy(currentLocation.id));
+    const read = () => {
+      const next = sceneManager.getSegmentOccupancy(currentLocation.id);
+      setSegmentInfo((prev) => {
+        if (!prev && !next) return prev;
+        if (!prev && next) return next;
+        if (prev && !next) return null;
+        if (prev.count === next.count && prev.capacity === next.capacity) return prev;
+        return next;
+      });
+    };
     read();
-    const timer = setInterval(read, 900);
+    const timer = setInterval(read, 1000);
     return () => clearInterval(timer);
   }, [sceneManager, currentLocation ? currentLocation.id : null, currentLocation ? currentLocation.category : null]);
 
@@ -1617,14 +1649,20 @@ export function EmergencyCommandCenterPage({
       <header className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-200/80 gap-x-3 gap-y-2.5 shrink-0">
         {/* Left: Siren + Title + Subtitle */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500 shadow-sm shrink-0">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm shrink-0 border ${
+            isDark ? 'bg-slate-900 border-red-950/60 text-red-400' : 'bg-white border-red-100 text-red-500'
+          }`}>
             <Siren className="w-5 h-5 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight whitespace-nowrap">
+            <h1 className={`text-xl md:text-2xl font-black tracking-tight leading-tight whitespace-nowrap ${
+              isDark ? 'text-white' : 'text-slate-900'
+            }`}>
               Emergency Command Center
             </h1>
-            <p className="text-[11px] md:text-xs text-slate-500 font-medium truncate max-w-[260px] sm:max-w-sm md:max-w-md">
+            <p className={`text-[11px] md:text-xs font-medium truncate max-w-[260px] sm:max-w-sm md:max-w-md ${
+              isDark ? 'text-slate-400' : 'text-slate-500'
+            }`}>
               Monitor incidents, manage emergency scenarios and coordinate intelligent building evacuation in real time.
             </p>
           </div>
@@ -1672,10 +1710,12 @@ export function EmergencyCommandCenterPage({
             {(isSimulating || isCompleted) && (
               <button
                 onClick={handleResetEvacuation}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 shrink-0"
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm border shrink-0 ${
+                  isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-700'
+                }`}
                 title="Reset simulation and return all occupants to baseline"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
                 <span>Reset</span>
               </button>
             )}
@@ -1687,12 +1727,11 @@ export function EmergencyCommandCenterPage({
               showToast(mode === 'simulation' ? 'Switched to Live IoT Sensor Stream' : 'Simulation Mode Active');
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
-              mode === 'simulation'
-                ? 'bg-blue-50 border-blue-200 text-blue-700'
-                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+              mode === 'simulation' ? (isDark ? 'bg-blue-950/70 border-blue-500/50 text-blue-300' : 'bg-blue-100/90 border-blue-300 text-blue-800')
+                : (isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700')
             }`}
           >
-            <FlaskConical className="w-3.5 h-3.5 text-blue-600" />
+            <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
             <span>{mode === 'simulation' ? 'Sim Mode' : 'Live Mode'}</span>
           </button>
 
@@ -1701,17 +1740,21 @@ export function EmergencyCommandCenterPage({
               setMode('live');
               showToast('Switched to Live IoT Sensor Stream');
             }}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shrink-0"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
+              isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+            }`}
           >
-            <Radio className="w-3.5 h-3.5 text-slate-600" />
+            <Radio className="w-3.5 h-3.5 text-slate-400" />
             <span>Live Mode</span>
           </button>
 
           <button
             onClick={handleSaveScenario}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shrink-0"
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
+              isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-300' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+            }`}
           >
-            <Save className="w-3.5 h-3.5 text-slate-500" />
+            <Save className="w-3.5 h-3.5 text-slate-400" />
             <span>Save Scenario</span>
           </button>
 
@@ -1726,7 +1769,9 @@ export function EmergencyCommandCenterPage({
           {(onSwitchTo3D || onClose) && (
             <button
               onClick={onSwitchTo3D || onClose}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-slate-900 hover:bg-slate-800 text-white shrink-0 ml-1"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm shrink-0 ml-1 border ${
+                isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white' : 'bg-slate-900 hover:bg-slate-800 border-slate-900 text-white'
+              }`}
               title="Return to Main 3D View"
             >
               <X className="w-3.5 h-3.5" />
@@ -1956,7 +2001,7 @@ export function EmergencyCommandCenterPage({
           {/* ── BOTTOM DUAL SUB-CARDS (MATCHING REFERENCE DESIGN) ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full min-w-0 shrink-0">
             {/* ── Sub-Card 1: Building Emergency Overview ── */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between w-full min-w-0">
+            <div className={`p-3.5 rounded-2xl flex flex-col justify-between w-full min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               {/* Header Row */}
               <div className="flex items-center justify-between mb-2.5 gap-1.5 min-w-0">
                 <h2 className="text-xs sm:text-[13px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
@@ -2093,7 +2138,7 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── Sub-Card 2: Exit-wise Distribution ── */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between w-full min-w-0">
+            <div className={`p-3.5 rounded-2xl flex flex-col justify-between w-full min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <div>
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-2.5 gap-1.5 min-w-0">
@@ -2174,18 +2219,20 @@ export function EmergencyCommandCenterPage({
         <div className="lg:col-span-4 flex flex-col gap-3.5 min-w-0">
           {/* ── CARD 1: Select Location ── */}
             {/* ── SECTION 1: Select Location ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+          <div className={`p-3.5 md:p-4 rounded-2xl min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
-                <h3 className="text-xs md:text-sm font-bold text-slate-900">
+                <h3 className={`text-xs md:text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
                   1. Select Location
                 </h3>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full shrink-0">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${isDark ? "text-blue-400 bg-blue-950/60 border-blue-500/30" : "text-blue-600 bg-blue-50 border-blue-200/60"}`}>
+                  
                   {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'}
                 </span>
               </div>
 
               {/* Target Category Selector Tabs: ALL | ROOM | CORRIDOR | STAIR | EXIT */}
-              <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-xl mb-2.5">
+              <div className={`grid grid-cols-5 gap-1 p-1 rounded-xl mb-2.5 border ${isDark ? "bg-slate-900/90 border-sky-500/20" : "bg-slate-100/90 border-slate-200/80"}`}>
+              
                 {[
                   { key: 'ALL', label: 'All' },
                   { key: 'ROOM', label: 'Room' },
@@ -2202,7 +2249,7 @@ export function EmergencyCommandCenterPage({
                       className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate ${
                         isSel
                           ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                          : (isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70')
                       }`}
                     >
                       {cat.label}
@@ -2225,7 +2272,7 @@ export function EmergencyCommandCenterPage({
                             : Number(e.target.value)
                         )
                       }
-                      className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm"
+                      className={`w-full h-8 pl-2.5 pr-7 rounded-xl border text-xs font-semibold ${isDark ? "bg-slate-900 border-sky-500/30 text-white" : "bg-white border-slate-200 text-slate-800"} appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm`}
                     >
                       {ALL_FLOORS.map((fl) => (
                         <option key={fl.num} value={fl.num}>
@@ -2245,7 +2292,7 @@ export function EmergencyCommandCenterPage({
                     <select
                       value={selectedLocationId}
                       onChange={(e) => handleSelectLocation(e.target.value)}
-                      className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate"
+                      className={`w-full h-8 pl-2.5 pr-7 rounded-xl border text-xs font-semibold ${isDark ? "bg-slate-900 border-sky-500/30 text-white" : "bg-white border-slate-200 text-slate-800"} appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate`}
                     >
                       {((selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory))).length > 0
                         ? (selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory)))
@@ -2262,7 +2309,8 @@ export function EmergencyCommandCenterPage({
               </div>
 
               {/* Selected location preview card (data-driven, no static images) */}
-              <div className="border border-slate-200/90 rounded-xl p-2.5 flex items-center gap-2.5 bg-white shadow-sm min-w-0">
+              <div className={`rounded-xl p-2.5 flex items-center gap-2.5 min-w-0 border ${isDark ? "border-sky-500/20 bg-slate-900/80" : "border-slate-200/90 bg-white shadow-sm"}`}>
+              
                 <div className="w-[96px] h-[56px] rounded-lg border border-slate-200 shrink-0 bg-slate-900 flex flex-col items-center justify-center gap-0.5 px-1.5 overflow-hidden">
                   <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate w-full text-center">
                     {CATEGORY_LABEL[currentLocation.category] || 'Location'}
@@ -2292,12 +2340,12 @@ export function EmergencyCommandCenterPage({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
+                    <h4 className={`text-xs sm:text-sm font-bold leading-tight truncate ${isDark ? "text-white" : "text-slate-900"}`}>
                       {currentLocation.shortName}
                     </h4>
                     <button
                       onClick={() => setIsDetailsModalOpen(true)}
-                      className="px-2 py-0.5 text-[10.5px] font-semibold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                      className={`px-2 py-0.5 text-[10.5px] font-semibold border rounded-lg transition-colors cursor-pointer shrink-0 ${isDark ? "text-sky-400 border-sky-500/30 bg-sky-950/40 hover:bg-sky-900/50" : "text-blue-600 border-blue-200 bg-blue-50/50 hover:bg-blue-100"}`}
                     >
                       View Details
                     </button>
@@ -2308,7 +2356,7 @@ export function EmergencyCommandCenterPage({
                   <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
                     <span>Capacity: {currentLocation.capacity} People</span>
                     <span>•</span>
-                    <span>Current: <strong className="text-slate-800 font-bold">{currentLocation.current} People</strong></span>
+                    <span>Current: <strong className={`font-bold ${isDark ? "text-white" : "text-slate-800"}`}>{currentLocation.current} People</strong></span>
                   </div>
                 </div>
               </div>
@@ -2322,12 +2370,14 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── SECTION 2: Emergency Actions (category-aware grid) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+          <div className={`p-3.5 md:p-4 rounded-2xl min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
-                <h3 className="text-xs md:text-sm font-bold text-slate-900">
+                <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                   2. Emergency Actions
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-semibold border shrink-0 ${
+                  isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
                   {CATEGORY_LABEL[currentLocation.category] || 'Location'} Actions
                 </span>
               </div>
@@ -2347,18 +2397,18 @@ export function EmergencyCommandCenterPage({
                             : action.tone === 'orange-active'
                               ? 'border-orange-500 bg-orange-600 text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/50'
                               : action.tone === 'red'
-                                ? 'border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600'
+                                ? (isDark ? 'border-red-900/60 bg-red-950/40 hover:bg-red-900/50 text-red-400' : 'border-red-300 bg-red-50 hover:bg-red-100 text-red-700 font-bold')
                                 : action.tone === 'emerald'
-                                  ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100 text-emerald-600'
+                                  ? (isDark ? 'border-emerald-900/60 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-400' : 'border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold')
                                   : action.tone === 'blue'
-                                    ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-100 text-blue-600'
+                                    ? (isDark ? 'border-blue-900/60 bg-blue-950/40 hover:bg-blue-900/50 text-blue-400' : 'border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold')
                                     : action.tone === 'amber'
-                                      ? 'border-amber-200 bg-amber-50/50 hover:bg-amber-100 text-amber-600'
+                                      ? (isDark ? 'border-amber-900/60 bg-amber-950/40 hover:bg-amber-900/50 text-amber-400' : 'border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold')
                                       : action.tone === 'purple'
-                                        ? 'border-purple-200 bg-purple-50/50 hover:bg-purple-100 text-purple-600'
+                                        ? (isDark ? 'border-purple-900/60 bg-purple-950/40 hover:bg-purple-900/50 text-purple-400' : 'border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold')
                                         : action.tone === 'orange'
-                                          ? 'border-orange-200 bg-orange-50/50 hover:bg-orange-100 text-orange-600'
-                                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700';
+                                          ? (isDark ? 'border-orange-900/60 bg-orange-950/40 hover:bg-orange-900/50 text-orange-400' : 'border-orange-300 bg-orange-50 hover:bg-orange-100 text-orange-800 font-bold')
+                                          : (isDark ? 'border-slate-700 bg-slate-900/90 hover:bg-slate-800 text-slate-200' : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700');
                   const iconCls =
                     action.isActive
                       ? 'text-white fill-white'
@@ -2368,7 +2418,13 @@ export function EmergencyCommandCenterPage({
                           ? 'text-emerald-500'
                           : action.tone === 'blue'
                             ? 'text-blue-500'
-                            : 'text-slate-400';
+                            : action.tone === 'amber'
+                              ? 'text-amber-500 fill-amber-500'
+                              : action.tone === 'purple'
+                                ? 'text-purple-500'
+                                : action.tone === 'orange'
+                                  ? 'text-orange-500'
+                                  : (isDark ? 'text-slate-400' : 'text-slate-600');
                   return (
                     <button
                       key={action.key}
@@ -2377,7 +2433,7 @@ export function EmergencyCommandCenterPage({
                     >
                       {action.status && (
                         <span className={`absolute top-1 right-1.5 text-[7.5px] font-black px-1 py-0.2 rounded-full leading-tight uppercase tracking-wider ${
-                          action.isActive ? 'bg-black/30 text-white' : 'bg-slate-100 text-slate-500'
+                          action.isActive ? 'bg-black/30 text-white' : (isDark ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-100 text-slate-600 border border-slate-200')
                         }`}>
                           {action.status}
                         </span>
@@ -2393,7 +2449,7 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── SECTION 3: Location Status + Active Events (all floors) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+          <div className={`p-3.5 md:p-4 rounded-2xl min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
                 <h3 className="text-xs md:text-sm font-bold text-slate-900">
                   3. Status & Events
@@ -2603,7 +2659,7 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── SECTION 4: Scenario Controls (2x2 Grid) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+          <div className={`p-3.5 md:p-4 rounded-2xl min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
                 4. Scenario Controls
               </h3>
@@ -2648,7 +2704,7 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── SECTION 5: Live Environmental Telemetry ── */}
-            <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+            <div className={`p-3.5 md:p-4 rounded-2xl min-w-0 border ${isDark ? "bg-[#0c162d] border-sky-500/20 text-slate-100" : "bg-white border-slate-200/90 shadow-sm text-slate-800"}`}>
               <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-2">
                 5. Live Environmental Telemetry
               </h3>
@@ -2821,4 +2877,5 @@ export function EmergencyCommandCenterPage({
   );
 }
 
+export const EmergencyCommandCenterPage = React.memo(EmergencyCommandCenterPageComponent);
 export default EmergencyCommandCenterPage;

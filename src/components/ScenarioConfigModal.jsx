@@ -362,13 +362,14 @@ const PRESET_DEFINITIONS = [
 ];
 
 export const ScenarioConfigModal = ({
+  theme = 'dark',
   isOpen,
   onClose,
   currentScenario,
   onApplyScenario,
   rooms = []
 }) => {
-  if (!isOpen) return null;
+  const isDark = theme === 'dark';
 
   const [activeTab, setActiveTab] = useState('PRESETS'); // 'PRESETS' | 'HAZARD' | 'EXITS' | 'DEMOGRAPHICS'
   const [scenarioState, setScenarioState] = useState(() =>
@@ -445,6 +446,8 @@ export const ScenarioConfigModal = ({
     downloadAnchor.remove();
   };
 
+  if (!isOpen) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center select-none"
@@ -460,9 +463,10 @@ export const ScenarioConfigModal = ({
           width: '920px',
           maxWidth: '96vw',
           maxHeight: '92vh',
-          background: '#ffffff',
+          background: isDark ? '#0c162d' : '#ffffff',
           borderRadius: '24px',
-          border: '1px solid #e2e8f0',
+          border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #e2e8f0',
+          color: isDark ? '#f8fafc' : '#0f172a',
           boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.3)',
           fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
         }}
@@ -474,8 +478,8 @@ export const ScenarioConfigModal = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #f1f5f9',
-            background: '#ffffff'
+            borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid #f1f5f9',
+            background: isDark ? '#0c162d' : '#ffffff'
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -497,7 +501,7 @@ export const ScenarioConfigModal = ({
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                <span style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1 }}>
                   Emergency Scenario <span style={{ color: '#2563eb' }}>Configuration Studio</span>
                 </span>
                 <span
@@ -550,8 +554,8 @@ export const ScenarioConfigModal = ({
             padding: '12px 24px',
             display: 'flex',
             alignItems: 'center',
-            borderBottom: '1px solid #f1f5f9',
-            background: '#ffffff',
+            borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid #f1f5f9',
+            background: isDark ? '#0c162d' : '#ffffff',
             gap: '8px'
           }}
         >
@@ -724,7 +728,7 @@ export const ScenarioConfigModal = ({
                           style={{
                             fontSize: '14.5px',
                             fontWeight: 800,
-                            color: '#0f172a',
+                            color: isDark ? '#ffffff' : '#0f172a',
                             marginTop: '2px',
                             lineHeight: 1.2
                           }}
@@ -839,7 +843,7 @@ export const ScenarioConfigModal = ({
                       borderRadius: '12px',
                       fontSize: '12px',
                       fontWeight: 700,
-                      color: '#0f172a'
+                      color: isDark ? '#ffffff' : '#0f172a'
                     }}
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((fl) => (
@@ -871,7 +875,7 @@ export const ScenarioConfigModal = ({
                       borderRadius: '12px',
                       fontSize: '12px',
                       fontWeight: 700,
-                      color: '#0f172a'
+                      color: isDark ? '#ffffff' : '#0f172a'
                     }}
                   >
                     {ROOM_TEMPLATES.map((tmpl) => {
@@ -1051,7 +1055,7 @@ export const ScenarioConfigModal = ({
                             {isBlocked ? 'BLOCKED' : 'OPERATIONAL'}
                           </span>
                         </div>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{core.name}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>{core.name}</div>
                         <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>{core.desc}</div>
                       </div>
 
@@ -1088,7 +1092,7 @@ export const ScenarioConfigModal = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <ArrowUpDown style={{ width: '16px', height: '16px', color: '#2563eb' }} />
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Elevator Lockdown Mode</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>Elevator Lockdown Mode</div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>Cars ground immediately per fire code</div>
                       </div>
                     </div>
@@ -1109,7 +1113,7 @@ export const ScenarioConfigModal = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <Zap style={{ width: '16px', height: '16px', color: '#f59e0b' }} />
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>HVAC Damper Compromised</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>HVAC Damper Compromised</div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>Accelerates vertical smoke drift</div>
                       </div>
                     </div>
@@ -1205,7 +1209,7 @@ export const ScenarioConfigModal = ({
 
               {/* Reaction Hesitation Range */}
               <div style={{ padding: '16px', borderRadius: '16px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Clock style={{ width: '15px', height: '15px', color: '#64748b' }} />
                     Reaction & Hesitation Delay:

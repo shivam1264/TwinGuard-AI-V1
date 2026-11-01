@@ -19,8 +19,10 @@ import {
 } from 'lucide-react';
 import building3dImg from '../assets/building/building_3d_render.png';
 
-export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
-  if (!isOpen) return null;
+export const LoginModal = ({
+  theme = 'dark',
+  isOpen, onClose, onLoginSuccess }) => {
+  const isDark = theme === 'dark';
 
   const [email, setEmail] = useState('shivansh.mehra@twinguard.ai');
   const [password, setPassword] = useState('••••••••••••');
@@ -48,13 +50,15 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
   const floorLevels = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 bg-[#050b14]/90 backdrop-blur-xl animate-in fade-in duration-200 select-none overflow-y-auto">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8 ${isDark ? 'bg-[#050b14]/90 theme-dark' : 'bg-slate-900/40 theme-light'} backdrop-blur-xl animate-in fade-in duration-200 select-none overflow-y-auto`}>
       {/* Container matching Reference Image 1 */}
       <div
-        className="relative w-full max-w-7xl rounded-3xl overflow-hidden flex flex-col lg:flex-row border border-sky-500/25 shadow-2xl min-h-[640px]"
+        className={`relative w-full max-w-7xl rounded-3xl overflow-hidden flex flex-col lg:flex-row border ${isDark ? 'border-sky-500/25' : 'border-slate-200'} shadow-2xl min-h-[640px]`}
         style={{
-          background: 'linear-gradient(135deg, #070e1c 0%, #0d1a33 60%, #091224 100%)',
+          background: isDark ? 'linear-gradient(135deg, #070e1c 0%, #0d1a33 60%, #091224 100%)' : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 60%, #f1f5f9 100%)',
           boxShadow: '0 0 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(37, 99, 235, 0.2)'
         }}
       >
@@ -85,10 +89,10 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-lg font-black text-white tracking-tight leading-none">
+                  <div className={`text-lg font-black tracking-tight leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     TWINGUARD <span className="text-sky-400">AI</span>
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase mt-1">
+                  <div className={`text-[10px] font-semibold tracking-wider uppercase mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Digital Twin Command Platform
                   </div>
                 </div>
@@ -110,11 +114,11 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
             {/* Main Headline */}
             <div className="mt-4">
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight">
+              <h1 className={`text-3xl sm:text-4xl font-black leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 AI-Powered Digital Twin<br />
                 for <span className="text-sky-400">Life Safety & Emergency Command</span>
               </h1>
-              <p className="text-slate-300 text-sm mt-2 max-w-xl font-medium">
+              <p className={`text-sm mt-2 max-w-xl font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 Real-time building intelligence, predictive egress, and coordinated emergency response — all in one command platform.
               </p>
             </div>
@@ -126,7 +130,7 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 return (
                   <div
                     key={idx}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 backdrop-blur-md"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold backdrop-blur-md ${isDark ? 'text-slate-300' : 'text-slate-700'}`}
                     style={{
                       background: 'rgba(15, 23, 42, 0.65)',
                       border: '1px solid rgba(56, 189, 248, 0.2)'
@@ -203,14 +207,14 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
           </div>
 
           {/* Bottom Compliance & Response Status Bar */}
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-400 z-10 pt-2 border-t border-sky-500/15">
+          <div className={`flex items-center justify-between text-xs font-semibold z-10 pt-2 border-t ${isDark ? 'border-sky-500/15 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
             <div className="flex items-center gap-2">
               <span className="p-1 rounded-lg bg-red-500/20 text-red-400">🔥</span>
-              <span className="font-bold text-white">Ready for Emergency Response</span>
+              <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Ready for Emergency Response</span>
               <span className="text-slate-400 text-[11px]">• Simulation • Evacuation • Multi-Agency Dispatch</span>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-300">
+            <div className={`flex items-center gap-2 text-[11px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>NFPA 101 | IBC | ISO 22301</span>
             </div>
@@ -219,9 +223,9 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         {/* ── RIGHT LOGIN CARD (Matching Reference Image 1) ── */}
         <div
-          className="w-full lg:w-[440px] p-8 sm:p-10 flex flex-col justify-center border-t lg:border-t-0 lg:border-l border-sky-500/20 relative"
+          className={`w-full lg:w-[440px] p-8 sm:p-10 flex flex-col justify-center border-t lg:border-t-0 lg:border-l relative ${isDark ? 'border-sky-500/20' : 'border-slate-200'}`}
           style={{
-            background: 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(8, 16, 32, 0.98) 100%)'
+            background: isDark ? 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(8, 16, 32, 0.98) 100%)' : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'
           }}
         >
           {/* Header */}
@@ -237,17 +241,17 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 />
               </svg>
             </div>
-            <div className="text-xl font-black text-white">
+            <div className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>
               TWINGUARD <span className="text-sky-400">AI</span>
             </div>
             <div className="text-[10px] font-semibold text-slate-400 tracking-wider uppercase mt-0.5">
               Digital Twin Command Platform
             </div>
 
-            <h2 className="text-2xl font-black text-white mt-4">
+            <h2 className={`text-2xl font-black mt-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Command Center Login
             </h2>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Secure access to the Building Digital Twin & Life Safety System
             </p>
           </div>
@@ -256,18 +260,18 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {/* Email Field */}
             <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-xs font-bold text-slate-300">
+              <label className={`text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 Employee ID / Email
               </label>
               <div
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-sky-500/25 bg-slate-900/80 focus-within:border-sky-400 transition-colors"
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border transition-colors ${isDark ? 'border-sky-500/25 bg-slate-900/80 focus-within:border-sky-400' : 'border-slate-300 bg-white focus-within:border-blue-500'}`}
               >
                 <Mail className="w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="bg-transparent text-sm text-white focus:outline-none w-full font-medium"
+                  className={`bg-transparent text-sm focus:outline-none w-full font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}
                   placeholder="name@twinguard.ai"
                   required
                 />
@@ -280,14 +284,14 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
                 Password
               </label>
               <div
-                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-sky-500/25 bg-slate-900/80 focus-within:border-sky-400 transition-colors"
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border transition-colors ${isDark ? 'border-sky-500/25 bg-slate-900/80 focus-within:border-sky-400' : 'border-slate-300 bg-white focus-within:border-blue-500'}`}
               >
                 <Lock className="w-4 h-4 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-transparent text-sm text-white focus:outline-none w-full font-medium"
+                  className={`bg-transparent text-sm focus:outline-none w-full font-medium ${isDark ? 'text-white' : 'text-slate-900'}`}
                   placeholder="••••••••••••"
                   required
                 />
@@ -303,12 +307,12 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+              <label className={`flex items-center gap-2 cursor-pointer ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-0"
+                  className={`rounded ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-300 bg-white'} text-sky-500 focus:ring-0`}
                 />
                 <span>Remember me</span>
               </label>
@@ -340,16 +344,16 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
             {/* Divider */}
             <div className="flex items-center gap-3 my-1">
-              <div className="flex-1 h-[1px] bg-slate-800" />
+              <div className={`flex-1 h-[1px] ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
               <span className="text-[10px] text-slate-500 font-bold uppercase">OR</span>
-              <div className="flex-1 h-[1px] bg-slate-800" />
+              <div className={`flex-1 h-[1px] ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`} />
             </div>
 
             {/* Corporate SSO Button */}
             <button
               type="button"
               onClick={handleSubmit}
-              className="w-full py-2.5 rounded-xl font-bold text-xs text-slate-200 flex items-center justify-center gap-2.5 transition-colors cursor-pointer border border-sky-500/20 bg-slate-900/60 hover:bg-slate-800/80"
+              className={`w-full py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-colors cursor-pointer border ${isDark ? 'border-sky-500/20 bg-slate-900/60 hover:bg-slate-800/80 text-slate-200' : 'border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800'}`}
             >
               {/* Microsoft Colors Icon */}
               <div className="grid grid-cols-2 gap-0.5 w-3.5 h-3.5">
@@ -363,10 +367,10 @@ export const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
           </form>
 
           {/* Footer Security Badge */}
-          <div className="flex items-center justify-center gap-2 text-[10.5px] text-slate-400 mt-6 pt-4 border-t border-slate-800/80">
+          <div className={`flex items-center justify-center gap-2 text-[10.5px] mt-6 pt-4 border-t ${isDark ? 'border-slate-800/80 text-slate-400' : 'border-slate-200 text-slate-500'}`}>
             <ShieldCheck className="w-4 h-4 text-sky-400" />
             <div>
-              <span className="font-bold text-slate-200">Enterprise-Grade Security</span>
+              <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Enterprise-Grade Security</span>
               <span className="block text-[9.5px] text-slate-500">Role-based access • Encrypted • Audit Logged</span>
             </div>
           </div>

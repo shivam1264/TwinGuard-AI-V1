@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { FLOOR_THEMES } from '../simulation/Doorways';
 
-export const BuildingInfoPage = ({
+const BuildingInfoPageComponent = ({
   theme = 'dark',
   rooms = [],
   exits = [],
@@ -174,7 +174,7 @@ export const BuildingInfoPage = ({
               style={{
                 fontSize: '24px',
                 fontWeight: 800,
-                color: '#0f172a',
+                color: isDark ? '#f8fafc' : '#0f172a',
                 letterSpacing: '-0.025em',
                 lineHeight: 1.2
               }}
@@ -184,7 +184,7 @@ export const BuildingInfoPage = ({
             <p
               style={{
                 fontSize: '13px',
-                color: '#64748b',
+                color: isDark ? '#94a3b8' : '#64748b',
                 fontWeight: 500,
                 marginTop: '2px'
               }}
@@ -204,8 +204,9 @@ export const BuildingInfoPage = ({
                 padding: '6px 14px',
                 borderRadius: '8px',
                 border: '1px solid #bfdbfe',
-                background: '#ffffff',
-                color: '#2563eb',
+                background: isDark ? '#0c162d' : '#ffffff',
+                color: isDark ? '#60a5fa' : '#2563eb',
+                borderColor: isDark ? 'rgba(56, 189, 248, 0.3)' : '#bfdbfe',
                 fontSize: '12px',
                 fontWeight: 600,
                 boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
@@ -243,8 +244,8 @@ export const BuildingInfoPage = ({
                   gap: '6px',
                   padding: '6px 14px',
                   borderRadius: '8px',
-                  background: '#e2e8f0',
-                  color: '#334155',
+                  background: isDark ? '#1e293b' : '#e2e8f0',
+                  color: isDark ? '#cbd5e1' : '#334155',
                   border: 'none',
                   fontSize: '12px',
                   fontWeight: 600,
@@ -264,9 +265,9 @@ export const BuildingInfoPage = ({
            ═══════════════════════════════════════════════════════════════════ */}
         <section
           style={{
-            background: '#ffffff',
+            background: isDark ? '#0c162d' : '#ffffff',
             borderRadius: '16px',
-            border: '1px solid #e2e8f0',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
             padding: '16px',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
           }}
@@ -284,8 +285,8 @@ export const BuildingInfoPage = ({
                   overflow: 'hidden',
                   height: '185px',
                   width: '100%',
-                  background: '#f1f5f9',
-                  border: '1px solid #e2e8f0'
+                  background: isDark ? '#081020' : '#f1f5f9',
+                  border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #e2e8f0'
                 }}
               >
                 <img
@@ -339,7 +340,7 @@ export const BuildingInfoPage = ({
               style={{ padding: '2px 4px' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>
+                <h2 style={{ fontSize: '17px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   {buildingData.name}
                 </h2>
                 <span
@@ -359,73 +360,73 @@ export const BuildingInfoPage = ({
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <FileText style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Building ID</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800">
+                  <div className={`col-span-7 font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                     {buildingData.id}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <MapPin style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Address</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800 truncate" title={buildingData.address}>
+                  <div className={`col-span-7 font-bold truncate ${isDark ? "text-slate-100" : "text-slate-800"}`} title={buildingData.address}>
                     {buildingData.address}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <Layers style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Total Floors</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800">
+                  <div className={`col-span-7 font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                     {buildingData.totalFloors} Storeys (L1 to L10 + Roof)
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <Ruler style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Built-up Area</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800">
+                  <div className={`col-span-7 font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                     {buildingData.builtUpArea} (60m × 48m Footprint)
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <Calendar style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Construction Year</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800">
+                  <div className={`col-span-7 font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                     {buildingData.constructionYear} (Smart BIM Commissioned)
                   </div>
                 </div>
 
                 <div className="grid grid-cols-12 items-center">
-                  <div className="col-span-5 flex items-center gap-2 text-slate-500 font-medium">
-                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569' }}>
+                  <div className={`col-span-5 flex items-center gap-2 font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                    <div style={{ width: '18px', height: '18px', borderRadius: '4px', background: isDark ? '#1e293b' : '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isDark ? '#94a3b8' : '#475569' }}>
                       <Compass style={{ width: '11px', height: '11px' }} />
                     </div>
                     <span>Coordinates</span>
                   </div>
-                  <div className="col-span-7 font-bold text-slate-800 font-mono text-[11px]">
+                  <div className={`col-span-7 font-bold font-mono text-[11px] ${isDark ? "text-slate-100" : "text-slate-800"}`}>
                     {buildingData.coordinates}
                   </div>
                 </div>
@@ -435,7 +436,7 @@ export const BuildingInfoPage = ({
             {/* Col 3 (30% - col-span-3): Location Map */}
             <div className="lg:col-span-3 flex flex-col justify-between">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   <MapPin style={{ width: '14px', height: '14px', color: '#2563eb' }} />
                   <span>Location Map</span>
                 </div>
@@ -511,9 +512,9 @@ export const BuildingInfoPage = ({
           {/* Card 1: Total Floors */}
           <div
             style={{
-              background: '#ffffff',
+              background: isDark ? '#0c162d' : '#ffffff',
               borderRadius: '16px',
-              border: '1px solid #e2e8f0',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
               padding: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               display: 'flex',
@@ -538,10 +539,10 @@ export const BuildingInfoPage = ({
                 <Building2 style={{ width: '22px', height: '22px' }} />
               </div>
               <div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>
                   10
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', marginTop: '4px' }}>
                   Total Floors (L1–L10)
                 </div>
               </div>
@@ -555,9 +556,9 @@ export const BuildingInfoPage = ({
           {/* Card 2: Maximum Capacity */}
           <div
             style={{
-              background: '#ffffff',
+              background: isDark ? '#0c162d' : '#ffffff',
               borderRadius: '16px',
-              border: '1px solid #e2e8f0',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
               padding: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               display: 'flex',
@@ -582,10 +583,10 @@ export const BuildingInfoPage = ({
                 <Users style={{ width: '22px', height: '22px' }} />
               </div>
               <div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>
                   {maxCapacity}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', marginTop: '4px' }}>
                   Maximum Capacity
                 </div>
               </div>
@@ -599,9 +600,9 @@ export const BuildingInfoPage = ({
           {/* Card 3: Emergency Exits */}
           <div
             style={{
-              background: '#ffffff',
+              background: isDark ? '#0c162d' : '#ffffff',
               borderRadius: '16px',
-              border: '1px solid #e2e8f0',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
               padding: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               display: 'flex',
@@ -626,10 +627,10 @@ export const BuildingInfoPage = ({
                 <DoorClosed style={{ width: '22px', height: '22px' }} />
               </div>
               <div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>
                   {exitMetrics.total}
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', marginTop: '4px' }}>
                   Emergency Exits (Cores)
                 </div>
               </div>
@@ -643,9 +644,9 @@ export const BuildingInfoPage = ({
           {/* Card 4: Staircases & Vertical Egress */}
           <div
             style={{
-              background: '#ffffff',
+              background: isDark ? '#0c162d' : '#ffffff',
               borderRadius: '16px',
-              border: '1px solid #e2e8f0',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
               padding: '16px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
               display: 'flex',
@@ -670,10 +671,10 @@ export const BuildingInfoPage = ({
                 <Layers style={{ width: '22px', height: '22px' }} />
               </div>
               <div>
-                <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+                <div style={{ fontSize: '24px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>
                   3
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b', marginTop: '4px' }}>
                   Staircases (3 Cores)
                 </div>
               </div>
@@ -711,7 +712,7 @@ export const BuildingInfoPage = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   Floor Overview
                 </h3>
                 <span
@@ -752,8 +753,8 @@ export const BuildingInfoPage = ({
                         justifyContent: 'space-between',
                         padding: '8px 10px',
                         borderRadius: '10px',
-                        border: isSelected ? '1px solid #3b82f6' : '1px solid #f1f5f9',
-                        background: isSelected ? '#eff6ff' : '#ffffff',
+                        border: isSelected ? '1px solid #3b82f6' : (isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9'),
+                        background: isSelected ? (isDark ? '#1e3a8a' : '#eff6ff') : (isDark ? '#081020' : '#ffffff'),
                         boxShadow: isSelected ? '0 2px 6px rgba(59, 130, 246, 0.15)' : 'none',
                         textAlign: 'left'
                       }}
@@ -764,8 +765,8 @@ export const BuildingInfoPage = ({
                             width: '28px',
                             height: '28px',
                             borderRadius: '8px',
-                            background: isSelected ? '#2563eb' : '#f1f5f9',
-                            color: isSelected ? '#ffffff' : '#64748b',
+                            background: isSelected ? '#2563eb' : (isDark ? '#1e293b' : '#f1f5f9'),
+                            color: isSelected ? '#ffffff' : (isDark ? '#94a3b8' : '#64748b'),
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -781,7 +782,7 @@ export const BuildingInfoPage = ({
                             style={{
                               fontSize: '12px',
                               fontWeight: isSelected ? 800 : 700,
-                              color: isSelected ? '#1e40af' : '#0f172a',
+                              color: isSelected ? '#ffffff' : (isDark ? '#f8fafc' : '#0f172a'),
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
@@ -790,7 +791,7 @@ export const BuildingInfoPage = ({
                           >
                             Floor {floor.id} — {floor.name}
                           </div>
-                          <div style={{ fontSize: '10px', fontWeight: 500, color: isSelected ? '#2563eb' : '#64748b' }}>
+                          <div style={{ fontSize: '10px', fontWeight: 500, color: isSelected ? (isDark ? '#93c5fd' : '#2563eb') : (isDark ? '#94a3b8' : '#64748b') }}>
                             {floor.rooms} Rooms • {floor.stairs} • {floor.occupants} Occupants
                           </div>
                         </div>
@@ -817,9 +818,9 @@ export const BuildingInfoPage = ({
                   justifyContent: 'space-between',
                   marginTop: '10px',
                   paddingTop: '10px',
-                  borderTop: '1px solid #f1f5f9',
+                  borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9',
                   fontSize: '11px',
-                  color: '#64748b',
+                  color: isDark ? '#94a3b8' : '#64748b',
                   fontWeight: 600
                 }}
               >
@@ -831,15 +832,15 @@ export const BuildingInfoPage = ({
             {/* Lower: Real Safety Infrastructure (Tower Total: 40 Extinguishers, 20 Alarms, 100 Detectors, 10 First Aid) */}
             <div
               style={{
-                background: '#ffffff',
+                background: isDark ? '#0c162d' : '#ffffff',
                 borderRadius: '16px',
-                border: '1px solid #e2e8f0',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 padding: '16px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   Safety Infrastructure
                 </h3>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>
@@ -848,42 +849,42 @@ export const BuildingInfoPage = ({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <Flame style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>40</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>40</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Fire Extinguishers
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <Bell style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>20</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>20</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Fire Alarms
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <Radio style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>100</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>100</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Smoke Detectors
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <PlusSquare style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>10</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>10</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     First Aid Stations
                   </div>
                 </div>
@@ -901,16 +902,16 @@ export const BuildingInfoPage = ({
             {/* Upper: 3D Building Model / 2D Floor Plan Viewer */}
             <div
               style={{
-                background: '#ffffff',
+                background: isDark ? '#0c162d' : '#ffffff',
                 borderRadius: '16px',
-                border: '1px solid #e2e8f0',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 padding: '16px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {activeModelTab === '3D View'
                       ? '3D Building Model'
                       : activeModelTab === '2D Plan'
@@ -1115,7 +1116,7 @@ export const BuildingInfoPage = ({
                   gap: '8px',
                   marginTop: '12px',
                   paddingTop: '12px',
-                  borderTop: '1px solid #f1f5f9'
+                  borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9'
                 }}
               >
                 <button
@@ -1131,9 +1132,9 @@ export const BuildingInfoPage = ({
                     borderRadius: '8px',
                     fontSize: '12px',
                     fontWeight: 700,
-                    background: activeModelTab === '3D View' ? '#2563eb' : '#ffffff',
-                    color: activeModelTab === '3D View' ? '#ffffff' : '#475569',
-                    border: activeModelTab === '3D View' ? 'none' : '1px solid #e2e8f0',
+                    background: activeModelTab === '3D View' ? '#2563eb' : (isDark ? '#081020' : '#ffffff'),
+                    color: activeModelTab === '3D View' ? '#ffffff' : (isDark ? '#94a3b8' : '#475569'),
+                    border: activeModelTab === '3D View' ? 'none' : (isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'),
                     boxShadow: activeModelTab === '3D View' ? '0 2px 6px rgba(37, 99, 235, 0.3)' : 'none'
                   }}
                 >
@@ -1154,9 +1155,9 @@ export const BuildingInfoPage = ({
                     borderRadius: '8px',
                     fontSize: '12px',
                     fontWeight: 700,
-                    background: activeModelTab === '2D Plan' ? '#2563eb' : '#ffffff',
-                    color: activeModelTab === '2D Plan' ? '#ffffff' : '#475569',
-                    border: activeModelTab === '2D Plan' ? 'none' : '1px solid #e2e8f0'
+                    background: activeModelTab === '2D Plan' ? '#2563eb' : (isDark ? '#081020' : '#ffffff'),
+                    color: activeModelTab === '2D Plan' ? '#ffffff' : (isDark ? '#94a3b8' : '#475569'),
+                    border: activeModelTab === '2D Plan' ? 'none' : (isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0')
                   }}
                 >
                   <FileText style={{ width: '13px', height: '13px' }} />
@@ -1176,9 +1177,9 @@ export const BuildingInfoPage = ({
                     borderRadius: '8px',
                     fontSize: '12px',
                     fontWeight: 700,
-                    background: activeModelTab === 'Floor Plan' ? '#2563eb' : '#ffffff',
-                    color: activeModelTab === 'Floor Plan' ? '#ffffff' : '#475569',
-                    border: activeModelTab === 'Floor Plan' ? 'none' : '1px solid #e2e8f0'
+                    background: activeModelTab === 'Floor Plan' ? '#2563eb' : (isDark ? '#081020' : '#ffffff'),
+                    color: activeModelTab === 'Floor Plan' ? '#ffffff' : (isDark ? '#94a3b8' : '#475569'),
+                    border: activeModelTab === 'Floor Plan' ? 'none' : (isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0')
                   }}
                 >
                   <LayoutTemplate style={{ width: '13px', height: '13px' }} />
@@ -1190,15 +1191,15 @@ export const BuildingInfoPage = ({
             {/* Lower: Room & Space Information (Real 100 Rooms, 20 Labs, 40 Engineering, 30 Meeting Rooms) */}
             <div
               style={{
-                background: '#ffffff',
+                background: isDark ? '#0c162d' : '#ffffff',
                 borderRadius: '16px',
-                border: '1px solid #e2e8f0',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 padding: '16px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   Room & Space Information
                 </h3>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb' }}>
@@ -1207,42 +1208,42 @@ export const BuildingInfoPage = ({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#f3e8ff', color: '#9333ea', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <DoorClosed style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>100</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>100</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Total Rooms
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <FlaskConical style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>20</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>20</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Labs & SOC
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <Layers style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>40</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>40</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Engineering Hubs
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
+                <div style={{ background: isDark ? '#081020' : '#f8fafc', border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9', borderRadius: '10px', padding: '10px 4px', textAlign: 'center' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: '#fce7f3', color: '#db2777', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 4px auto' }}>
                     <MessageSquare style={{ width: '14px', height: '14px' }} />
                   </div>
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>30</div>
-                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>30</div>
+                  <div style={{ fontSize: '9px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 600, marginTop: '3px', lineHeight: 1.1 }}>
                     Meeting Rooms
                   </div>
                 </div>
@@ -1260,9 +1261,9 @@ export const BuildingInfoPage = ({
             {/* Upper: Combined Real Occupancy Information & Dynamic Exit Status */}
             <div
               style={{
-                background: '#ffffff',
+                background: isDark ? '#0c162d' : '#ffffff',
                 borderRadius: '16px',
-                border: '1px solid #e2e8f0',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 padding: '16px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
               }}
@@ -1270,7 +1271,7 @@ export const BuildingInfoPage = ({
               {/* Part A: Dynamic Real Occupancy Information */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                     Occupancy Information
                   </h3>
                   <div
@@ -1318,7 +1319,7 @@ export const BuildingInfoPage = ({
                       />
                     </svg>
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                      <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                      <span style={{ fontSize: '18px', fontWeight: 900, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1 }}>
                         {occupancyPercent}%
                       </span>
                       <span style={{ fontSize: '9px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>
@@ -1330,27 +1331,27 @@ export const BuildingInfoPage = ({
                   {/* Legend Values */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontWeight: 500 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isDark ? '#94a3b8' : '#475569', fontWeight: 500 }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb', flexShrink: 0 }} />
                         <span>Current Occupancy</span>
                       </div>
-                      <span style={{ fontWeight: 800, color: '#0f172a' }}>{totalOccupants}</span>
+                      <span style={{ fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>{totalOccupants}</span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontWeight: 500 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isDark ? '#94a3b8' : '#475569', fontWeight: 500 }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
                         <span>Maximum Capacity</span>
                       </div>
-                      <span style={{ fontWeight: 800, color: '#0f172a' }}>{maxCapacity}</span>
+                      <span style={{ fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>{maxCapacity}</span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontWeight: 500 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: isDark ? '#94a3b8' : '#475569', fontWeight: 500 }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
                         <span>Available Capacity</span>
                       </div>
-                      <span style={{ fontWeight: 800, color: '#0f172a' }}>{availableCapacity}</span>
+                      <span style={{ fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>{availableCapacity}</span>
                     </div>
                   </div>
                 </div>
@@ -1359,7 +1360,7 @@ export const BuildingInfoPage = ({
               {/* Part B: Real Exit Status (Bound directly to exits prop) */}
               <div style={{ paddingTop: '12px', marginTop: '10px', borderTop: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                     Exit Status
                   </h3>
                   <span style={{ fontSize: '10.5px', color: '#64748b' }}>
@@ -1439,13 +1440,13 @@ export const BuildingInfoPage = ({
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         fontSize: '10.5px',
-                        background: '#f8fafc',
+                        background: isDark ? '#081020' : '#f8fafc',
                         padding: '4px 8px',
                         borderRadius: '6px',
-                        border: '1px solid #f1f5f9'
+                        border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9'
                       }}
                     >
-                      <span className="font-semibold text-slate-700 truncate">{ex.name}</span>
+                      <span className={`font-semibold truncate ${isDark ? "text-slate-200" : "text-slate-700"}`}>{ex.name}</span>
                       <span
                         className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded ${
                           ex.status === 'Blocked' || ex.isBlocked
@@ -1472,7 +1473,7 @@ export const BuildingInfoPage = ({
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   Emergency Assembly Points
                 </h3>
                 <span
@@ -1488,8 +1489,8 @@ export const BuildingInfoPage = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  background: '#f8fafc',
-                  border: '1px solid #f1f5f9',
+                  background: isDark ? '#081020' : '#f8fafc',
+                  border: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9',
                   borderRadius: '12px',
                   padding: '10px'
                 }}
@@ -1513,7 +1514,7 @@ export const BuildingInfoPage = ({
 
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#0f172a' }}>
+                    <span style={{ fontSize: '12.5px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                       Assembly Point A
                     </span>
                     <span
@@ -1579,7 +1580,7 @@ export const BuildingInfoPage = ({
         {/* Modal 1: Edit Information Dialog */}
         {isEditing && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className={`rounded-2xl max-w-md w-full p-6 shadow-2xl border space-y-4 ${isDark ? "bg-[#0c162d] border-sky-500/25 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-bold text-slate-900">Edit Building Information</h3>
                 <button
@@ -1652,7 +1653,7 @@ export const BuildingInfoPage = ({
         {/* Modal 2: GIS Map Fullscreen View */}
         {isGisModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full p-5 shadow-2xl border border-slate-200 space-y-3">
+            <div className={`rounded-2xl max-w-4xl w-full p-5 shadow-2xl border space-y-3 ${isDark ? "bg-[#0c162d] border-sky-500/25 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-blue-600" />
@@ -1701,7 +1702,7 @@ export const BuildingInfoPage = ({
         {/* Modal 3: Fullscreen 3D Building Viewer */}
         {isFullscreen3D && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full p-5 shadow-2xl border border-slate-200 space-y-3">
+            <div className={`rounded-2xl max-w-4xl w-full p-5 shadow-2xl border space-y-3 ${isDark ? "bg-[#0c162d] border-sky-500/25 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Box className="w-5 h-5 text-blue-600" />
@@ -1763,4 +1764,6 @@ export const BuildingInfoPage = ({
     </div>
   );
 };
+
+export const BuildingInfoPage = React.memo(BuildingInfoPageComponent);
 export default BuildingInfoPage;

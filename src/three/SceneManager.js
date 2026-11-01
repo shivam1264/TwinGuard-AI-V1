@@ -86,14 +86,19 @@ export class SceneManager {
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      powerPreference: 'high-performance'
+      powerPreference: 'high-performance',
+      precision: 'mediump'
     });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.15));
 
-    // Enable soft, physically believable architectural contact shadows
+    // Enable hardware percentage-closer filtered architectural shadows with cached autoUpdate
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
+    this.renderer.shadowMap.needsUpdate = true;
+    this._shadowNeedsUpdate = true;
+    this._shadowFrameCounter = 0;
 
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -120,8 +125,8 @@ export class SceneManager {
     const sunLight = new THREE.DirectionalLight(0xfffaf0, 2.2);
     sunLight.position.set(120, 220, 160);
     sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.mapSize.width = 1024;
+    sunLight.shadow.mapSize.height = 1024;
     sunLight.shadow.camera.near = 10;
     sunLight.shadow.camera.far = 1400;
     sunLight.shadow.camera.left = -480;
@@ -158,14 +163,22 @@ export class SceneManager {
     // Initial Hero View (Architectural Section Elevation)
     this.setCameraPreset('HERO_VIEW', null, false);
 
+    this._lastW = 0;
+    this._lastH = 0;
     this.handleResize = () => {
       if (!this.container || this.isDisposed) return;
-      const w = this.container.clientWidth || window.innerWidth || 1200;
-      const h = this.container.clientHeight || (window.innerHeight - 56) || 800;
-      if (w === 0 || h === 0) return;
+      const w = Math.floor(this.container.clientWidth || window.innerWidth || 1200);
+      const h = Math.floor(this.container.clientHeight || (window.innerHeight - 56) || 800);
+      if (w <= 0 || h <= 0) return;
+      if (this._lastW === w && this._lastH === h) return;
+      this._lastW = w;
+      this._lastH = h;
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
-      this.renderer.setSize(w, h);
+      this.renderer.setSize(w, h, false);
+      if (this.renderer.shadowMap) {
+        this.renderer.shadowMap.needsUpdate = true;
+      }
     };
 
     window.addEventListener('resize', this.handleResize);
@@ -357,6 +370,7 @@ export class SceneManager {
   setFacadeModeDirect(mode) {
     if (this.building) {
       this.building.setFacadeMode(mode);
+      this.requestShadowUpdate();
       if (this.onFacadeModeChange) {
         this.onFacadeModeChange(mode);
       }
@@ -900,6 +914,7 @@ export class SceneManager {
     if (this.fireSystem) {
       this.fireSystem.setFloorMode(mode);
     }
+    this.requestShadowUpdate();
 
     if (mode === 'EXPLODED') {
       this.setCameraPreset('EXPLODED_VIEW');
@@ -2485,6 +2500,38 @@ export class SceneManager {
 
     const delta = Math.min(this.clock.getDelta(), 0.1);
 
+    if (this._renderPaused) {
+      // In 2D views, pause heavy WebGL rendering to eliminate UI lag & keep CPU/GPU cool
+      if (this.agentCrowd && this.isSimulating) {
+        const stats = this.agentCrowd.update(delta, this.simSpeed);
+        this.elapsedSeconds += delta * this.simSpeed;
+        const currentFloorSec = Math.floor(this.elapsedSeconds);
+        const now = performance.now();
+        const shouldUpdate =
+          !this._lastStatsUpdate ||
+          (now - this._lastStatsUpdate > 250) ||
+          stats.isCompleted ||
+          (this._lastEvacuated !== stats.evacuated) ||
+          (this._lastElapsedSec !== currentFloorSec);
+
+        if (shouldUpdate && this.onStatsUpdate) {
+          this._lastStatsUpdate = now;
+          this._lastEvacuated = stats.evacuated;
+          this._lastElapsedSec = currentFloorSec;
+          this.onStatsUpdate({
+            ...stats,
+            elapsedSeconds: currentFloorSec,
+            isCompleted: stats.inTransit === 0 && stats.total > 0
+          });
+        }
+        if (stats.isCompleted || (stats.inTransit === 0 && stats.total > 0)) {
+          this.isSimulating = false;
+          this.evacuationCompleted = true;
+        }
+      }
+      return;
+    }
+
     // Smooth Camera Transition Interpolation
     if (this.cameraTransition) {
       const ct = this.cameraTransition;
@@ -2590,10 +2637,43 @@ export class SceneManager {
       }
     }
 
+    // Throttled high-performance shadow caching:
+    // When scene is static (user inspecting/rotating/orbiting 3D building), shadows are served from GPU cache (60 FPS locked).
+    // During active simulations or vehicle transit, shadows refresh smoothly on scheduled frames.
+    if (this.renderer && this.renderer.shadowMap) {
+      if (this._shadowNeedsUpdate) {
+        this.renderer.shadowMap.needsUpdate = true;
+        this._shadowNeedsUpdate = false;
+      } else if (this.isSimulating || (this.emergencyManager && this.emergencyManager.isActive)) {
+        this._shadowFrameCounter = (this._shadowFrameCounter + 1) % 4;
+        if (this._shadowFrameCounter === 0) {
+          this.renderer.shadowMap.needsUpdate = true;
+        }
+      }
+    }
+
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);
     }
   };
+
+  requestShadowUpdate() {
+    this._shadowNeedsUpdate = true;
+  }
+
+  setRenderPaused(paused) {
+    const wasPaused = !!this._renderPaused;
+    this._renderPaused = !!paused;
+    if (wasPaused && !this._renderPaused) {
+      if (typeof this.handleResize === 'function') {
+        this.handleResize();
+      }
+      this._shadowNeedsUpdate = true;
+      if (this.renderer && this.scene && this.camera) {
+        this.renderer.render(this.scene, this.camera);
+      }
+    }
+  }
 
   getEmergencyStatus() {
     return this.emergencyManager ? this.emergencyManager.getStatus() : null;

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import building3dImg from '../assets/building/building_3d_render.png';
 
-export const ScenariosView = ({
+const ScenariosViewComponent = ({
   theme = 'dark',
   rooms = [],
   currentScenario,
@@ -83,7 +83,7 @@ export const ScenariosView = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white leading-tight">
+              <h2 className={`text-lg font-black leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                 AI Scenario Configuration Studio
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">
@@ -128,9 +128,9 @@ export const ScenariosView = ({
               onClick={() => setActiveTab(tab.id)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
               style={{
-                background: isSelected ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)' : 'rgba(15, 23, 42, 0.7)',
+                background: isSelected ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)' : isDark ? 'rgba(15, 23, 42, 0.7)' : '#ffffff',
                 color: isSelected ? '#ffffff' : '#94a3b8',
-                border: isSelected ? '1px solid rgba(96, 165, 250, 0.5)' : '1px solid rgba(56, 189, 248, 0.18)',
+                border: isSelected ? '1px solid rgba(96, 165, 250, 0.5)' : (isDark ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid #cbd5e1'),
                 boxShadow: isSelected ? '0 0 14px rgba(37, 99, 235, 0.4)' : 'none'
               }}
             >
@@ -159,8 +159,8 @@ export const ScenariosView = ({
                   onClick={() => setSelectedPreset(p.id)}
                   className="p-3 rounded-2xl cursor-pointer transition-all flex items-start gap-3"
                   style={{
-                    background: isSelected ? 'rgba(37, 99, 235, 0.2)' : 'rgba(11, 22, 44, 0.7)',
-                    border: isSelected ? '1.5px solid #38bdf8' : '1px solid rgba(56, 189, 248, 0.15)',
+                    background: isSelected ? 'rgba(37, 99, 235, 0.2)' : isDark ? 'rgba(11, 22, 44, 0.7)' : '#ffffff',
+                    border: isSelected ? (isDark ? '1.5px solid #38bdf8' : '1.5px solid #2563eb') : (isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #e2e8f0'),
                     boxShadow: isSelected ? '0 0 16px rgba(56, 189, 248, 0.3)' : 'none'
                   }}
                 >
@@ -171,7 +171,7 @@ export const ScenariosView = ({
                     <Icon className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white">{p.label}</div>
+                    <div className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{p.label}</div>
                     <div className="text-[10.5px] text-slate-400 mt-0.5 leading-tight">{p.sub}</div>
                   </div>
                 </div>
@@ -190,7 +190,7 @@ export const ScenariosView = ({
             <Flame className="w-6 h-6 text-red-400 shrink-0" />
             <div>
               <div className="text-[10px] text-slate-400 font-bold uppercase">Current Selection</div>
-              <div className="text-xs font-black text-white">Case: L7 West Stair Fire</div>
+              <div className={`text-xs font-black ${isDark ? "text-white" : "text-slate-900"}`}>Case: L7 West Stair Fire</div>
               <div className="text-[10px] text-red-300 font-mono">Severity: High • Fire + Egress Obstruction</div>
             </div>
           </div>
@@ -202,11 +202,11 @@ export const ScenariosView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-3"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
-            <div className="text-xs font-bold text-white">
+            <div className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
               Hazard Configuration
               <span className="block text-[11px] text-slate-400 font-normal">
                 Define the fire origin, intensity and affected area.
@@ -219,7 +219,7 @@ export const ScenariosView = ({
                 <select
                   value={hazardType}
                   onChange={(e) => setHazardType(e.target.value)}
-                  className="bg-slate-900 border border-sky-500/30 rounded-xl p-2 text-white font-medium focus:outline-none"
+                  className={`${isDark ? 'bg-slate-900 border-sky-500/30 text-white' : 'bg-slate-50 border-slate-300 text-slate-800'} border rounded-xl p-2 font-medium focus:outline-none`}
                 >
                   <option>Fire (Room / Space)</option>
                   <option>Chemical Hazard</option>
@@ -245,7 +245,7 @@ export const ScenariosView = ({
                 <select
                   value={selectedFloor}
                   onChange={(e) => setSelectedFloor(e.target.value)}
-                  className="bg-slate-900 border border-sky-500/30 rounded-xl p-2 text-white font-medium focus:outline-none"
+                  className={`${isDark ? 'bg-slate-900 border-sky-500/30 text-white' : 'bg-slate-50 border-slate-300 text-slate-800'} border rounded-xl p-2 font-medium focus:outline-none`}
                 >
                   <option>Level 7 (L7)</option>
                   <option>Level 5 (L5)</option>
@@ -258,7 +258,7 @@ export const ScenariosView = ({
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="bg-slate-900 border border-sky-500/30 rounded-xl p-2 text-white font-medium focus:outline-none"
+                  className={`${isDark ? 'bg-slate-900 border-sky-500/30 text-white' : 'bg-slate-50 border-slate-300 text-slate-800'} border rounded-xl p-2 font-medium focus:outline-none`}
                 >
                   <option>West Stair Core (A)</option>
                   <option>East Stair Core (B)</option>
@@ -296,13 +296,13 @@ export const ScenariosView = ({
           <div
             className="p-3 rounded-2xl flex items-center justify-between text-xs"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
             <div>
               <span className="text-slate-400 block text-[10px]">Heat Release Rate</span>
-              <span className="font-bold text-white font-mono">5,000 kW</span>
+              <span className={`font-bold font-mono ${isDark ? "text-white" : "text-slate-900"}`}>5,000 kW</span>
             </div>
             <div>
               <span className="text-slate-400 block text-[10px]">Smoke Generation</span>
@@ -325,8 +325,8 @@ export const ScenariosView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-2"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
             <div className="flex items-center gap-2 text-xs font-bold text-red-400">
@@ -337,19 +337,19 @@ export const ScenariosView = ({
             <div className="flex flex-col gap-2 text-[11px] text-slate-300 font-mono pt-1">
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Case Name</span>
-                <span className="font-bold text-white">L7 West Stair Fire</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>L7 West Stair Fire</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Hazard Type</span>
-                <span className="font-bold text-white">Fire (stairwell)</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Fire (stairwell)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Location</span>
-                <span className="font-bold text-white">Level 7 – Core A</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Level 7 – Core A</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Occupants</span>
-                <span className="font-bold text-white">190</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>190</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Estimated Affected</span>
@@ -366,8 +366,8 @@ export const ScenariosView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-2.5 flex-1"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(245, 158, 11, 0.3)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #fde68a'
             }}
           >
             <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
@@ -417,4 +417,7 @@ export const ScenariosView = ({
     </div>
   );
 };
+
+export const ScenariosView = React.memo(ScenariosViewComponent);
+export default ScenariosView;
 

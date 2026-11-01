@@ -32,6 +32,7 @@ const RADAR_AXES = [
 ];
 
 export const StrategyRankModal = ({
+  theme = 'dark',
   isOpen,
   onClose,
   scenario,
@@ -39,7 +40,7 @@ export const StrategyRankModal = ({
   exits = [],
   onApplyStrategyToSimulation
 }) => {
-  if (!isOpen) return null;
+  const isDark = theme === 'dark';
 
   const [activeTab, setActiveTab] = useState('STRATEGIES'); // 'STRATEGIES' | 'RADAR_XAI' | 'AI_BRIEFING' | 'NFPA'
   const [rankingResult, setRankingResult] = useState(null);
@@ -270,14 +271,17 @@ export const StrategyRankModal = ({
     }
   ];
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
       <div
         className="w-full max-w-6xl overflow-hidden flex flex-col shadow-2xl"
         style={{
-          background: '#ffffff',
+          background: isDark ? '#0c162d' : '#ffffff',
           borderRadius: '20px',
-          border: '1px solid #e2e8f0',
+          border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #e2e8f0',
+          color: isDark ? '#f8fafc' : '#0f172a',
           boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.15)',
           fontFamily: "'Inter', system-ui, sans-serif",
           maxHeight: '94vh'
@@ -288,8 +292,8 @@ export const StrategyRankModal = ({
           className="flex items-center justify-between shrink-0"
           style={{
             padding: '12px 22px 10px 22px',
-            borderBottom: '1px solid #f1f5f9',
-            background: '#ffffff'
+            borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid #f1f5f9',
+            background: isDark ? '#0c162d' : '#ffffff'
           }}
         >
           <div className="flex items-center" style={{ gap: '12px' }}>
@@ -309,7 +313,7 @@ export const StrategyRankModal = ({
             </div>
 
             <div>
-              <h1 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              <h1 style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                 AI Strategy Decision Matrix
               </h1>
 
@@ -317,7 +321,7 @@ export const StrategyRankModal = ({
               <div className="flex items-center" style={{ gap: '4px', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
                 <Flame style={{ width: '12px', height: '12px', color: '#ea580c', flexShrink: 0 }} />
                 <span className="truncate">
-                  Scenario: <b style={{ color: '#0f172a' }}>{scenario?.name || 'Standard Office Fire (Level 4)'}</b>
+                  Scenario: <b style={{ color: isDark ? '#ffffff' : '#0f172a' }}>{scenario?.name || 'Standard Office Fire (Level 4)'}</b>
                 </span>
               </div>
             </div>
@@ -558,7 +562,7 @@ export const StrategyRankModal = ({
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                          <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
                             {strat.title}
                           </h3>
 
@@ -583,7 +587,7 @@ export const StrategyRankModal = ({
                             <Clock style={{ width: '11px', height: '11px', color: '#2563eb' }} />
                             <span>Clearance Time</span>
                           </div>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
                             {strat.clearanceTime}
                           </div>
                         </div>
@@ -619,7 +623,7 @@ export const StrategyRankModal = ({
                             <AlertTriangle style={{ width: '11px', height: '11px', color: '#ef4444' }} />
                             <span>Toxic Exposure</span>
                           </div>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', marginTop: '2px', fontFamily: 'monospace' }}>
                             {strat.toxicExposure}
                           </div>
                         </div>
@@ -747,7 +751,7 @@ export const StrategyRankModal = ({
                     <Radar style={{ width: '13px', height: '13px' }} />
                     <span>Multi-Objective Trade-Off</span>
                   </div>
-                  <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
+                  <h2 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', marginTop: '2px' }}>
                     5-Axis Decision Radar & XAI
                   </h2>
                 </div>
@@ -764,7 +768,7 @@ export const StrategyRankModal = ({
                   }}
                 >
                   <div className="w-full flex items-center justify-between" style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '8px', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       5-Axis Decision Radar
                     </span>
                     <span style={{ fontSize: '10px', color: '#64748b', fontFamily: 'monospace' }}>Scale: 0-100 pts</span>
@@ -922,7 +926,7 @@ export const StrategyRankModal = ({
                     gap: '12px'
                   }}
                 >
-                  <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                     TOPSIS Decision Matrix
                   </h3>
                   <p style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
@@ -968,7 +972,7 @@ export const StrategyRankModal = ({
                   <Sparkles style={{ width: '13px', height: '13px' }} />
                   <span>AI Incident Commander</span>
                 </div>
-                <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '3px' }}>
+                <h2 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', marginTop: '3px' }}>
                   Automated Assessment & Action Plan
                 </h2>
 
@@ -1042,7 +1046,7 @@ export const StrategyRankModal = ({
               >
                 <div className="flex items-center justify-between" style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
                   <div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                       NFPA 101 Compliance Audit
                     </h3>
                     <p style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
@@ -1069,7 +1073,7 @@ export const StrategyRankModal = ({
                       }}
                     >
                       <div className="flex items-center justify-between">
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', fontFamily: 'monospace' }}>
                           {clause.code} • {clause.title}
                         </span>
                         <span
@@ -1118,7 +1122,7 @@ export const StrategyRankModal = ({
                 borderRadius: '7px',
                 background: '#f1f5f9',
                 border: '1px solid #e2e8f0',
-                color: '#0f172a'
+                color: isDark ? '#ffffff' : '#0f172a'
               }}
             >
               <Database style={{ width: '13px', height: '13px' }} />
@@ -1135,7 +1139,7 @@ export const StrategyRankModal = ({
                 }}
               />
               <span style={{ fontSize: '11px', color: '#475569' }}>
-                Digital Twin: <b style={{ color: '#0f172a' }}>100% Synchronized</b>
+                Digital Twin: <b style={{ color: isDark ? '#ffffff' : '#0f172a' }}>100% Synchronized</b>
               </span>
             </div>
           </div>
@@ -1143,7 +1147,7 @@ export const StrategyRankModal = ({
           {/* Right: Occupant Count */}
           <div className="flex items-center" style={{ gap: '5px', fontSize: '11px', color: '#64748b' }}>
             <Users style={{ width: '13px', height: '13px', color: '#475569' }} />
-            <span>Occupant Count: <b style={{ color: '#0f172a' }}>{totalOccupants}</b></span>
+            <span>Occupant Count: <b style={{ color: isDark ? '#ffffff' : '#0f172a' }}>{totalOccupants}</b></span>
           </div>
         </div>
       </div>

@@ -67,8 +67,6 @@ export function EvacueeCheckInModal({
   onConfirm,
   onClose
 }) {
-  if (!isOpen) return null;
-
   const [selectedFloor, setSelectedFloor] = useState(initialFloor);
   const [selectedRoomId, setSelectedRoomId] = useState(initialRoomId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -115,6 +113,8 @@ export function EvacueeCheckInModal({
   };
 
   const floorTheme = FLOOR_THEMES[selectedFloor] || { name: 'Commercial Tower' };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-200 select-none">

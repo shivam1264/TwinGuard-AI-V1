@@ -22,7 +22,7 @@ import {
   FileText
 } from 'lucide-react';
 
-export const AnalyticsView = ({
+const AnalyticsViewComponent = ({
   theme = 'dark',
   stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
   rooms = [],
@@ -77,7 +77,7 @@ export const AnalyticsView = ({
             <BarChart3 className="w-6 h-6 text-sky-400" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <h1 className={`text-xl font-extrabold tracking-tight flex items-center gap-2 ${isDark ? "text-white" : "text-slate-900"}`}>
               Predictive Analytics & Flow Intelligence
             </h1>
             <p className="text-xs text-slate-400 font-medium">
@@ -116,8 +116,8 @@ export const AnalyticsView = ({
         <div
           className="w-64 shrink-0 flex flex-col p-3 rounded-2xl gap-2 h-fit"
           style={{
-            background: 'rgba(11, 22, 44, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
+            background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
           }}
         >
@@ -145,8 +145,8 @@ export const AnalyticsView = ({
                 <div
                   className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{
-                    background: isSelected ? 'rgba(255, 255, 255, 0.2)' : 'rgba(15, 23, 42, 0.8)',
-                    color: isSelected ? '#ffffff' : '#38bdf8'
+                    background: isSelected ? 'rgba(255, 255, 255, 0.2)' : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9'),
+                    color: isSelected ? '#ffffff' : (isDark ? '#38bdf8' : '#2563eb')
                   }}
                 >
                   <Icon className="w-4 h-4" />
@@ -156,7 +156,7 @@ export const AnalyticsView = ({
                     style={{
                       fontSize: '12px',
                       fontWeight: isSelected ? 800 : 700,
-                      color: isSelected ? '#ffffff' : '#f1f5f9'
+                      color: isSelected ? '#ffffff' : (isDark ? '#f1f5f9' : '#0f172a')
                     }}
                   >
                     {m.label}
@@ -164,7 +164,7 @@ export const AnalyticsView = ({
                   <div
                     style={{
                       fontSize: '9.5px',
-                      color: isSelected ? '#dbeafe' : '#94a3b8'
+                      color: isSelected ? '#dbeafe' : (isDark ? '#94a3b8' : '#64748b')
                     }}
                   >
                     {m.sub}
@@ -183,8 +183,8 @@ export const AnalyticsView = ({
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.2)'
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
               }}
             >
               <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/35 flex items-center justify-center text-sky-400 shrink-0">
@@ -192,7 +192,7 @@ export const AnalyticsView = ({
               </div>
               <div>
                 <div className="text-[10px] text-slate-400 font-semibold">Predicted Clearance Time</div>
-                <div className="text-base font-black text-white font-mono leading-tight">06:30 min</div>
+                <div className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'} font-mono leading-tight`}>06:30 min</div>
                 <div className="text-[9.5px] text-emerald-400 font-bold mt-0.5">↓ -27% vs. unoptimized</div>
               </div>
             </div>
@@ -201,8 +201,8 @@ export const AnalyticsView = ({
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.2)'
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
               }}
             >
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/35 flex items-center justify-center text-blue-400 shrink-0">
@@ -210,7 +210,7 @@ export const AnalyticsView = ({
               </div>
               <div>
                 <div className="text-[10px] text-slate-400 font-semibold">Total Occupants</div>
-                <div className="text-base font-black text-white font-mono leading-tight">{total}</div>
+                <div className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'} font-mono leading-tight`}>{total}</div>
                 <div className="text-[9.5px] text-slate-400 mt-0.5">10-Storey Tower</div>
               </div>
             </div>
@@ -219,7 +219,7 @@ export const AnalyticsView = ({
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(16, 185, 129, 0.3)'
               }}
             >
@@ -239,7 +239,7 @@ export const AnalyticsView = ({
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(239, 68, 68, 0.3)'
               }}
             >
@@ -257,8 +257,8 @@ export const AnalyticsView = ({
             <div
               className="p-3.5 rounded-2xl flex items-center gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.2)'
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+                border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
               }}
             >
               <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/35 flex items-center justify-center text-cyan-400 shrink-0">
@@ -266,7 +266,7 @@ export const AnalyticsView = ({
               </div>
               <div>
                 <div className="text-[10px] text-slate-400 font-semibold">Max. Crowd Density</div>
-                <div className="text-base font-black text-white font-mono leading-tight">1.68 p/m²</div>
+                <div className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'} font-mono leading-tight`}>1.68 p/m²</div>
                 <div className="text-[9.5px] text-amber-400 font-semibold mt-0.5">Elevated peak</div>
               </div>
             </div>
@@ -278,7 +278,7 @@ export const AnalyticsView = ({
             <div
               className="lg:col-span-7 rounded-2xl p-4 flex flex-col relative overflow-hidden"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(56, 189, 248, 0.25)',
                 minHeight: '340px'
               }}
@@ -286,7 +286,7 @@ export const AnalyticsView = ({
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-sky-400" />
-                  <span className="text-xs font-bold text-white tracking-wide">
+                  <span className={`text-xs font-bold tracking-wide ${isDark ? "text-white" : "text-slate-900"}`}>
                     Crowd Flow & Density (Level 7 - Live Simulation)
                   </span>
                 </div>
@@ -365,16 +365,16 @@ export const AnalyticsView = ({
 
                 {/* Right Floating Map Controls */}
                 <div className="absolute right-3 top-3 flex flex-col gap-1">
-                  <button className="w-7 h-7 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white">
+                  <button className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition-colors ${isDark ? "bg-slate-900/80 border-slate-700 text-slate-300 hover:text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"}`}>
                     <Layers className="w-3.5 h-3.5" />
                   </button>
-                  <button className="w-7 h-7 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white">
+                  <button className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition-colors ${isDark ? "bg-slate-900/80 border-slate-700 text-slate-300 hover:text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"}`}>
                     <Maximize2 className="w-3.5 h-3.5" />
                   </button>
-                  <button className="w-7 h-7 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white">
+                  <button className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition-colors ${isDark ? "bg-slate-900/80 border-slate-700 text-slate-300 hover:text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"}`}>
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <button className="w-7 h-7 rounded-lg bg-slate-900/80 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white">
+                  <button className={`w-7 h-7 rounded-lg border flex items-center justify-center cursor-pointer transition-colors ${isDark ? "bg-slate-900/80 border-slate-700 text-slate-300 hover:text-white" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"}`}>
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -422,14 +422,14 @@ export const AnalyticsView = ({
               <div
                 className="rounded-2xl p-4 flex flex-col"
                 style={{
-                  background: 'rgba(11, 22, 44, 0.85)',
+                  background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                   border: '1px solid rgba(56, 189, 248, 0.25)'
                 }}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-sky-400" />
-                    <span className="text-xs font-bold text-white tracking-wide">
+                    <span className={`text-xs font-bold tracking-wide ${isDark ? "text-white" : "text-slate-900"}`}>
                       Evacuation Progress
                     </span>
                   </div>
@@ -484,13 +484,13 @@ export const AnalyticsView = ({
               <div
                 className="rounded-2xl p-4 flex flex-col flex-1"
                 style={{
-                  background: 'rgba(11, 22, 44, 0.85)',
+                  background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                   border: '1px solid rgba(56, 189, 248, 0.25)'
                 }}
               >
                 <div className="flex items-center gap-2 mb-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-bold text-white tracking-wide">
+                  <span className={`text-xs font-bold tracking-wide ${isDark ? "text-white" : "text-slate-900"}`}>
                     Bottleneck Analysis
                   </span>
                 </div>
@@ -507,11 +507,11 @@ export const AnalyticsView = ({
                     </thead>
                     <tbody className="divide-y divide-slate-800">
                       <tr>
-                        <td className="py-2 font-bold text-white flex items-center gap-1.5">
+                        <td className={`py-2 font-bold flex items-center gap-1.5 ${isDark ? "text-white" : "text-slate-900"}`}>
                           <span>🪜</span> Stair Core B (L7)
                         </td>
                         <td className="py-2 text-slate-300">Stairwell</td>
-                        <td className="py-2 font-mono font-bold text-white">1.68 p/m²</td>
+                        <td className={`py-2 font-mono font-bold ${isDark ? "text-white" : "text-slate-900"}`}>1.68 p/m²</td>
                         <td className="py-2 text-right">
                           <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-red-500/20 border border-red-500/40 text-red-400">
                             High
@@ -519,11 +519,11 @@ export const AnalyticsView = ({
                         </td>
                       </tr>
                       <tr>
-                        <td className="py-2 font-bold text-white flex items-center gap-1.5">
+                        <td className={`py-2 font-bold flex items-center gap-1.5 ${isDark ? "text-white" : "text-slate-900"}`}>
                           <span>🚪</span> Corridor C (L7)
                         </td>
                         <td className="py-2 text-slate-300">Corridor</td>
-                        <td className="py-2 font-mono font-bold text-white">1.42 p/m²</td>
+                        <td className={`py-2 font-mono font-bold ${isDark ? "text-white" : "text-slate-900"}`}>1.42 p/m²</td>
                         <td className="py-2 text-right">
                           <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-amber-500/20 border border-amber-500/40 text-amber-400">
                             Medium
@@ -531,11 +531,11 @@ export const AnalyticsView = ({
                         </td>
                       </tr>
                       <tr>
-                        <td className="py-2 font-bold text-white flex items-center gap-1.5">
+                        <td className={`py-2 font-bold flex items-center gap-1.5 ${isDark ? "text-white" : "text-slate-900"}`}>
                           <span>🪜</span> Stair Core A (L7)
                         </td>
                         <td className="py-2 text-slate-300">Stairwell</td>
-                        <td className="py-2 font-mono font-bold text-white">1.12 p/m²</td>
+                        <td className={`py-2 font-mono font-bold ${isDark ? "text-white" : "text-slate-900"}`}>1.12 p/m²</td>
                         <td className="py-2 text-right">
                           <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">
                             Low
@@ -555,13 +555,13 @@ export const AnalyticsView = ({
             <div
               className="p-4 rounded-2xl flex flex-col gap-3"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(56, 189, 248, 0.25)'
               }}
             >
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-sky-400" />
-                <span className="text-xs font-bold text-white">AI Risk Prediction & Impact</span>
+                <span className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>AI Risk Prediction & Impact</span>
               </div>
 
               <div className="flex flex-col gap-2.5 text-xs">
@@ -578,7 +578,7 @@ export const AnalyticsView = ({
                     <Users className="w-4 h-4 text-blue-400" />
                     <span>Occupancy Impact</span>
                   </div>
-                  <span className="text-white font-bold text-[11px]">42 occupants affected (L7)</span>
+                  <span className={`font-bold text-[11px] ${isDark ? "text-white" : "text-slate-900"}`}>42 occupants affected (L7)</span>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -603,13 +603,13 @@ export const AnalyticsView = ({
             <div
               className="p-4 rounded-2xl flex flex-col gap-2.5"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(56, 189, 248, 0.25)'
               }}
             >
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-sky-400" />
-                <span className="text-xs font-bold text-white">AI Insights & Recommendations</span>
+                <span className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>AI Insights & Recommendations</span>
               </div>
 
               <div className="flex flex-col gap-2 text-xs">
@@ -640,13 +640,13 @@ export const AnalyticsView = ({
             <div
               className="p-4 rounded-2xl flex flex-col gap-2.5"
               style={{
-                background: 'rgba(11, 22, 44, 0.85)',
+                background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
                 border: '1px solid rgba(56, 189, 248, 0.25)'
               }}
             >
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-sky-400" />
-                <span className="text-xs font-bold text-white">What-If Analysis (Alternative Strategies)</span>
+                <span className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>What-If Analysis (Alternative Strategies)</span>
               </div>
 
               <table className="w-full text-left text-xs">
@@ -660,7 +660,7 @@ export const AnalyticsView = ({
                 <tbody className="divide-y divide-slate-800/80">
                   <tr>
                     <td className="py-1.5 text-slate-300">Current (Baseline)</td>
-                    <td className="py-1.5 font-mono text-white">06:30 min</td>
+                    <td className={`py-1.5 font-mono ${isDark ? "text-white" : "text-slate-900"}`}>06:30 min</td>
                     <td className="py-1.5 text-right text-slate-400">—</td>
                   </tr>
                   <tr className="bg-emerald-500/10 font-bold text-emerald-400">
@@ -672,12 +672,12 @@ export const AnalyticsView = ({
                   </tr>
                   <tr>
                     <td className="py-1.5 text-slate-300">Phased Evacuation</td>
-                    <td className="py-1.5 font-mono text-white">06:02 min</td>
+                    <td className={`py-1.5 font-mono ${isDark ? "text-white" : "text-slate-900"}`}>06:02 min</td>
                     <td className="py-1.5 text-right text-emerald-400 font-bold">-7%</td>
                   </tr>
                   <tr>
                     <td className="py-1.5 text-slate-300">Priority Zone (A first)</td>
-                    <td className="py-1.5 font-mono text-white">05:55 min</td>
+                    <td className={`py-1.5 font-mono ${isDark ? "text-white" : "text-slate-900"}`}>05:55 min</td>
                     <td className="py-1.5 text-right text-emerald-400 font-bold">-9%</td>
                   </tr>
                 </tbody>
@@ -689,4 +689,7 @@ export const AnalyticsView = ({
     </div>
   );
 };
+
+export const AnalyticsView = React.memo(AnalyticsViewComponent);
+export default AnalyticsView;
 
