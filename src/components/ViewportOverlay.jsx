@@ -14,6 +14,7 @@ import {
   Info
 } from 'lucide-react';
 
+
 export const ViewportOverlay = ({
   facadeMode = 'FULL',
   onSetFacadeMode,
@@ -30,7 +31,9 @@ export const ViewportOverlay = ({
   onToggleExploded,
   onOpenBuildingInfo,
   onToggleFullscreen,
-  rooms = []
+  rooms = [],
+  sceneManager = null,
+  onHazardEvent = null
 }) => {
   // L1 to L10 in ascending natural sequence for horizontal layout (or reverse if desired)
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];

@@ -81,6 +81,65 @@ class MasterAIEngine {
     return this.scenario.applyToExits(baseExits);
   }
 
+  // --- Multi-Hazard Toggle Matrix (centralized hazard state) ---
+  // Single source of truth: ScenarioEngine.hazards. Every toggle emits a
+  // consistent scenario update to all subscribed UI components.
+
+  getHazardState() {
+    return this.scenario.getHazardState();
+  }
+
+  getHazardLog() {
+    return this.scenario.getHazardLog();
+  }
+
+  onHazardChange(callback) {
+    return this.scenario.onHazardChange(callback);
+  }
+
+  setHazardState(partial) {
+    const state = this.scenario.setHazardState(partial);
+    if (this.crowd && this.crowd.setHvacFailure) {
+      this.crowd.setHvacFailure(!!state.hvacPressurizationFailure);
+    }
+    this.notify();
+    return state;
+  }
+
+  toggleFire(enabled) {
+    const state = this.scenario.toggleFire(enabled);
+    this.notify();
+    return state;
+  }
+
+  togglePowerFailure(enabled, location = null) {
+    const state = this.scenario.togglePowerFailure(enabled, location);
+    this.notify();
+    return state;
+  }
+
+  toggleHvacFailure(enabled, location = null) {
+    const floors = location && typeof location.floor === 'number' ? [location.floor] : null;
+    // Keep the behavioral exposure model in lockstep with the hazard state
+    if (this.crowd && this.crowd.setHvacFailure) this.crowd.setHvacFailure(enabled, floors);
+    const state = this.scenario.toggleHvacFailure(enabled, location);
+    this.notify();
+    return state;
+  }
+
+  toggleStructuralCollapse(enabled, location = null) {
+    const state = this.scenario.toggleStructuralCollapse(enabled, location);
+    this.notify();
+    return state;
+  }
+
+  resetHazards() {
+    if (this.crowd && this.crowd.setHvacFailure) this.crowd.setHvacFailure(false);
+    const state = this.scenario.resetHazards();
+    this.notify();
+    return state;
+  }
+
   generateAgentProfile(index, totalAgents) {
     return this.scenario.generateAgentProfile(index, totalAgents);
   }

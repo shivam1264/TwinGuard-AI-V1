@@ -70,6 +70,7 @@ const generateInitialRooms = () => {
         center: { x: tmpl.centerX, y: floorBaseY, z: tmpl.centerZ },
         bounds: { minX: tmpl.minX, maxX: tmpl.maxX, minZ: tmpl.minZ, maxZ: tmpl.maxZ },
         peopleCount,
+        capacity: 50, // configured design capacity for this room
         hasFire: false,
         fireIntensity: 0,
         tempCelsius: 22,
@@ -137,6 +138,16 @@ app.post('/api/block-stairwell', (req, res) => {
   const { coreName, floorNum } = req.body;
   io.emit('stairwell-blocked', { coreName, floorNum });
   res.json({ success: true, coreName, floorNum });
+});
+
+// Multi-hazard: structural collapse corridor block sync (e.g. C-101)
+app.post('/api/block-corridor', (req, res) => {
+  const { corridorId, blocked = true } = req.body || {};
+  if (!corridorId) {
+    return res.status(400).json({ error: 'corridorId required' });
+  }
+  io.emit('corridor-blocked', { corridorId, blocked });
+  res.json({ success: true, corridorId, blocked });
 });
 
 app.post('/api/clear-incidents', (req, res) => {

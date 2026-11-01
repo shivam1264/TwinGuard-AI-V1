@@ -19,6 +19,8 @@ import {
   RefreshCw,
   Undo2,
   RotateCcw,
+  Play,
+  Pause,
   FolderOpen,
   Building2,
   ChevronDown,
@@ -35,11 +37,41 @@ import {
   X,
   ShieldAlert,
   Layers,
-  FlaskConical
+  FlaskConical,
+  Zap,
+  Wind,
+  BrickWall
 } from 'lucide-react';
 
-import room204Img from '../assets/building/room_204_classroom.png';
 import { FLOOR_THEMES, ROOM_TEMPLATES } from '../simulation/Doorways.js';
+import { AIEngine } from '../ai';
+
+// ── Location categories supported by the command center ──────────────────────
+const CATEGORY_LABEL = {
+  ROOM: 'Room',
+  CORRIDOR: 'Corridor',
+  STAIR: 'Staircase',
+  EXIT: 'Exit'
+};
+
+// Configured design capacities (rooms use the real per-room `capacity` field)
+const CORRIDOR_DESIGN_CAPACITY = 40;
+const STAIR_DESIGN_CAPACITY = 45;
+const SCENARIO_STORAGE_KEY = 'twinguard_command_center_scenario_v1';
+
+// Micro telemetry row (Live Environmental Telemetry card)
+const TelemetryRow = ({ label, value, bad = false, warn = false, neutral = false }) => (
+  <div className="flex items-center justify-between gap-1.5 min-w-0">
+    <span className="text-[10px] text-slate-500 truncate">{label}</span>
+    <span
+      className={`text-[10px] font-bold shrink-0 ${
+        neutral ? 'text-slate-800' : bad ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-600'
+      }`}
+    >
+      {value}
+    </span>
+  </div>
+);
 
 export function EmergencyCommandCenterPage({
   threeCanvasRef,
@@ -52,6 +84,8 @@ export function EmergencyCommandCenterPage({
   onUpdateRooms,
   onUpdateExits,
   isSimulating = false,
+  systemStatus = 'STANDBY',
+  stats = null,
   onStartSimulation,
   onPauseSimulation,
   onResetSimulation,
@@ -59,14 +93,25 @@ export function EmergencyCommandCenterPage({
   onExtinguishFire,
   onClearAllFires,
   onSwitchTo3D,
-  onClose
+  onClose,
+  onUpdateOccupancy, // strict per-room occupancy update (roomId, count)
+  onBlockStairwell, // backend sync: (coreZone, floorNum|null)
+  onHazardEvent // multi-hazard events bubbled to the global incident feed
 }) {
   // Mode selection: 'simulation' vs 'live'
   const [mode, setMode] = useState('simulation');
   const [viewMode, setViewMode] = useState('3D'); // '3D' | '2D'
+  const [occupancyView, setOccupancyView] = useState('floors'); // 'floors' | 'rooms'
   const [selectedBuilding, setSelectedBuilding] = useState('Main Academic Building');
-  const [selectedFloor, setSelectedFloor] = useState(2); // Level 1 to 10
-  const [selectedLocationId, setSelectedLocationId] = useState('f2_r4'); // defaults to Rm 204
+  // Selection defaults are derived from the REAL building dataset.
+  // No floor number or room id is hardcoded anywhere in this component.
+  const [selectedFloor, setSelectedFloor] = useState(() => {
+    const floors = rooms.map((r) => Number(r.floor)).filter((f) => !isNaN(f));
+    return floors.length ? Math.min(...floors) : 1;
+  }); // any level of the building
+  const [selectedLocationId, setSelectedLocationId] = useState(() => rooms[0]?.id || null);
+  const [segmentOccupancies, setSegmentOccupancies] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState('ROOM');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [compassYaw, setCompassYaw] = useState(0);
@@ -141,146 +186,310 @@ export function EmergencyCommandCenterPage({
   // ============================================================================
   // 2. FLOORS & LOCATIONS DATA
   // ============================================================================
+  // All real building floors (derived from the actual room dataset — 10 levels)
   const ALL_FLOORS = useMemo(() => {
+    const nums = [...new Set(rooms.map((r) => r.floor).filter((f) => !isNaN(f)))]
+      .filter((f) => Number.isInteger(Number(f)))
+      .sort((a, b) => Number(b) - Number(a));
     return [
+      { num: 'ALL', label: 'All' },
       { num: 'ROOF', label: 'Roof' },
-      { num: 4, label: 'Floor 4' },
-      { num: 3, label: 'Floor 3' },
-      { num: 2, label: 'Floor 2' },
-      { num: 1, label: 'Floor 1' },
+      ...nums.map((n) => ({ num: Number(n), label: `Floor ${n}` })),
       { num: 'GROUND', label: 'Ground' }
     ];
-  }, []);
+  }, [rooms]);
 
-  // Compute all available locations on selected floor
+  // Highest real floor number (used for the Roof entry point)
+  const topFloor = useMemo(() => {
+    const nums = rooms.map((r) => r.floor).filter((f) => Number.isInteger(Number(f))).map(Number);
+    return nums.length ? Math.max(...nums) : 1;
+  }, [rooms]);
+
+  // Total live occupants across the building (drives exit load split)
+  const totalOccupants = useMemo(() => rooms.reduce((s, r) => s + (r.peopleCount || 0), 0), [rooms]);
+
+  // Build the exit rows from the REAL exit dataset, split by gate capacity
+  const buildExitRows = (exitList) => {
+    const capOf = (e) => e.capacity || 60;
+    const capSum = exitList.reduce((s, e) => s + capOf(e), 0) || 1;
+    return exitList.map((e) => {
+      const share = capOf(e) / capSum;
+      const people = Math.round(totalOccupants * share);
+      const pct = Math.round(share * 100);
+      return {
+        id: e.id,
+        name: e.name,
+        people,
+        pct,
+        baselinePeople: people,
+        baselinePct: pct,
+        isBlocked: e.status === 'Blocked'
+      };
+    });
+  };
+
+  // Real exits (West Core / East Core / South Gate) with capacity-weighted load
+  const [exitData, setExitData] = useState(() => buildExitRows(exits));
+
+  // Keep the exit load split in sync with the live occupant count
+  useEffect(() => {
+    setExitData((prev) =>
+      prev.map((e) => {
+        const cap = exits.find((x) => x.id === e.id)?.capacity || 60;
+        const capSum = prev.reduce((s, p) => s + (exits.find((x) => x.id === p.id)?.capacity || 60), 0) || 1;
+        const share = cap / capSum;
+        const people = Math.round(totalOccupants * share);
+        const pct = Math.round(share * 100);
+        return {
+          ...e,
+          name: exits.find((x) => x.id === e.id)?.name || e.name,
+          people: e.isBlocked ? 0 : people,
+          pct: e.isBlocked ? 0 : pct,
+          baselinePeople: people,
+          baselinePct: pct
+        };
+      })
+    );
+  }, [totalOccupants, exits]);
+
+  // ============================================================================
+  // ALL selectable locations on the selected floor, loaded from the REAL
+  // building dataset: rooms, corridor segments, stairwell cores
+  // (+ the real exit gates when the Ground level is selected).
+  // Every id is a real object id used by the 3D building / navigation graph.
+  // ============================================================================
   const floorLocations = useMemo(() => {
     const list = [];
-    const flNum = selectedFloor === 'ROOF' ? 4 : selectedFloor === 'GROUND' ? 1 : Number(selectedFloor);
+    const flNum = selectedFloor === 'ROOF' ? topFloor : selectedFloor === 'GROUND' ? 1 : Number(selectedFloor);
     const theme = FLOOR_THEMES[flNum] || { name: `Floor ${flNum}`, prefix: `Floor ${flNum}` };
 
-    const floorRooms = rooms.filter((r) => r.floor === flNum);
-    if (floorRooms.length > 0) {
-      floorRooms.forEach((r, idx) => {
-        const template = ROOM_TEMPLATES[idx] || { nameSuffix: `Room ${idx + 1}` };
-        const roomNum = `${flNum}${idx < 9 ? '0' + (idx + 1) : idx + 1}`;
+    // 1. Real rooms of this floor (f{fl}_r1 .. f{fl}_r10)
+    rooms.filter((r) => Number(r.floor) === flNum).forEach((r, idx) => {
+      const template = ROOM_TEMPLATES[idx] || { nameSuffix: `Room ${idx + 1}` };
+      const roomNum = `${flNum}${idx < 9 ? '0' + (idx + 1) : idx + 1}`;
+      list.push({
+        id: r.id,
+        category: 'ROOM',
+        floor: flNum,
+        roomNumber: roomNum,
+        name: `Room ${roomNum}`,
+        shortName: `Room ${roomNum}`,
+        type: template.nameSuffix, // real dataset room name (Lab / Office 01 ...)
+        zone: theme.name, // real floor department theme
+        capacity: r.capacity ?? 50, // configured capacity of THIS room
+        current: r.peopleCount ?? 0,
+        hasFire: !!r.hasFire,
+        center: r.center,
+        bounds: r.bounds
+      });
+    });
+
+    // 2. Real corridor segments of this floor (the 50 m corridor runner, x -25..25)
+    ['west', 'east'].forEach((zone) => {
+      const zoneLabel = zone === 'west' ? 'West' : 'East';
+      const id = `corr_f${flNum}_${zone}`;
+      list.push({
+        id,
+        category: 'CORRIDOR',
+        floor: flNum,
+        name: `${zoneLabel} Corridor — Floor ${flNum}`,
+        shortName: `${zoneLabel} Corridor`,
+        type: 'Corridor Segment',
+        zone: zoneLabel,
+        capacity: CORRIDOR_DESIGN_CAPACITY,
+        current: segmentOccupancies[id] ?? 0
+      });
+    });
+
+    // 3. Real stairwell cores of this floor (x = -28 / +28 in the building model)
+    ['west', 'east'].forEach((zone) => {
+      const zoneLabel = zone === 'west' ? 'West' : 'East';
+      const coreLabel = zone === 'west' ? 'Core A' : 'Core B';
+      const id = `stair_f${flNum}_${zone}`;
+      list.push({
+        id,
+        category: 'STAIR',
+        floor: flNum,
+        name: `Staircase ${coreLabel} (${zoneLabel}) — Floor ${flNum}`,
+        shortName: `Staircase ${coreLabel}`,
+        type: 'Stairwell Core',
+        zone: zoneLabel,
+        capacity: STAIR_DESIGN_CAPACITY,
+        current: segmentOccupancies[id] ?? 0
+      });
+    });
+
+    // 4. Real ground exit gates (listed when the Ground level is selected)
+    if (selectedFloor === 'GROUND') {
+      exits.forEach((e) => {
+        const live = exitData.find((x) => x.id === e.id);
         list.push({
-          id: r.id,
-          category: 'ROOM',
-          floor: flNum,
-          roomNumber: roomNum,
-          name: `Room ${roomNum}`,
-          shortName: `Room ${roomNum}`,
-          type: idx === 0 ? 'Computer Science Lab' : idx === 3 ? 'Classroom' : 'Lecture Hall',
-          capacity: 50,
-          current: r.peopleCount ?? 35,
-          hasFire: !!r.hasFire,
-          center: r.center,
-          bounds: r.bounds
+          id: e.id,
+          category: 'EXIT',
+          floor: 1,
+          name: e.name,
+          shortName: e.name,
+          type: 'Emergency Exit Gate',
+          zone: 'Ground',
+          capacity: e.capacity ?? 60,
+          current: live ? live.people : 0,
+          isBlocked: live ? live.isBlocked : false
         });
       });
-    } else {
-      for (let i = 1; i <= 6; i++) {
-        const rNum = `${flNum}0${i}`;
-        list.push({
-          id: `f${flNum}_r${i}`,
-          category: 'ROOM',
-          floor: flNum,
-          roomNumber: rNum,
-          name: `Room ${rNum}`,
-          shortName: `Room ${rNum}`,
-          type: i === 4 ? 'Classroom' : i === 1 ? 'Laboratory' : 'Seminar Hall',
-          capacity: 50,
-          current: 35
-        });
-      }
     }
 
     return list;
-  }, [selectedFloor, rooms]);
+  }, [selectedFloor, rooms, topFloor, exits, exitData, segmentOccupancies]);
 
-  // Current Selected Location Object
+  // Current Selected Location Object (fallback = first location of this floor,
+  // never a hardcoded room id or floor number)
   const currentLocation = useMemo(() => {
     const found = floorLocations.find((l) => l.id === selectedLocationId);
     if (found) return found;
     return floorLocations[0] || {
-      id: 'f2_r4',
+      id: null,
       category: 'ROOM',
-      floor: 2,
-      name: 'Room 204',
-      shortName: 'Room 204',
-      type: 'Classroom',
-      capacity: 50,
-      current: 35
+      floor: Number(selectedFloor) || 1,
+      name: 'No location',
+      shortName: 'No location',
+      type: '—',
+      zone: '—',
+      capacity: 0,
+      current: 0
     };
-  }, [floorLocations, selectedLocationId]);
+  }, [floorLocations, selectedLocationId, selectedFloor]);
 
-  // Sync when user clicks any room directly in the 3D model
+  // Sync when user clicks any room, corridor, or stair directly in the 3D model
   useEffect(() => {
     if (selected3DRoom) {
       if (selected3DRoom.floor && selected3DRoom.floor !== selectedFloor) {
         setSelectedFloor(selected3DRoom.floor);
       }
+      if (selected3DRoom.category) {
+        setSelectedCategory(selected3DRoom.category);
+      }
       setSelectedLocationId(selected3DRoom.id);
       if (sceneManager && sceneManager.highlightRoom) {
         sceneManager.highlightRoom(selected3DRoom.id);
       }
-      showToast(`Selected in 3D: ${selected3DRoom.name || selected3DRoom.id}`);
+      showToast(`Selected in 3D: ${selected3DRoom.shortName || selected3DRoom.name || selected3DRoom.id}`);
     }
   }, [selected3DRoom, sceneManager]);
 
   // ============================================================================
   // 3. HAZARDS & EVENTS TRACKING
   // ============================================================================
-  const [hazards, setHazards] = useState([
-    {
-      id: 'ev_fire_204',
-      type: 'FIRE',
-      title: 'Fire — Active',
-      locationId: 'f2_r4',
-      locationName: 'Room 204, Floor 2',
-      floor: 2,
-      time: '10:24 AM'
-    },
-    {
-      id: 'ev_smoke_201',
-      type: 'SMOKE',
-      title: 'Smoke — Active',
-      locationId: 'f2_r1',
-      locationName: 'Lab 201, Floor 2',
-      floor: 2,
-      time: '10:25 AM'
-    },
-    {
-      id: 'ev_block_corr_2',
-      type: 'BLOCK_CORRIDOR',
-      title: 'Blocked Area',
-      locationId: 'corr_f2_central',
-      locationName: 'Central Corridor, Floor 2',
-      floor: 2,
-      time: '10:22 AM'
-    },
-    {
-      id: 'ev_block_exit_e',
-      type: 'BLOCK_EXIT',
-      title: 'Exit Blocked',
-      locationId: 'exit_main',
-      locationName: 'Exit E (Main)',
-      floor: 1,
-      time: '10:20 AM'
-    }
-  ]);
-
-  // Dynamic Exits Distribution Matching Target Reference
-  const [exitData, setExitData] = useState([
-    { id: 'exit_west', name: 'Exit A (North)', people: 140, pct: 27, isBlocked: false },
-    { id: 'exit_east', name: 'Exit B (East)', people: 120, pct: 23, isBlocked: false },
-    { id: 'exit_south', name: 'Exit C (West)', people: 110, pct: 21, isBlocked: false },
-    { id: 'exit_north', name: 'Exit D (South)', people: 130, pct: 25, isBlocked: false },
-    { id: 'exit_main', name: 'Exit E (Main)', people: 0, pct: 0, isBlocked: true }
-  ]);
+  // Live event feed — seeded from the REAL scene state (no fake incidents)
+  const [hazards, setHazards] = useState(() =>
+    rooms
+      .filter((r) => r.hasFire)
+      .map((r) => ({
+        id: `ev_fire_${r.id}`,
+        type: 'FIRE',
+        title: 'Fire — Active',
+        locationId: r.id,
+        locationName: `Room ${r.floor}${String(parseInt(r.id.split('_')[1]?.replace('r', '') || '1', 10) || 1).padStart(2, '0')}, Floor ${r.floor}`,
+        floor: r.floor,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }))
+  );
 
   // Undo History Stack
   const [historyStack, setHistoryStack] = useState([]);
+
+  // ── Multi-hazard incident events (power / HVAC / structural collapse) ──
+  // Kept separate from the location-based `hazards` feed so Undo/Reset 3D
+  // reconciliation is unaffected; rendered inside the same EVENT LOG panel.
+  const [hazardEvents, setHazardEvents] = useState([]);
+
+  useEffect(() => {
+    if (!AIEngine || !AIEngine.onHazardChange) return undefined;
+    const unsub = AIEngine.onHazardChange((state, evt) => {
+      if (!evt) return;
+      const entry = {
+        id: evt.id,
+        type: 'MULTI_HAZARD',
+        hazardKey: evt.hazard,
+        title: evt.message,
+        locationName: evt.location || 'Building-wide',
+        time: new Date(evt.timestamp || Date.now()).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit'
+        }),
+        enabled: evt.enabled
+      };
+      setHazardEvents((prev) => [entry, ...prev].slice(0, 30));
+      // Bubble into the global incident feed (sidebar + modals)
+      if (onHazardEvent) onHazardEvent(evt);
+      // Backend persistence parity: structural collapse → corridor block sync
+      if (evt.hazard === 'structuralCollapse') {
+        fetch('http://localhost:5000/api/block-corridor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ corridorId: 'C101', blocked: evt.enabled })
+        }).catch(() => {});
+      }
+    });
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [onHazardEvent]);
+
+  // ── Live Environmental Telemetry (power / HVAC / structural / summary) ──
+  // Every value is computed from the ACTUAL simulation state — no hardcoding.
+  const [envTelemetry, setEnvTelemetry] = useState({
+    power: { mainGrid: 'ONLINE', emergencyLighting: 'INACTIVE' },
+    hvac: { fans: 'RUNNING', smokePropagation: '1.0x', avgExposureRate: 0, exposedAgents: 0 },
+    structural: { corridor: 'OPEN', westConnection: 'OPEN', affected: 0, rerouted: 0 },
+    summary: { activeHazards: 0, evacuating: null, blockedRoutes: 0 }
+  });
+
+  useEffect(() => {
+    const read = () => {
+      const haz = AIEngine && AIEngine.getHazardState ? AIEngine.getHazardState() : {};
+      const struct =
+        sceneManager && sceneManager.getStructuralStatus ? sceneManager.getStructuralStatus() : null;
+      const smoke =
+        sceneManager && sceneManager.getSmokeExposureTelemetry
+          ? sceneManager.getSmokeExposureTelemetry()
+          : null;
+      const agentStats = sceneManager && sceneManager.agentCrowd ? sceneManager.agentCrowd.cachedStats : null;
+
+      const blockedRoutes =
+        (struct && struct.active ? 1 : 0) +
+        (sceneManager && sceneManager.blockedCorridorSegments
+          ? sceneManager.blockedCorridorSegments.size || 0
+          : 0);
+
+      setEnvTelemetry({
+        power: {
+          mainGrid: haz.powerGridFailure ? 'OFFLINE' : 'ONLINE',
+          emergencyLighting: haz.powerGridFailure ? 'ACTIVE' : 'INACTIVE',
+          affectedZones: sceneManager && sceneManager.getPowerZones ? sceneManager.getPowerZones().length : 0
+        },
+        hvac: {
+          fans: haz.hvacPressurizationFailure ? 'DISABLED' : 'RUNNING',
+          smokePropagation: haz.hvacPressurizationFailure ? '2.2x' : '1.0x',
+          avgExposureRate: smoke ? smoke.avgRate || 0 : 0,
+          exposedAgents: smoke ? smoke.agentsExposed || 0 : 0
+        },
+        structural: {
+          corridor: struct && struct.active ? 'BLOCKED' : 'OPEN',
+          westConnection: struct ? struct.westStairConnection || 'OPEN' : 'OPEN',
+          affected: struct ? struct.affectedAgents || 0 : 0,
+          rerouted: struct ? struct.reroutedAgents || 0 : 0
+        },
+        summary: {
+          activeHazards: ['fire','powerGridFailure','hvacPressurizationFailure','structuralCollapse'].filter((k) => !!haz[k]).length,
+          evacuating: agentStats ? agentStats.inTransit || 0 : null,
+          blockedRoutes
+        }
+      });
+    };
+    read();
+    const id = setInterval(read, 1000);
+    return () => clearInterval(id);
+  }, [sceneManager]);
 
   // Toast Helper
   const showToast = (msg) => {
@@ -301,28 +510,69 @@ export function EmergencyCommandCenterPage({
     ]);
   };
 
-  // Active hazards at currently selected location
-  const locationHazards = useMemo(() => {
-    return hazards.filter(
-      (h) => h.locationId === currentLocation.id || (currentLocation.coreId && h.locationId.includes(currentLocation.coreId))
-    );
-  }, [hazards, currentLocation]);
-
+  // Building-wide event counts (the events feed is now global, not per-location)
   const fireCount = hazards.filter((h) => h.type === 'FIRE').length;
   const smokeCount = hazards.filter((h) => h.type === 'SMOKE').length;
-  const blockedAreasCount = 3;
+  // Real blocked-area count (from the live event feed)
+  const blockedAreasCount = hazards.filter(
+    (h) => h.type === 'BLOCK_ROOM' || h.type === 'BLOCK_CORRIDOR' || h.type === 'BLOCK_STAIR'
+  ).length;
   const blockedExitsCount = exitData.filter((e) => e.isBlocked).length;
 
-  // Floor-wise Occupancy matching target design reference
+  // Combined EVENT LOG feed: multi-hazard incidents first, then location events
+  const mergedEvents = useMemo(() => [...hazardEvents, ...hazards], [hazardEvents, hazards]);
+
+  // Floor-wise Occupancy — real counts for every building level
   const floorOccupancyList = useMemo(() => {
-    return [
-      { floorName: 'Floor 4', total: 120, max: 150, pct: 80, isRed: false },
-      { floorName: 'Floor 3', total: 110, max: 150, pct: 73, isRed: false },
-      { floorName: 'Floor 2', total: 140, max: 150, pct: 93, isRed: true },
-      { floorName: 'Floor 1', total: 90, max: 150, pct: 60, isRed: false },
-      { floorName: 'Ground', total: 60, max: 200, pct: 30, isRed: false }
-    ];
-  }, []);
+    const floors = [...new Set(rooms.map((r) => r.floor))]
+      .filter((f) => Number.isInteger(Number(f)))
+      .map(Number)
+      .sort((a, b) => b - a);
+    return floors.map((fl) => {
+      const flRooms = rooms.filter((r) => r.floor === fl);
+      const total = flRooms.reduce((s, r) => s + (r.peopleCount || 0), 0);
+      const max = flRooms.reduce((s, r) => s + (r.capacity ?? 50), 0) || 100;
+      const pct = Math.min(100, Math.round((total / max) * 100));
+      return { floorName: `Floor ${fl}`, total, max, pct, isRed: pct >= 85 };
+    });
+  }, [rooms]);
+
+  // Room-wise Occupancy — independent per-room records of the selected floor
+  const roomOccupancyList = useMemo(() => {
+    const flNum = selectedFloor === 'ROOF' ? topFloor : selectedFloor === 'GROUND' ? 1 : Number(selectedFloor);
+    return rooms
+      .filter((r) => Number(r.floor) === flNum)
+      .map((r, idx) => {
+        const template = ROOM_TEMPLATES[idx] || { nameSuffix: `Room ${idx + 1}` };
+        const roomNum = `${flNum}${idx < 9 ? '0' + (idx + 1) : idx + 1}`;
+        const capacity = r.capacity ?? 50;
+        const people = r.peopleCount || 0;
+        const pct = Math.min(100, Math.round((people / (capacity || 1)) * 100));
+        return {
+          id: r.id,
+          label: `Room ${roomNum}`,
+          type: template.nameSuffix,
+          people,
+          capacity,
+          pct,
+          isRed: pct >= 85,
+          floorNum: flNum
+        };
+      });
+  }, [rooms, selectedFloor, topFloor]);
+
+  const roomFloorTotal = roomOccupancyList.reduce((s, r) => s + r.people, 0);
+  const roomCapacityTotal = roomOccupancyList.reduce((s, r) => s + r.capacity, 0);
+
+  // Click a room row in the analytics → select it everywhere (dropdown + 3D)
+  const selectRoomFromAnalytics = (roomId) => {
+    setSelectedLocationId(roomId);
+    const loc = floorLocations.find((l) => l.id === roomId);
+    if (loc) {
+      if (sceneManager && sceneManager.setFloorMode) sceneManager.setFloorMode(Number(loc.floor));
+      focusLocation(loc);
+    }
+  };
 
   // ============================================================================
   // 4. SELECTION & CAMERA ACTIONS
@@ -330,24 +580,39 @@ export function EmergencyCommandCenterPage({
   const handleSelectFloor = (flNum) => {
     setSelectedFloor(flNum);
 
+    if (flNum === 'ALL') {
+      if (sceneManager) {
+        if (sceneManager.setFloorMode) sceneManager.setFloorMode('ALL');
+        if (sceneManager.setCameraPreset) sceneManager.setCameraPreset('FULL_BUILDING');
+        if (sceneManager.highlightRoom) sceneManager.highlightRoom(null);
+      }
+      showToast('Viewing All Floors — Full 10-Storey Building');
+      return;
+    }
+
+    const flInt = flNum === 'ROOF' ? topFloor : flNum === 'GROUND' ? 1 : Number(flNum);
+
     if (sceneManager) {
       if (flNum === 'ROOF') {
+        sceneManager.setFloorMode('ALL');
         sceneManager.setCameraPreset('ROOF');
       } else if (flNum === 'GROUND') {
         sceneManager.setFloorMode(1);
         sceneManager.setCameraPreset('FLOOR_1');
       } else {
-        sceneManager.setFloorMode(flNum);
-        sceneManager.setCameraPreset(`FLOOR_${flNum}`);
+        sceneManager.setFloorMode(flInt);
+        sceneManager.setCameraPreset(`FLOOR_${flInt}`);
       }
     }
 
-    const flInt = flNum === 'ROOF' ? 4 : flNum === 'GROUND' ? 1 : Number(flNum);
-    const flRooms = rooms.filter((r) => r.floor === flInt);
-    if (flRooms.length > 0) {
-      setSelectedLocationId(flRooms[0].id);
-      if (sceneManager && sceneManager.highlightRoom) {
-        sceneManager.highlightRoom(flRooms[0].id);
+    const targetCat = flNum === 'GROUND' ? 'EXIT' : (selectedCategory || 'ROOM');
+    const flList = floorLocations.filter((l) => l.category === targetCat);
+    if (flList.length > 0) {
+      handleSelectLocation(flList[0].id);
+    } else {
+      const flRooms = rooms.filter((r) => r.floor === flInt);
+      if (flRooms.length > 0) {
+        handleSelectLocation(flRooms[0].id);
       }
     }
   };
@@ -356,92 +621,361 @@ export function EmergencyCommandCenterPage({
     setSelectedLocationId(locId);
     const loc = floorLocations.find((l) => l.id === locId);
     if (!loc) return;
+    if (loc.category) setSelectedCategory(loc.category);
 
-    if (sceneManager) {
-      if (loc.category === 'ROOM') {
-        sceneManager.setCameraPreset('ROOM_FOCUS', loc.id);
-        if (sceneManager.highlightRoom) sceneManager.highlightRoom(loc.id);
-      } else {
-        sceneManager.setCameraPreset(`FLOOR_${loc.floor}`);
-        if (sceneManager.highlightRoom) sceneManager.highlightRoom(null);
+    // Camera + highlight follow the selection for every location type
+    if (sceneManager && sceneManager.setFloorMode && loc.floor) {
+      sceneManager.setFloorMode(Number(loc.floor));
+    }
+    focusLocation(loc);
+  };
+
+  const handleSelectCategory = (cat) => {
+    setSelectedCategory(cat);
+    if (cat === 'ALL') {
+      if (floorLocations.length > 0) {
+        handleSelectLocation(floorLocations[0].id);
       }
+      return;
+    }
+    if (cat === 'EXIT') {
+      setSelectedFloor('GROUND');
+      const firstExit = floorLocations.find((l) => l.category === 'EXIT') || exits[0];
+      if (firstExit) handleSelectLocation(firstExit.id);
+      return;
+    }
+    if (selectedFloor === 'GROUND') {
+      setSelectedFloor(1);
+    }
+    const matching = floorLocations.filter((l) => l.category === cat);
+    if (matching.length > 0) {
+      handleSelectLocation(matching[0].id);
     }
   };
 
   // ============================================================================
-  // 5. 9 TARGET EMERGENCY ACTIONS
+  // 5. EMERGENCY ACTIONS — category aware (room / corridor / stair / exit)
   // ============================================================================
-  const handleAddFire = () => {
+
+  // ORIGINAL (baseline) occupancy per room — used by "Reset Occupancy"
+  const baselineOccupancyRef = useRef(null);
+
+  // ── Real-time Evacuation Simulation Stats & Triggers ──
+  const liveStats = useMemo(() => {
+    if (stats) return stats;
+    if (sceneManager && sceneManager.agentCrowd && sceneManager.agentCrowd.cachedStats) {
+      return sceneManager.agentCrowd.cachedStats;
+    }
+    return {
+      total: totalOccupants,
+      evacuated: 0,
+      inTransit: isSimulating ? totalOccupants : 0,
+      elapsedSeconds: 0,
+      isCompleted: false
+    };
+  }, [stats, sceneManager, totalOccupants, isSimulating]);
+
+  const isCompleted = systemStatus === 'COMPLETED' || (liveStats && liveStats.isCompleted) || (liveStats && liveStats.evacuated > 0 && liveStats.evacuated === totalOccupants);
+
+  const handleToggleEvacuation = () => {
+    if (isSimulating) {
+      if (onPauseSimulation) {
+        onPauseSimulation();
+      } else if (sceneManager && sceneManager.pauseSimulation) {
+        sceneManager.pauseSimulation();
+      }
+      showToast('Evacuation Simulation Paused');
+    } else {
+      recordHistory();
+      setMode('simulation');
+      if (onStartSimulation) {
+        onStartSimulation();
+      } else if (sceneManager && sceneManager.startEvacuation) {
+        sceneManager.startEvacuation();
+      }
+      if (sceneManager) {
+        if (sceneManager.setFacadeMode) sceneManager.setFacadeMode('CUTAWAY');
+        else if (sceneManager.building) sceneManager.building.facadeMode = 'CUTAWAY';
+      }
+      showToast('🚨 Full Facility Evacuation Protocol Initiated — AI Load-Balancing Active!');
+    }
+  };
+
+  const handleResetEvacuation = () => {
     recordHistory();
-    const existing = hazards.find((h) => h.locationId === currentLocation.id && h.type === 'FIRE');
-    if (existing) {
+    if (onResetSimulation) {
+      onResetSimulation();
+    } else if (sceneManager && sceneManager.reset) {
+      sceneManager.reset(rooms);
+    }
+    showToast('Simulation Reset — Occupants returned to baseline positions.');
+  };
+
+  // ── Mode selection: 'simulation' vs 'live' ──
+  if (baselineOccupancyRef.current === null) {
+    baselineOccupancyRef.current = new Map(rooms.map((r) => [r.id, r.peopleCount]));
+  }
+
+  // Unique id per event so every event is managed & removed independently
+  const eventSeqRef = useRef(0);
+  const createEvent = (type, title, loc) => {
+    eventSeqRef.current += 1;
+    return {
+      id: `ev_${type.toLowerCase()}_${loc.id}_${eventSeqRef.current}`,
+      type,
+      title,
+      locationId: loc.id,
+      locationName: `${loc.shortName}, Floor ${loc.floor}`,
+      floor: loc.floor,
+      category: loc.category,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+  };
+
+  const findEventAt = (locationId, type) =>
+    hazards.find((h) => h.locationId === locationId && (!type || h.type === type));
+
+  // ── Camera focus for ANY location type so the operator sees the effect ──
+  const focusLocation = (loc) => {
+    if (!sceneManager || !loc || !loc.id) return;
+    const floorH = (sceneManager.building && sceneManager.building.floorHeight) || 3.8;
+    const baseY = (Number(loc.floor) - 1) * floorH;
+    const isWest = String(loc.id).endsWith('_west');
+
+    if (sceneManager.setFacadeMode) {
+      sceneManager.setFacadeMode('CUTAWAY');
+    } else if (sceneManager.building && sceneManager.building.setFacadeMode) {
+      sceneManager.building.setFacadeMode('CUTAWAY');
+    }
+
+    if (loc.category === 'ROOM') {
+      if (sceneManager.setCameraPreset) sceneManager.setCameraPreset('ROOM_FOCUS', loc.id);
+      if (sceneManager.highlightRoom) sceneManager.highlightRoom(loc.id);
+    } else if (loc.category === 'CORRIDOR') {
+      if (sceneManager.highlightRoom) sceneManager.highlightRoom(loc.id);
+      if (sceneManager.focusTarget) sceneManager.focusTarget({ x: isWest ? -12.5 : 12.5, y: baseY + 2.0, z: 0 }, 40);
+    } else if (loc.category === 'STAIR') {
+      if (sceneManager.highlightRoom) sceneManager.highlightRoom(loc.id);
+      if (sceneManager.focusTarget) sceneManager.focusTarget({ x: isWest ? -28 : 28, y: baseY + 2.0, z: 0 }, 42);
+    } else if (loc.category === 'EXIT') {
+      const pos = sceneManager.getExitGatePosition ? sceneManager.getExitGatePosition(loc.id) : null;
+      if (sceneManager.highlightRoom) sceneManager.highlightRoom(loc.id);
+      if (pos && sceneManager.focusTarget) sceneManager.focusTarget({ x: pos.x, y: 2.5, z: pos.z }, 48);
+    }
+  };
+
+  // ── Reconcile the 3D scene with a given event/exit state.
+  //    Used by Undo / Reset / Clear / Load so every action is reversible.
+  //    Only differences are touched — one event never disturbs another. ──
+  const applySceneState = (nextHazards, nextExitData) => {
+    if (!sceneManager || !sceneManager.getSceneHazardState) return;
+    const cur = sceneManager.getSceneHazardState();
+    const ids = (type) => (nextHazards || []).filter((h) => h.type === type).map((h) => h.locationId);
+
+    const wantFires = ids('FIRE');
+    const wantSmokes = ids('SMOKE');
+    const wantRooms = ids('BLOCK_ROOM');
+    const wantCorrs = ids('BLOCK_CORRIDOR');
+    const wantStairs = ids('BLOCK_STAIR');
+    const wantExits = (nextExitData || []).filter((e) => e.isBlocked).map((e) => e.id);
+
+    const drop = (list, want, fn) => list.filter((id) => !want.includes(id)).forEach((id) => fn(id));
+    const add = (want, have, fn) => want.filter((id) => !have.includes(id)).forEach((id) => fn(id));
+
+    drop(cur.fires, wantFires, (id) => sceneManager.extinguishFire(id));
+    drop(cur.smokes, wantSmokes, (id) => sceneManager.extinguishFire(id));
+    drop(cur.blockedRooms, wantRooms, (id) => sceneManager.unblockRoom(id));
+    drop(cur.blockedCorridors, wantCorrs, (id) => sceneManager.unblockCorridorSegment(id));
+    drop(cur.blockedStairs, wantStairs, (id) => sceneManager.unblockStairCore(id));
+    drop(cur.blockedExits, wantExits, (id) => sceneManager.unblockExit(id));
+
+    add(wantFires, cur.fires, (id) => sceneManager.triggerFire(id));
+    add(wantSmokes, cur.smokes, (id) => sceneManager.spawnSmoke(id));
+    add(wantRooms, cur.blockedRooms, (id) => sceneManager.blockRoom(id));
+    add(wantCorrs, cur.blockedCorridors, (id) => sceneManager.blockCorridorSegment(id));
+    add(wantStairs, cur.blockedStairs, (id) => sceneManager.blockStairCore(id));
+    add(wantExits, cur.blockedExits, (id) => sceneManager.blockExit(id));
+  };
+
+  // ── ROOM ACTIONS ────────────────────────────────────────────────────────
+  const handleAddFire = () => {
+    if (!currentLocation || !currentLocation.id || !['ROOM', 'CORRIDOR', 'STAIR'].includes(currentLocation.category)) return;
+    recordHistory();
+    if (findEventAt(currentLocation.id, 'FIRE')) {
+      showToast(`${currentLocation.shortName} already has an active fire.`);
+      return;
+    }
+    if (findEventAt(currentLocation.id, 'SMOKE')) {
+      showToast(`${currentLocation.shortName} already has active smoke — remove it first.`);
+      return;
+    }
+
+    setHazards((prev) => [createEvent('FIRE', 'Fire — Active', currentLocation), ...prev]);
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.triggerFire) sceneManager.triggerFire(currentLocation.id);
+    if (onTriggerFire) onTriggerFire(currentLocation.id);
+    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    showToast(`Fire ignited in ${currentLocation.shortName}!`);
+  };
+
+  const handleRemoveFire = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    const existing = findEventAt(currentLocation.id, 'FIRE');
+    if (!existing) {
+      showToast(`No active fire in ${currentLocation.shortName}.`);
+      return;
+    }
+    recordHistory();
+    setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(currentLocation.id);
+    if (onExtinguishFire) onExtinguishFire(currentLocation.id);
+    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    showToast(`Fire removed from ${currentLocation.shortName}.`);
+  };
+
+  const handleAddSmoke = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    if (!['ROOM', 'CORRIDOR', 'STAIR'].includes(currentLocation.category)) return;
+    recordHistory();
+    if (findEventAt(currentLocation.id, 'SMOKE')) {
+      showToast(`${currentLocation.shortName} already has active smoke.`);
+      return;
+    }
+    if (findEventAt(currentLocation.id, 'FIRE')) {
       showToast(`${currentLocation.shortName} already has an active fire.`);
       return;
     }
 
-    const eventId = `ev_fire_${Date.now()}`;
-    const newHazard = {
-      id: eventId,
-      type: 'FIRE',
-      title: 'Fire — Active',
-      locationId: currentLocation.id,
-      locationName: `${currentLocation.shortName}, Floor ${currentLocation.floor}`,
-      floor: currentLocation.floor,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setHazards((prev) => [newHazard, ...prev]);
-
-    if (sceneManager && sceneManager.triggerFire) sceneManager.triggerFire(currentLocation.id);
-    if (onTriggerFire) onTriggerFire(currentLocation.id);
-    showToast(`Fire ignited in ${currentLocation.shortName}!`);
-  };
-
-  const handleAddSmoke = () => {
-    recordHistory();
-    const eventId = `ev_smoke_${Date.now()}`;
-    const newHazard = {
-      id: eventId,
-      type: 'SMOKE',
-      title: 'Smoke — Active',
-      locationId: currentLocation.id,
-      locationName: `${currentLocation.shortName}, Floor ${currentLocation.floor}`,
-      floor: currentLocation.floor,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setHazards((prev) => [newHazard, ...prev]);
+    setHazards((prev) => [createEvent('SMOKE', 'Smoke — Active', currentLocation), ...prev]);
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.spawnSmoke) sceneManager.spawnSmoke(currentLocation.id);
     showToast(`Smoke reported in ${currentLocation.shortName}.`);
   };
 
-  const handleBlockArea = () => {
+  const handleRemoveSmoke = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    const existing = findEventAt(currentLocation.id, 'SMOKE');
+    if (!existing) {
+      showToast(`No active smoke in ${currentLocation.shortName}.`);
+      return;
+    }
     recordHistory();
-    const eventId = `ev_block_${Date.now()}`;
-    const newHazard = {
-      id: eventId,
-      type: 'BLOCK_ROOM',
-      title: 'Blocked Area',
-      locationId: currentLocation.id,
-      locationName: `${currentLocation.shortName}, Floor ${currentLocation.floor}`,
-      floor: currentLocation.floor,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setHazards((prev) => [newHazard, ...prev]);
+    setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(currentLocation.id);
+    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    showToast(`Smoke cleared from ${currentLocation.shortName}.`);
+  };
+
+  const handleBlockArea = () => {
+    if (!currentLocation || !currentLocation.id || currentLocation.category !== 'ROOM') return;
+    recordHistory();
+    if (findEventAt(currentLocation.id, 'BLOCK_ROOM')) {
+      showToast(`${currentLocation.shortName} is already blocked.`);
+      return;
+    }
+    setHazards((prev) => [createEvent('BLOCK_ROOM', 'Room Blocked', currentLocation), ...prev]);
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.blockRoom) sceneManager.blockRoom(currentLocation.id);
     showToast(`${currentLocation.shortName} marked as Blocked!`);
   };
 
   const handleUnblockArea = () => {
+    if (!currentLocation || !currentLocation.id || currentLocation.category !== 'ROOM') return;
+    const existing = findEventAt(currentLocation.id, 'BLOCK_ROOM');
+    if (!existing) {
+      showToast(`${currentLocation.shortName} is not blocked.`);
+      return;
+    }
     recordHistory();
-    setHazards((prev) => prev.filter((h) => h.locationId !== currentLocation.id || !h.type.startsWith('BLOCK_')));
+    setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.unblockRoom) sceneManager.unblockRoom(currentLocation.id);
     showToast(`${currentLocation.shortName} unblocked.`);
   };
 
-  const handleBlockExit = () => {
+  // ── CORRIDOR ACTIONS ────────────────────────────────────────────────────
+  const handleBlockCorridor = () => {
+    if (!currentLocation || currentLocation.category !== 'CORRIDOR') return;
     recordHistory();
+    if (findEventAt(currentLocation.id, 'BLOCK_CORRIDOR')) {
+      showToast(`${currentLocation.shortName} is already blocked.`);
+      return;
+    }
+    setHazards((prev) => [createEvent('BLOCK_CORRIDOR', 'Corridor Blocked', currentLocation), ...prev]);
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.blockCorridorSegment) sceneManager.blockCorridorSegment(currentLocation.id);
+    showToast(`${currentLocation.shortName} blocked — routes recalculated.`);
+  };
+
+  const handleUnblockCorridor = () => {
+    if (!currentLocation || currentLocation.category !== 'CORRIDOR') return;
+    const existing = findEventAt(currentLocation.id, 'BLOCK_CORRIDOR');
+    if (!existing) {
+      showToast(`${currentLocation.shortName} is not blocked.`);
+      return;
+    }
+    recordHistory();
+    setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.unblockCorridorSegment) sceneManager.unblockCorridorSegment(currentLocation.id);
+    showToast(`${currentLocation.shortName} reopened.`);
+  };
+
+  // ── STAIRCASE ACTIONS ───────────────────────────────────────────────────
+  const handleBlockStair = () => {
+    if (!currentLocation || currentLocation.category !== 'STAIR') return;
+    recordHistory();
+    if (findEventAt(currentLocation.id, 'BLOCK_STAIR')) {
+      showToast(`${currentLocation.shortName} is already blocked.`);
+      return;
+    }
+    setHazards((prev) => [createEvent('BLOCK_STAIR', 'Staircase Blocked', currentLocation), ...prev]);
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.blockStairCore) sceneManager.blockStairCore(currentLocation.id);
+    if (onBlockStairwell) onBlockStairwell(currentLocation.zone, currentLocation.floor);
+    showToast(`${currentLocation.shortName} blocked — agents diverted to the other core.`);
+  };
+
+  const handleUnblockStair = () => {
+    if (!currentLocation || currentLocation.category !== 'STAIR') return;
+    const existing = findEventAt(currentLocation.id, 'BLOCK_STAIR');
+    if (!existing) {
+      showToast(`${currentLocation.shortName} is not blocked.`);
+      return;
+    }
+    recordHistory();
+    setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+    focusLocation(currentLocation);
+    if (sceneManager && sceneManager.unblockStairCore) sceneManager.unblockStairCore(currentLocation.id);
+    if (onBlockStairwell) onBlockStairwell(currentLocation.zone, null);
+    showToast(`${currentLocation.shortName} reopened.`);
+  };
+
+  // ── EXIT ACTIONS (apply to the selected exit, or the first available one) ──
+  const handleBlockExit = () => {
+    if (currentLocation && currentLocation.category === 'EXIT') {
+      if (exitData.find((e) => e.id === currentLocation.id && e.isBlocked)) {
+        showToast(`${currentLocation.shortName} is already blocked.`);
+        return;
+      }
+      handleToggleExit(currentLocation.id, true);
+      return;
+    }
     const targetExit = exitData.find((e) => !e.isBlocked) || exitData[exitData.length - 1];
     if (targetExit) handleToggleExit(targetExit.id, true);
   };
 
   const handleUnblockExit = () => {
-    recordHistory();
+    if (currentLocation && currentLocation.category === 'EXIT') {
+      if (!exitData.find((e) => e.id === currentLocation.id && e.isBlocked)) {
+        showToast(`${currentLocation.shortName} is already open.`);
+        return;
+      }
+      handleToggleExit(currentLocation.id, false);
+      return;
+    }
     const blockedExit = exitData.find((e) => e.isBlocked);
     if (blockedExit) {
       handleToggleExit(blockedExit.id, false);
@@ -452,69 +986,230 @@ export function EmergencyCommandCenterPage({
 
   const handleToggleExit = (exitId, blockState) => {
     recordHistory();
+    const exitName = exitData.find((e) => e.id === exitId)?.name || exitId;
     setExitData((prev) =>
-      prev.map((e) => (e.id === exitId ? { ...e, isBlocked: blockState, people: blockState ? 0 : 80, pct: blockState ? 0 : 20 } : e))
+      prev.map((e) => (e.id === exitId ? { ...e, isBlocked: blockState, people: blockState ? 0 : e.baselinePeople, pct: blockState ? 0 : e.baselinePct } : e))
     );
-    showToast(`Exit ${exitId} ${blockState ? 'Blocked' : 'Restored'}!`);
+
+    // Apply to the actual 3D twin (routing + visible gate barrier)
+    if (sceneManager) {
+      if (blockState && sceneManager.blockExit) sceneManager.blockExit(exitId);
+      if (!blockState && sceneManager.unblockExit) sceneManager.unblockExit(exitId);
+      const pos = sceneManager.getExitGatePosition ? sceneManager.getExitGatePosition(exitId) : null;
+      if (pos && sceneManager.focusTarget) {
+        sceneManager.focusTarget({ x: pos.x, y: 2.5, z: pos.z }, 48);
+      }
+    }
+    showToast(`${exitName} ${blockState ? 'Blocked' : 'Restored'}!`);
+  };
+
+  // ── MULTI-HAZARD GRANULAR ACTIONS (POWER, HVAC, STRUCTURAL COLLAPSE) ────
+  const handleTogglePower = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    recordHistory();
+    const existing = findEventAt(currentLocation.id, 'POWER_OUTAGE');
+    if (existing) {
+      setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+      if (sceneManager && sceneManager.setPowerGridFailure) {
+        sceneManager.setPowerGridFailure(false, currentLocation);
+      }
+      if (AIEngine && AIEngine.togglePowerFailure) {
+        AIEngine.togglePowerFailure(false, currentLocation);
+      }
+      showToast(`Power restored in ${currentLocation.shortName}.`);
+    } else {
+      setHazards((prev) => [createEvent('POWER_OUTAGE', 'Power Outage', currentLocation), ...prev]);
+      focusLocation(currentLocation);
+      if (sceneManager && sceneManager.setPowerGridFailure) {
+        sceneManager.setPowerGridFailure(true, currentLocation);
+      }
+      if (AIEngine && AIEngine.togglePowerFailure) {
+        AIEngine.togglePowerFailure(true, currentLocation);
+      }
+      showToast(`Power failure in ${currentLocation.shortName} — emergency lighting active.`);
+    }
+  };
+
+  const handleToggleHvac = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    recordHistory();
+    const existing = findEventAt(currentLocation.id, 'HVAC_FAILURE');
+    if (existing) {
+      setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+      if (sceneManager && sceneManager.setHvacFailure) {
+        sceneManager.setHvacFailure(false, currentLocation);
+      }
+      if (AIEngine && AIEngine.toggleHvacFailure) {
+        AIEngine.toggleHvacFailure(false, currentLocation);
+      }
+      showToast(`HVAC restored in ${currentLocation.shortName}.`);
+    } else {
+      setHazards((prev) => [createEvent('HVAC_FAILURE', 'HVAC Failure', currentLocation), ...prev]);
+      focusLocation(currentLocation);
+      if (sceneManager && sceneManager.setHvacFailure) {
+        sceneManager.setHvacFailure(true, currentLocation);
+      }
+      if (AIEngine && AIEngine.toggleHvacFailure) {
+        AIEngine.toggleHvacFailure(true, currentLocation);
+      }
+      showToast(`HVAC offline in ${currentLocation.shortName} — smoke containment degraded.`);
+    }
+  };
+
+  const handleToggleCollapse = () => {
+    if (!currentLocation || !currentLocation.id) return;
+    recordHistory();
+    const existing = findEventAt(currentLocation.id, 'STRUCTURAL_COLLAPSE');
+    if (existing) {
+      setHazards((prev) => prev.filter((h) => h.id !== existing.id));
+      if (sceneManager && sceneManager.setStructuralCollapse) {
+        sceneManager.setStructuralCollapse(false, currentLocation);
+      }
+      if (AIEngine && AIEngine.toggleStructuralCollapse) {
+        AIEngine.toggleStructuralCollapse(false, currentLocation);
+      }
+      showToast(`Debris cleared at ${currentLocation.shortName} — route reopened.`);
+    } else {
+      setHazards((prev) => [createEvent('STRUCTURAL_COLLAPSE', 'Structural Collapse', currentLocation), ...prev]);
+      focusLocation(currentLocation);
+      if (sceneManager && sceneManager.setStructuralCollapse) {
+        sceneManager.setStructuralCollapse(true, currentLocation);
+      }
+      if (AIEngine && AIEngine.toggleStructuralCollapse) {
+        AIEngine.toggleStructuralCollapse(true, currentLocation);
+      }
+      showToast(`Structural collapse at ${currentLocation.shortName} — 3D debris rendered & route severed!`);
+    }
+  };
+
+  // ── PEOPLE MANAGEMENT — STRICTLY the selected room, nothing else ─────────
+  // Updates only that room's record, then aggregates floor/building totals from
+  // the individual room records (never redistributes people between rooms).
+  const applyRoomOccupancy = (roomId, nextVal, announce = true) => {
+    if (!roomId) return;
+    const room = rooms.find((r) => r.id === roomId);
+    if (!room) {
+      // Requirement: report missing mapping instead of acting on the wrong object
+      showToast(`Room ${roomId} has no building data — occupancy not changed.`);
+      return;
+    }
+    const capacity = room.capacity ?? currentLocation.capacity ?? 50;
+    const clamped = Math.max(0, Math.min(capacity, nextVal));
+    recordHistory();
+
+    if (onUpdateOccupancy) {
+      // updates THIS room only + 3D occupancy indicator + backend record
+      onUpdateOccupancy(roomId, clamped);
+    } else if (onUpdateRooms) {
+      onUpdateRooms(rooms.map((r) => (r.id === roomId ? { ...r, peopleCount: clamped } : r)));
+    }
+    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    if (announce) showToast(`${room.name || roomId}: ${clamped} / ${capacity} occupants.`);
   };
 
   const handleIncreasePeople = () => {
-    recordHistory();
-    const curVal = currentLocation.current;
-    const nextVal = Math.min(currentLocation.capacity, curVal + 5);
-    const updatedRooms = rooms.map((r) => (r.id === currentLocation.id ? { ...r, peopleCount: nextVal } : r));
-    if (onUpdateRooms) onUpdateRooms(updatedRooms);
-    showToast(`Increased occupants in ${currentLocation.shortName} to ${nextVal}`);
+    if (!currentLocation || !currentLocation.id) return;
+    if (currentLocation.category === 'ROOM') {
+      applyRoomOccupancy(currentLocation.id, currentLocation.current + 5);
+    } else if (['CORRIDOR', 'STAIR'].includes(currentLocation.category)) {
+      recordHistory();
+      const cap = currentLocation.capacity || 45;
+      const cur = segmentOccupancies[currentLocation.id] || 0;
+      const next = Math.min(cap, cur + 5);
+      setSegmentOccupancies((prev) => ({ ...prev, [currentLocation.id]: next }));
+      if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+      showToast(`${currentLocation.shortName}: ${next} / ${cap} occupants.`);
+    }
   };
 
   const handleDecreasePeople = () => {
-    recordHistory();
-    const curVal = currentLocation.current;
-    const nextVal = Math.max(0, curVal - 5);
-    const updatedRooms = rooms.map((r) => (r.id === currentLocation.id ? { ...r, peopleCount: nextVal } : r));
-    if (onUpdateRooms) onUpdateRooms(updatedRooms);
-    showToast(`Decreased occupants in ${currentLocation.shortName} to ${nextVal}`);
+    if (!currentLocation || !currentLocation.id) return;
+    if (currentLocation.category === 'ROOM') {
+      applyRoomOccupancy(currentLocation.id, currentLocation.current - 5);
+    } else if (['CORRIDOR', 'STAIR'].includes(currentLocation.category)) {
+      recordHistory();
+      const cap = currentLocation.capacity || 45;
+      const cur = segmentOccupancies[currentLocation.id] || 0;
+      const next = Math.max(0, cur - 5);
+      setSegmentOccupancies((prev) => ({ ...prev, [currentLocation.id]: next }));
+      if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+      showToast(`${currentLocation.shortName}: ${next} / ${cap} occupants.`);
+    }
   };
 
   const handleSetExactPeople = () => {
-    const input = window.prompt(
-      `Enter exact people count for ${currentLocation.shortName} (Max ${currentLocation.capacity}):`,
-      currentLocation.current
-    );
-    if (input !== null && !isNaN(input)) {
-      const count = Math.max(0, Math.min(currentLocation.capacity, parseInt(input, 10)));
-      recordHistory();
-      const updatedRooms = rooms.map((r) => (r.id === currentLocation.id ? { ...r, peopleCount: count } : r));
-      if (onUpdateRooms) onUpdateRooms(updatedRooms);
-      showToast(`Set ${currentLocation.shortName} count to ${count} occupants.`);
+    if (!currentLocation || !currentLocation.id) return;
+    if (currentLocation.category === 'ROOM') {
+      const input = window.prompt(
+        `Enter exact people count for ${currentLocation.shortName} (Max ${currentLocation.capacity}):`,
+        currentLocation.current
+      );
+      if (input !== null && !isNaN(input)) {
+        applyRoomOccupancy(currentLocation.id, parseInt(input, 10));
+      }
+    } else if (['CORRIDOR', 'STAIR'].includes(currentLocation.category)) {
+      const cap = currentLocation.capacity || 45;
+      const cur = segmentOccupancies[currentLocation.id] || 0;
+      const input = window.prompt(
+        `Enter exact people count for ${currentLocation.shortName} (Max ${cap}):`,
+        cur
+      );
+      if (input !== null && !isNaN(input)) {
+        recordHistory();
+        const val = Math.max(0, Math.min(cap, parseInt(input, 10)));
+        setSegmentOccupancies((prev) => ({ ...prev, [currentLocation.id]: val }));
+        if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+        showToast(`${currentLocation.shortName}: ${val} / ${cap} occupants.`);
+      }
     }
   };
 
   const handleAdjustPeopleStep = (delta) => {
-    recordHistory();
-    const curVal = currentLocation.current;
-    const nextVal = Math.max(0, Math.min(currentLocation.capacity, curVal + delta));
-    const updatedRooms = rooms.map((r) => (r.id === currentLocation.id ? { ...r, peopleCount: nextVal } : r));
-    if (onUpdateRooms) onUpdateRooms(updatedRooms);
+    if (!currentLocation || currentLocation.category !== 'ROOM' || !currentLocation.id) return;
+    applyRoomOccupancy(currentLocation.id, currentLocation.current + delta, false);
   };
 
   const handleResetRoomOccupancy = () => {
-    recordHistory();
-    const updatedRooms = rooms.map((r) => (r.id === currentLocation.id ? { ...r, peopleCount: 35 } : r));
-    if (onUpdateRooms) onUpdateRooms(updatedRooms);
-    showToast(`Reset ${currentLocation.shortName} to baseline 35 occupants.`);
+    if (!currentLocation || currentLocation.category !== 'ROOM' || !currentLocation.id) return;
+    const baseline = baselineOccupancyRef.current?.get(currentLocation.id);
+    if (baseline === undefined) {
+      showToast(`No baseline recorded for ${currentLocation.shortName}.`);
+      return;
+    }
+    applyRoomOccupancy(currentLocation.id, baseline);
+    showToast(`${currentLocation.shortName} reset to its baseline occupancy (${baseline}).`);
   };
 
+  // ── Remove ONE event by its unique id (others are never touched) ─────────
   const handleRemoveHazard = (hazardId) => {
-    recordHistory();
+    // Multi-hazard log rows: removing clears only the log entry
+    // (the hazard itself is toggled from the Multi-Hazard Control matrix)
+    const hazardRow = hazardEvents.find((h) => h.id === hazardId);
+    if (hazardRow) {
+      setHazardEvents((prev) => prev.filter((h) => h.id !== hazardId));
+      return;
+    }
+
     const targetEvent = hazards.find((h) => h.id === hazardId);
     if (!targetEvent) return;
+    recordHistory();
+
     if (targetEvent.type === 'FIRE') {
       if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(targetEvent.locationId);
       if (onExtinguishFire) onExtinguishFire(targetEvent.locationId);
+    } else if (targetEvent.type === 'SMOKE') {
+      if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(targetEvent.locationId);
+    } else if (targetEvent.type === 'BLOCK_ROOM') {
+      if (sceneManager && sceneManager.unblockRoom) sceneManager.unblockRoom(targetEvent.locationId);
+    } else if (targetEvent.type === 'BLOCK_CORRIDOR') {
+      if (sceneManager && sceneManager.unblockCorridorSegment) sceneManager.unblockCorridorSegment(targetEvent.locationId);
+    } else if (targetEvent.type === 'BLOCK_STAIR') {
+      if (sceneManager && sceneManager.unblockStairCore) sceneManager.unblockStairCore(targetEvent.locationId);
     }
+
     setHazards((prev) => prev.filter((h) => h.id !== targetEvent.id));
-    showToast(`Cleared ${targetEvent.title}.`);
+    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    showToast(`Removed: ${targetEvent.title} @ ${targetEvent.locationName}.`);
   };
 
   const handleRecalculateRoutes = () => {
@@ -524,6 +1219,7 @@ export function EmergencyCommandCenterPage({
     }
   };
 
+  // ── Undo: restore the previous state AND reconcile the 3D scene ──
   const handleUndo = () => {
     if (historyStack.length === 0) {
       showToast('No actions to undo.');
@@ -534,14 +1230,20 @@ export function EmergencyCommandCenterPage({
     setHazards(previous.hazards);
     setExitData(previous.exitData);
     if (onUpdateRooms && previous.rooms) onUpdateRooms(previous.rooms);
+    applySceneState(previous.hazards, previous.exitData);
     showToast('Reverted to previous state.');
+  };
+
+  // Reconcile the REAL 3D scene with a calm state (no events, no blocked exits)
+  const clearSceneHazards = () => {
+    applySceneState([], []);
   };
 
   const handleResetScenario = () => {
     recordHistory();
     setHazards([]);
-    setExitData((prev) => prev.map((e) => ({ ...e, isBlocked: false, people: 100, pct: 20 })));
-    if (sceneManager && sceneManager.extinguishAll) sceneManager.extinguishAll();
+    setExitData((prev) => prev.map((e) => ({ ...e, isBlocked: false, people: e.baselinePeople, pct: e.baselinePct })));
+    clearSceneHazards();
     if (onClearAllFires) onClearAllFires();
     showToast('Scenario reset to calm default baseline.');
   };
@@ -549,33 +1251,346 @@ export function EmergencyCommandCenterPage({
   const handleClearAll = () => {
     recordHistory();
     setHazards([]);
-    setExitData((prev) => prev.map((e) => ({ ...e, isBlocked: false, people: 100, pct: 20 })));
-    if (sceneManager && sceneManager.extinguishAll) sceneManager.extinguishAll();
+    setExitData((prev) => prev.map((e) => ({ ...e, isBlocked: false, people: e.baselinePeople, pct: e.baselinePct })));
+    clearSceneHazards();
     if (onClearAllFires) onClearAllFires();
     showToast('All emergency scenarios cleared.');
   };
 
+  // ── Save / Load scenario (events + exits + occupancy, stored SEPARATELY from
+  //    the building dataset so the building model is never modified) ──
   const handleSaveScenario = () => {
-    showToast('Scenario successfully saved!');
+    try {
+      const snapshot = {
+        savedAt: new Date().toISOString(),
+        hazards,
+        exits: exitData.map((e) => ({ id: e.id, isBlocked: e.isBlocked })),
+        occupancy: rooms.map((r) => ({ id: r.id, peopleCount: r.peopleCount }))
+      };
+      localStorage.setItem(SCENARIO_STORAGE_KEY, JSON.stringify(snapshot));
+      showToast(`Scenario saved (${hazards.length} event${hazards.length === 1 ? '' : 's'}).`);
+    } catch {
+      showToast('Could not save scenario (storage unavailable).');
+    }
   };
 
   const handleLoadScenario = () => {
+    const raw = localStorage.getItem(SCENARIO_STORAGE_KEY);
+    if (!raw) {
+      showToast('No saved scenario found.');
+      return;
+    }
+    let snap;
+    try {
+      snap = JSON.parse(raw);
+    } catch {
+      showToast('Saved scenario is corrupted.');
+      return;
+    }
     recordHistory();
-    setHazards([
-      {
-        id: `ev_fire_${Date.now()}`,
-        type: 'FIRE',
-        title: 'Fire — Active',
-        locationId: 'f2_r4',
-        locationName: 'Room 204, Floor 2',
-        floor: 2,
-        time: '10:24 AM'
-      }
-    ]);
-    setSelectedFloor(2);
-    setSelectedLocationId('f2_r4');
-    if (sceneManager && sceneManager.triggerFire) sceneManager.triggerFire('f2_r4');
-    showToast('Loaded Scenario: Fire drill in Room 204.');
+
+    // 1. Occupancy records (per room, never redistributed)
+    if (Array.isArray(snap.occupancy) && onUpdateRooms) {
+      const byId = new Map(snap.occupancy.map((o) => [o.id, o.peopleCount]));
+      onUpdateRooms(rooms.map((r) => (byId.has(r.id) ? { ...r, peopleCount: byId.get(r.id) } : r)));
+    }
+
+    // 2. Exit states
+    const nextExitData = exitData.map((e) => {
+      const saved = (snap.exits || []).find((x) => x.id === e.id);
+      const blocked = saved ? !!saved.isBlocked : e.isBlocked;
+      return { ...e, isBlocked: blocked, people: blocked ? 0 : e.baselinePeople, pct: blocked ? 0 : e.baselinePct };
+    });
+    setExitData(nextExitData);
+
+    // 3. Events + the 3D effects that belong to them
+    const nextHazards = Array.isArray(snap.hazards) ? snap.hazards : [];
+    setHazards(nextHazards);
+    applySceneState(nextHazards, nextExitData);
+
+    // 4. Bring the operator to the first event of the loaded scenario
+    const first = nextHazards[0];
+    if (first) {
+      setSelectedFloor(first.floor);
+      setSelectedLocationId(first.locationId);
+    }
+    showToast(`Scenario loaded (${nextHazards.length} event${nextHazards.length === 1 ? '' : 's'}).`);
+  };
+
+  // ── Live occupancy/status of the selected corridor or staircase ──
+  const [segmentInfo, setSegmentInfo] = useState(null);
+  useEffect(() => {
+    const isSegment =
+      currentLocation && (currentLocation.category === 'CORRIDOR' || currentLocation.category === 'STAIR');
+    if (!sceneManager || !isSegment || !sceneManager.getSegmentOccupancy) {
+      setSegmentInfo(null);
+      return undefined;
+    }
+    const read = () => setSegmentInfo(sceneManager.getSegmentOccupancy(currentLocation.id));
+    read();
+    const timer = setInterval(read, 900);
+    return () => clearInterval(timer);
+  }, [sceneManager, currentLocation ? currentLocation.id : null, currentLocation ? currentLocation.category : null]);
+
+  // ── 3D object mapping check — if a location has no valid 3D object we report
+  //    the missing mapping instead of rendering an effect at a wrong place ──
+  const mapping3D = useMemo(() => {
+    if (!sceneManager || !currentLocation || !currentLocation.id) return null;
+    if (currentLocation.category === 'ROOM' && sceneManager.getRoomMapping) {
+      return sceneManager.getRoomMapping(currentLocation.id);
+    }
+    if (currentLocation.category === 'EXIT' && sceneManager.getExitGatePosition) {
+      const pos = sceneManager.getExitGatePosition(currentLocation.id);
+      return pos ? { id: currentLocation.id, found: true, center: pos } : null;
+    }
+    if (currentLocation.category === 'CORRIDOR' && sceneManager.getCorridorSegmentBounds) {
+      const b = sceneManager.getCorridorSegmentBounds(currentLocation.id);
+      return b ? { id: currentLocation.id, found: true, center: { x: b.centerX, y: 0, z: 0 } } : null;
+    }
+    if (currentLocation.category === 'STAIR' && sceneManager.parseSegId) {
+      const s = sceneManager.parseSegId(currentLocation.id);
+      return s ? { id: currentLocation.id, found: true, center: { x: s.zone === 'west' ? -28 : 28, y: 0, z: 0 } } : null;
+    }
+    return null;
+  }, [sceneManager, currentLocation]);
+
+  // ── Actions available for the selected category (requirement 3) ──
+  // ── Actions available for the selected category (Single Toggle Button per Hazard) ──
+  // ── Actions available for the selected category (ALL Multi-Hazards as Smart Toggles) ──
+  const locationActions = useMemo(() => {
+    if (!currentLocation || !currentLocation.id) return [];
+    const cat = currentLocation.category || 'ROOM';
+
+    const hasFire = !!findEventAt(currentLocation.id, 'FIRE');
+    const hasSmoke = !!findEventAt(currentLocation.id, 'SMOKE');
+    const hasPower = !!findEventAt(currentLocation.id, 'POWER_OUTAGE');
+    const hasHvac = !!findEventAt(currentLocation.id, 'HVAC_FAILURE');
+    const hasCollapse = !!findEventAt(currentLocation.id, 'STRUCTURAL_COLLAPSE');
+
+    if (cat === 'ROOM') {
+      const isBlocked = !!findEventAt(currentLocation.id, 'BLOCK_ROOM');
+      return [
+        {
+          key: 'toggleFire',
+          label: hasFire ? 'Remove Fire' : 'Add Fire',
+          status: hasFire ? 'ACTIVE' : 'OFF',
+          isActive: hasFire,
+          Icon: Flame,
+          tone: hasFire ? 'red-active' : 'red',
+          onClick: hasFire ? handleRemoveFire : handleAddFire
+        },
+        {
+          key: 'toggleSmoke',
+          label: hasSmoke ? 'Remove Smoke' : 'Add Smoke',
+          status: hasSmoke ? 'ACTIVE' : 'OFF',
+          isActive: hasSmoke,
+          Icon: Cloud,
+          tone: hasSmoke ? 'blue-active' : 'blue',
+          onClick: hasSmoke ? handleRemoveSmoke : handleAddSmoke
+        },
+        {
+          key: 'togglePower',
+          label: hasPower ? 'Restore Power' : 'Power Outage',
+          status: hasPower ? 'DARK' : 'NORMAL',
+          isActive: hasPower,
+          Icon: Zap,
+          tone: hasPower ? 'amber-active' : 'amber',
+          onClick: handleTogglePower
+        },
+        {
+          key: 'toggleHvac',
+          label: hasHvac ? 'Restore HVAC' : 'HVAC Failure',
+          status: hasHvac ? 'OFFLINE' : 'NORMAL',
+          isActive: hasHvac,
+          Icon: Wind,
+          tone: hasHvac ? 'purple-active' : 'purple',
+          onClick: handleToggleHvac
+        },
+        {
+          key: 'toggleCollapse',
+          label: hasCollapse ? 'Clear Rubble' : '3D Collapse',
+          status: hasCollapse ? 'COLLAPSED' : 'NORMAL',
+          isActive: hasCollapse,
+          Icon: BrickWall,
+          tone: hasCollapse ? 'orange-active' : 'orange',
+          onClick: handleToggleCollapse
+        },
+        {
+          key: 'toggleBlock',
+          label: isBlocked ? 'Unblock Room' : 'Block Room',
+          status: isBlocked ? 'BLOCKED' : 'OPEN',
+          isActive: isBlocked,
+          Icon: isBlocked ? CheckCircle2 : Ban,
+          tone: isBlocked ? 'red-active' : 'slate',
+          onClick: isBlocked ? handleUnblockArea : handleBlockArea
+        },
+        { key: 'incPeople', label: 'Increase People', Icon: UserPlus, tone: 'slate', onClick: handleIncreasePeople },
+        { key: 'decPeople', label: 'Decrease People', Icon: UserMinus, tone: 'slate', onClick: handleDecreasePeople },
+        { key: 'setPeople', label: 'Set People Count', Icon: Users, tone: 'slate', onClick: handleSetExactPeople }
+      ];
+    }
+    if (cat === 'CORRIDOR') {
+      const isBlocked = !!findEventAt(currentLocation.id, 'BLOCK_CORRIDOR');
+      return [
+        {
+          key: 'toggleFire',
+          label: hasFire ? 'Remove Fire' : 'Add Fire',
+          status: hasFire ? 'ACTIVE' : 'OFF',
+          isActive: hasFire,
+          Icon: Flame,
+          tone: hasFire ? 'red-active' : 'red',
+          onClick: hasFire ? handleRemoveFire : handleAddFire
+        },
+        {
+          key: 'toggleSmoke',
+          label: hasSmoke ? 'Remove Smoke' : 'Add Smoke',
+          status: hasSmoke ? 'ACTIVE' : 'OFF',
+          isActive: hasSmoke,
+          Icon: Cloud,
+          tone: hasSmoke ? 'blue-active' : 'blue',
+          onClick: hasSmoke ? handleRemoveSmoke : handleAddSmoke
+        },
+        {
+          key: 'togglePower',
+          label: hasPower ? 'Restore Power' : 'Power Outage',
+          status: hasPower ? 'DARK' : 'NORMAL',
+          isActive: hasPower,
+          Icon: Zap,
+          tone: hasPower ? 'amber-active' : 'amber',
+          onClick: handleTogglePower
+        },
+        {
+          key: 'toggleHvac',
+          label: hasHvac ? 'Restore HVAC' : 'HVAC Failure',
+          status: hasHvac ? 'OFFLINE' : 'NORMAL',
+          isActive: hasHvac,
+          Icon: Wind,
+          tone: hasHvac ? 'purple-active' : 'purple',
+          onClick: handleToggleHvac
+        },
+        {
+          key: 'toggleCollapse',
+          label: hasCollapse ? 'Clear Rubble' : '3D Collapse',
+          status: hasCollapse ? 'COLLAPSED' : 'NORMAL',
+          isActive: hasCollapse,
+          Icon: BrickWall,
+          tone: hasCollapse ? 'orange-active' : 'orange',
+          onClick: handleToggleCollapse
+        },
+        {
+          key: 'toggleBlock',
+          label: isBlocked ? 'Unblock Corridor' : 'Block Corridor',
+          status: isBlocked ? 'BLOCKED' : 'OPEN',
+          isActive: isBlocked,
+          Icon: isBlocked ? CheckCircle2 : Ban,
+          tone: isBlocked ? 'red-active' : 'slate',
+          onClick: isBlocked ? handleUnblockCorridor : handleBlockCorridor
+        },
+        { key: 'incPeople', label: 'Increase People', Icon: UserPlus, tone: 'slate', onClick: handleIncreasePeople },
+        { key: 'decPeople', label: 'Decrease People', Icon: UserMinus, tone: 'slate', onClick: handleDecreasePeople },
+        { key: 'setPeople', label: 'Set People Count', Icon: Users, tone: 'slate', onClick: handleSetExactPeople }
+      ];
+    }
+    if (cat === 'STAIR') {
+      const isBlocked = !!findEventAt(currentLocation.id, 'BLOCK_STAIR');
+      return [
+        {
+          key: 'toggleFire',
+          label: hasFire ? 'Remove Fire' : 'Add Fire',
+          status: hasFire ? 'ACTIVE' : 'OFF',
+          isActive: hasFire,
+          Icon: Flame,
+          tone: hasFire ? 'red-active' : 'red',
+          onClick: hasFire ? handleRemoveFire : handleAddFire
+        },
+        {
+          key: 'toggleSmoke',
+          label: hasSmoke ? 'Remove Smoke' : 'Add Smoke',
+          status: hasSmoke ? 'ACTIVE' : 'OFF',
+          isActive: hasSmoke,
+          Icon: Cloud,
+          tone: hasSmoke ? 'blue-active' : 'blue',
+          onClick: hasSmoke ? handleRemoveSmoke : handleAddSmoke
+        },
+        {
+          key: 'togglePower',
+          label: hasPower ? 'Restore Power' : 'Power Outage',
+          status: hasPower ? 'DARK' : 'NORMAL',
+          isActive: hasPower,
+          Icon: Zap,
+          tone: hasPower ? 'amber-active' : 'amber',
+          onClick: handleTogglePower
+        },
+        {
+          key: 'toggleHvac',
+          label: hasHvac ? 'Restore HVAC' : 'HVAC Failure',
+          status: hasHvac ? 'OFFLINE' : 'NORMAL',
+          isActive: hasHvac,
+          Icon: Wind,
+          tone: hasHvac ? 'purple-active' : 'purple',
+          onClick: handleToggleHvac
+        },
+        {
+          key: 'toggleCollapse',
+          label: hasCollapse ? 'Clear Rubble' : '3D Collapse',
+          status: hasCollapse ? 'COLLAPSED' : 'NORMAL',
+          isActive: hasCollapse,
+          Icon: BrickWall,
+          tone: hasCollapse ? 'orange-active' : 'orange',
+          onClick: handleToggleCollapse
+        },
+        {
+          key: 'toggleBlock',
+          label: isBlocked ? 'Unblock Staircase' : 'Block Staircase',
+          status: isBlocked ? 'BLOCKED' : 'OPEN',
+          isActive: isBlocked,
+          Icon: isBlocked ? CheckCircle2 : Ban,
+          tone: isBlocked ? 'red-active' : 'slate',
+          onClick: isBlocked ? handleUnblockStair : handleBlockStair
+        },
+        { key: 'incPeople', label: 'Increase People', Icon: UserPlus, tone: 'slate', onClick: handleIncreasePeople },
+        { key: 'decPeople', label: 'Decrease People', Icon: UserMinus, tone: 'slate', onClick: handleDecreasePeople },
+        { key: 'setPeople', label: 'Set People Count', Icon: Users, tone: 'slate', onClick: handleSetExactPeople }
+      ];
+    }
+    if (cat === 'EXIT') {
+      const isBlocked = !!exitData.find((e) => e.id === currentLocation.id && e.isBlocked);
+      return [
+        {
+          key: 'toggleCollapse',
+          label: hasCollapse ? 'Clear Rubble' : '3D Collapse',
+          status: hasCollapse ? 'COLLAPSED' : 'NORMAL',
+          isActive: hasCollapse,
+          Icon: BrickWall,
+          tone: hasCollapse ? 'orange-active' : 'orange',
+          onClick: handleToggleCollapse
+        },
+        {
+          key: 'toggleBlock',
+          label: isBlocked ? 'Unblock Exit' : 'Block Exit',
+          status: isBlocked ? 'BLOCKED' : 'OPEN',
+          isActive: isBlocked,
+          Icon: isBlocked ? CheckCircle2 : Ban,
+          tone: isBlocked ? 'red-active' : 'red',
+          onClick: isBlocked ? handleUnblockExit : handleBlockExit
+        }
+      ];
+    }
+    return [];
+  }, [currentLocation, hazards, exitData]);
+
+  // Clicking an event selects its location (floor dropdown + 3D camera follow)
+  const focusEventLocation = (h) => {
+    setSelectedFloor(h.floor);
+    setSelectedLocationId(h.locationId);
+    if (sceneManager && sceneManager.setFloorMode) sceneManager.setFloorMode(Number(h.floor));
+    const loc = floorLocations.find((l) => l.id === h.locationId) || {
+      id: h.locationId,
+      category: h.category || 'ROOM',
+      floor: h.floor
+    };
+    focusLocation(loc);
+    showToast(`Selected: ${h.locationName}`);
   };
 
   return (
@@ -610,22 +1625,70 @@ export function EmergencyCommandCenterPage({
           </div>
         </div>
 
-        {/* Right: 4 Clean Action Buttons */}
+        {/* Right: Evacuation Hero CTA & Actions */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {/* 🚨 HERO START / PAUSE EVACUATION BUTTON */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleToggleEvacuation}
+              className={`relative group overflow-hidden px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md ${
+                isSimulating
+                  ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-500/35 ring-2 ring-amber-400/40'
+                  : isCompleted
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/35 ring-2 ring-emerald-400/40'
+                    : 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white shadow-red-500/35 ring-2 ring-red-400/40 animate-pulse'
+              }`}
+              title={isSimulating ? 'Pause Evacuation Simulation' : 'Start Intelligent Building Evacuation Protocol'}
+            >
+              {isSimulating ? (
+                <>
+                  <Pause className="w-3.5 h-3.5 fill-current text-white shrink-0" />
+                  <span className="font-extrabold tracking-wide">PAUSE EVACUATION</span>
+                  {liveStats && (
+                    <span className="ml-1 px-1.5 py-0.5 rounded-md bg-black/25 text-[10px] font-mono font-bold">
+                      {liveStats.evacuated} / {totalOccupants}
+                    </span>
+                  )}
+                </>
+              ) : isCompleted ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
+                  <span className="font-extrabold tracking-wide">EVACUATION COMPLETE</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-current text-white shrink-0 animate-bounce" />
+                  <span className="font-extrabold tracking-wide">START EVACUATION</span>
+                </>
+              )}
+            </button>
+
+            {/* RESET BUTTON */}
+            {(isSimulating || isCompleted) && (
+              <button
+                onClick={handleResetEvacuation}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 shrink-0"
+                title="Reset simulation and return all occupants to baseline"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+
           <button
             onClick={() => {
-              setMode('simulation');
-              if (isSimulating) {
-                if (onPauseSimulation) onPauseSimulation();
-              } else {
-                if (onStartSimulation) onStartSimulation();
-              }
-              showToast(isSimulating ? 'Evacuation Simulation Paused' : 'Simulation Mode Active');
+              setMode((m) => (m === 'simulation' ? 'live' : 'simulation'));
+              showToast(mode === 'simulation' ? 'Switched to Live IoT Sensor Stream' : 'Simulation Mode Active');
             }}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
+              mode === 'simulation'
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+            }`}
           >
-            <FlaskConical className="w-3.5 h-3.5" />
-            <span>Simulation Mode</span>
+            <FlaskConical className="w-3.5 h-3.5 text-blue-600" />
+            <span>{mode === 'simulation' ? 'Sim Mode' : 'Live Mode'}</span>
           </button>
 
           <button
@@ -687,6 +1750,47 @@ export function EmergencyCommandCenterPage({
               </div>
             </div>
 
+            {/* ── FLOATING TACTICAL EVACUATION HUD (Top Center of 3D Canvas) ── */}
+            <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-700/80 shadow-2xl">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${isSimulating ? 'bg-red-500 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-200">
+                  {isSimulating ? 'Evacuation Active' : isCompleted ? 'All Safe Outside' : 'Ready'}
+                </span>
+                {liveStats && isSimulating && (
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                    {Math.round((liveStats.evacuated / Math.max(1, totalOccupants)) * 100)}% Safe ({liveStats.evacuated}/{totalOccupants})
+                  </span>
+                )}
+              </div>
+
+              <div className="h-4 w-px bg-slate-700" />
+
+              <button
+                onClick={handleToggleEvacuation}
+                className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
+                  isSimulating
+                    ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30'
+                    : isCompleted
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                      : 'bg-red-600 hover:bg-red-500 text-white shadow-red-500/40 animate-pulse'
+                }`}
+              >
+                {isSimulating ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                <span>{isSimulating ? 'Pause' : 'Start Evacuation'}</span>
+              </button>
+
+              {(isSimulating || isCompleted) && (
+                <button
+                  onClick={handleResetEvacuation}
+                  className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all cursor-pointer"
+                  title="Reset Evacuation"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             {/* Top Right: 2D View / 3D View Toggle + Fullscreen */}
             <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
               <div className="flex items-center p-0.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/80 shadow-lg text-[11px] font-bold">
@@ -726,6 +1830,7 @@ export function EmergencyCommandCenterPage({
                 {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
             </div>
+
 
             {/* Left Vertical Floor Selector Buttons */}
             <div className="absolute left-2.5 top-12 bottom-12 z-20 flex flex-col gap-1 overflow-y-auto no-scrollbar py-0.5">
@@ -893,25 +1998,91 @@ export function EmergencyCommandCenterPage({
                 </div>
               </div>
 
-              {/* Floor-wise Occupancy */}
+              {/* Occupancy Analytics: Floor-wise / Room-wise toggle */}
               <div>
-                <h3 className="text-xs font-bold text-slate-800 mb-1">Floor-wise Occupancy</h3>
-                <div className="flex flex-col gap-1">
-                  {floorOccupancyList.map((item) => (
-                    <div key={item.floorName} className="flex items-center text-xs py-0.5 min-w-0">
-                      <span className="font-semibold text-slate-600 w-12 shrink-0 text-[11px] truncate">{item.floorName}</span>
-                      <span className="font-bold text-slate-800 w-14 shrink-0 text-center text-[10.5px]">{item.total} / {item.max}</span>
-                      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                <div className="flex items-center justify-between mb-1 gap-1.5 min-w-0">
+                  <h3 className="text-xs font-bold text-slate-800 truncate">
+                    {occupancyView === 'floors'
+                      ? 'Floor-wise Occupancy'
+                      : `Room-wise Occupancy — Floor ${roomOccupancyList[0]?.floorNum ?? selectedFloor}`}
+                  </h3>
+                  <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
+                    <button
+                      onClick={() => setOccupancyView('floors')}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
+                        occupancyView === 'floors' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Floors
+                    </button>
+                    <button
+                      onClick={() => setOccupancyView('rooms')}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
+                        occupancyView === 'rooms' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      Rooms
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1 max-h-[172px] overflow-y-auto pr-0.5">
+                  {occupancyView === 'floors'
+                    ? floorOccupancyList.map((item) => (
                         <div
-                          className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
-                          style={{ width: `${item.pct}%` }}
-                        />
-                      </div>
-                      <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : 'text-slate-500'}`}>
-                        {item.pct}%
-                      </span>
-                    </div>
-                  ))}
+                          key={item.floorName}
+                          onClick={() => {
+                            const flNum = Number(String(item.floorName).replace(/\D/g, ''));
+                            if (!isNaN(flNum)) {
+                              setSelectedFloor(flNum);
+                              const flRooms = rooms.filter((r) => Number(r.floor) === flNum);
+                              if (flRooms.length > 0) selectRoomFromAnalytics(flRooms[0].id);
+                            }
+                          }}
+                          className="flex items-center text-xs py-0.5 min-w-0 cursor-pointer hover:bg-slate-50 rounded px-0.5"
+                          title="Select this floor"
+                        >
+                          <span className="font-semibold text-slate-600 w-12 shrink-0 text-[11px] truncate">{item.floorName}</span>
+                          <span className="font-bold text-slate-800 w-14 shrink-0 text-center text-[10.5px]">{item.total} / {item.max}</span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                            <div
+                              className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${item.pct}%` }}
+                            />
+                          </div>
+                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : 'text-slate-500'}`}>
+                            {item.pct}%
+                          </span>
+                        </div>
+                      ))
+                    : roomOccupancyList.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => selectRoomFromAnalytics(item.id)}
+                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer hover:bg-slate-50 rounded px-0.5 ${
+                            item.id === selectedLocationId ? 'bg-blue-50/70' : ''
+                          }`}
+                          title={`${item.type} — click to select`}
+                        >
+                          <span className="font-semibold text-slate-600 w-16 shrink-0 text-[11px] truncate">{item.label}</span>
+                          <span className="font-bold text-slate-800 w-14 shrink-0 text-center text-[10.5px]">{item.people} / {item.capacity}</span>
+                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                            <div
+                              className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
+                              style={{ width: `${item.pct}%` }}
+                            />
+                          </div>
+                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : 'text-slate-500'}`}>
+                            {item.pct}%
+                          </span>
+                        </div>
+                      ))}
+                </div>
+
+                <div className="mt-1 text-[10px] text-slate-400 truncate">
+                  {occupancyView === 'rooms'
+                    ? `Floor total ${roomFloorTotal} / ${roomCapacityTotal} · click a room to select it`
+                    : `Building total ${totalOccupants} occupants · click a floor to open its rooms`}
                 </div>
               </div>
             </div>
@@ -999,9 +2170,41 @@ export function EmergencyCommandCenterPage({
           {/* ── CARD 1: Select Location ── */}
             {/* ── SECTION 1: Select Location ── */}
           <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
-                1. Select Location
-              </h3>
+              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+                <h3 className="text-xs md:text-sm font-bold text-slate-900">
+                  1. Select Location
+                </h3>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full shrink-0">
+                  {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'}
+                </span>
+              </div>
+
+              {/* Target Category Selector Tabs: ALL | ROOM | CORRIDOR | STAIR | EXIT */}
+              <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-xl mb-2.5">
+                {[
+                  { key: 'ALL', label: 'All' },
+                  { key: 'ROOM', label: 'Room' },
+                  { key: 'CORRIDOR', label: 'Corridor' },
+                  { key: 'STAIR', label: 'Staircase' },
+                  { key: 'EXIT', label: 'Exit' }
+                ].map((cat) => {
+                  const isSel = (selectedCategory || 'ALL') === cat.key;
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => handleSelectCategory(cat.key)}
+                      className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate ${
+                        isSel
+                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* Two Dropdowns: Floor & Room / Area */}
               <div className="grid grid-cols-2 gap-2 mb-2">
@@ -1010,27 +2213,39 @@ export function EmergencyCommandCenterPage({
                   <div className="relative">
                     <select
                       value={selectedFloor}
-                      onChange={(e) => handleSelectFloor(Number(e.target.value))}
+                      onChange={(e) =>
+                        handleSelectFloor(
+                          e.target.value === 'ROOF' || e.target.value === 'GROUND' || e.target.value === 'ALL'
+                            ? e.target.value
+                            : Number(e.target.value)
+                        )
+                      }
                       className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm"
                     >
-                      <option value={4}>Floor 4</option>
-                      <option value={3}>Floor 3</option>
-                      <option value={2}>Floor 2</option>
-                      <option value={1}>Floor 1</option>
+                      {ALL_FLOORS.map((fl) => (
+                        <option key={fl.num} value={fl.num}>
+                          {fl.label}
+                        </option>
+                      ))}
                     </select>
                     <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2.5 pointer-events-none" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10.5px] text-slate-500 font-medium block mb-0.5">Room / Area</label>
+                  <label className="text-[10.5px] text-slate-500 font-medium block mb-0.5">
+                    {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'} Selection
+                  </label>
                   <div className="relative">
                     <select
                       value={selectedLocationId}
                       onChange={(e) => handleSelectLocation(e.target.value)}
                       className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate"
                     >
-                      {floorLocations.map((loc) => (
+                      {((selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory))).length > 0
+                        ? (selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory)))
+                        : floorLocations
+                      ).map((loc) => (
                         <option key={loc.id} value={loc.id}>
                           {loc.shortName || loc.name}
                         </option>
@@ -1041,13 +2256,34 @@ export function EmergencyCommandCenterPage({
                 </div>
               </div>
 
-              {/* Room 204 Preview Card Matching Target Mockup */}
+              {/* Selected location preview card (data-driven, no static images) */}
               <div className="border border-slate-200/90 rounded-xl p-2.5 flex items-center gap-2.5 bg-white shadow-sm min-w-0">
-                <img
-                  src={room204Img}
-                  alt="Room 204 Classroom"
-                  className="w-[96px] h-[56px] rounded-lg object-cover object-center border border-slate-200 shrink-0 bg-slate-100"
-                />
+                <div className="w-[96px] h-[56px] rounded-lg border border-slate-200 shrink-0 bg-slate-900 flex flex-col items-center justify-center gap-0.5 px-1.5 overflow-hidden">
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate w-full text-center">
+                    {CATEGORY_LABEL[currentLocation.category] || 'Location'}
+                  </span>
+                  <span className="text-[15px] font-extrabold text-white leading-none">
+                    {currentLocation.category === 'ROOM'
+                      ? currentLocation.roomNumber
+                      : currentLocation.category === 'EXIT'
+                        ? 'EXIT'
+                        : currentLocation.zone === 'West'
+                          ? 'W'
+                          : 'E'}
+                  </span>
+                  <div className="w-full h-1.5 rounded-full bg-slate-700 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 transition-all duration-300"
+                      style={{
+                        width: `${
+                          currentLocation.capacity
+                            ? Math.min(100, Math.round((currentLocation.current / currentLocation.capacity) * 100))
+                            : 0
+                        }%`
+                      }}
+                    />
+                  </div>
+                </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
@@ -1071,184 +2307,294 @@ export function EmergencyCommandCenterPage({
                   </div>
                 </div>
               </div>
+
+              {/* 3D object mapping report — never render an effect at a wrong place */}
+              {mapping3D && mapping3D.found === false && (
+                <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[10.5px] font-semibold text-amber-700">
+                  ⚠ No 3D object mapping for this location — effects are not rendered.
+                </div>
+              )}
             </div>
 
-            {/* ── SECTION 2: Emergency Actions (3x3 Grid) ── */}
+            {/* ── SECTION 2: Emergency Actions (category-aware grid) ── */}
           <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
-                2. Emergency Actions
-              </h3>
+              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+                <h3 className="text-xs md:text-sm font-bold text-slate-900">
+                  2. Emergency Actions
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                  {CATEGORY_LABEL[currentLocation.category] || 'Location'} Actions
+                </span>
+              </div>
 
               <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                {/* 1. Add Fire */}
-                <button
-                  onClick={handleAddFire}
-                  className="p-1.5 sm:p-2 rounded-xl border border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <Flame className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-red-500 fill-red-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Add Fire</span>
-                </button>
-
-                {/* 2. Add Smoke */}
-                <button
-                  onClick={handleAddSmoke}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <Cloud className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-400 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Add Smoke</span>
-                </button>
-
-                {/* 3. Block Area */}
-                <button
-                  onClick={handleBlockArea}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <Ban className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-red-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Block Area</span>
-                </button>
-
-                {/* 4. Unblock Area */}
-                <button
-                  onClick={handleUnblockArea}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <CheckCircle2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-emerald-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Unblock Area</span>
-                </button>
-
-                {/* 5. Block Exit */}
-                <button
-                  onClick={handleBlockExit}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <DoorClosed className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-red-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Block Exit</span>
-                </button>
-
-                {/* 6. Unblock Exit */}
-                <button
-                  onClick={handleUnblockExit}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <DoorOpen className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-emerald-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Unblock Exit</span>
-                </button>
-
-                {/* 7. Increase People */}
-                <button
-                  onClick={handleIncreasePeople}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <UserPlus className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Increase People</span>
-                </button>
-
-                {/* 8. Decrease People */}
-                <button
-                  onClick={handleDecreasePeople}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <UserMinus className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-blue-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Decrease People</span>
-                </button>
-
-                {/* 9. Set People Count */}
-                <button
-                  onClick={handleSetExactPeople}
-                  className="p-1.5 sm:p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[56px] sm:min-h-[60px]"
-                >
-                  <Users className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-indigo-500 group-hover:scale-110 transition-transform mb-1 shrink-0" />
-                  <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">Set People Count</span>
-                </button>
+                {locationActions.map((action) => {
+                  const Icon = action.Icon;
+                  const toneCls =
+                    action.tone === 'red-active'
+                      ? 'border-red-500 bg-red-600 text-white shadow-md shadow-red-500/30 ring-2 ring-red-400/50'
+                      : action.tone === 'blue-active'
+                        ? 'border-blue-500 bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/50'
+                        : action.tone === 'amber-active'
+                          ? 'border-amber-500 bg-amber-600 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50'
+                          : action.tone === 'purple-active'
+                            ? 'border-purple-500 bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-2 ring-purple-400/50'
+                            : action.tone === 'orange-active'
+                              ? 'border-orange-500 bg-orange-600 text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/50'
+                              : action.tone === 'red'
+                                ? 'border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600'
+                                : action.tone === 'emerald'
+                                  ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100 text-emerald-600'
+                                  : action.tone === 'blue'
+                                    ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-100 text-blue-600'
+                                    : action.tone === 'amber'
+                                      ? 'border-amber-200 bg-amber-50/50 hover:bg-amber-100 text-amber-600'
+                                      : action.tone === 'purple'
+                                        ? 'border-purple-200 bg-purple-50/50 hover:bg-purple-100 text-purple-600'
+                                        : action.tone === 'orange'
+                                          ? 'border-orange-200 bg-orange-50/50 hover:bg-orange-100 text-orange-600'
+                                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700';
+                  const iconCls =
+                    action.isActive
+                      ? 'text-white fill-white'
+                      : action.tone === 'red'
+                        ? 'text-red-500 fill-red-500'
+                        : action.tone === 'emerald'
+                          ? 'text-emerald-500'
+                          : action.tone === 'blue'
+                            ? 'text-blue-500'
+                            : 'text-slate-400';
+                  return (
+                    <button
+                      key={action.key}
+                      onClick={action.onClick}
+                      className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[58px] sm:min-h-[62px] relative ${toneCls}`}
+                    >
+                      {action.status && (
+                        <span className={`absolute top-1 right-1.5 text-[7.5px] font-black px-1 py-0.2 rounded-full leading-tight uppercase tracking-wider ${
+                          action.isActive ? 'bg-black/30 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {action.status}
+                        </span>
+                      )}
+                      <Icon
+                        className={`w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover:scale-110 transition-transform mb-1 shrink-0 ${iconCls} ${action.isActive ? 'animate-pulse' : ''}`}
+                      />
+                      <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">{action.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* ── SECTION 3: Active Events at Selected Location ── */}
+            {/* ── SECTION 3: Location Status + Active Events (all floors) ── */}
           <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
-                3. Active Events at Selected Location
-              </h3>
+              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+                <h3 className="text-xs md:text-sm font-bold text-slate-900">
+                  3. Status & Events
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-red-50 text-red-600 border border-red-200 shrink-0">
+                  {hazards.length} Active
+                </span>
+              </div>
 
-              {locationHazards.length > 0 ? (
-                <div className="flex flex-col gap-1.5 mb-2.5">
-                  {locationHazards.map((haz) => (
-                    <div
-                      key={haz.id}
-                      className="p-2.5 rounded-xl bg-red-50/70 border border-red-200/90 flex items-center justify-between gap-2 min-w-0"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600 shrink-0">
-                          <Flame className="w-4 h-4 fill-red-600" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-red-700 block leading-tight truncate">
-                            {haz.title}
-                          </span>
-                          <span className="text-[11px] text-slate-600 block mt-0.5 truncate">
-                            {haz.locationName}
-                          </span>
-                          <span className="text-[10px] text-slate-400 block mt-0.5 truncate">
-                            Since {haz.time}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleRemoveHazard(haz.id)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors cursor-pointer border border-red-200/60 shadow-sm shrink-0"
+              {/* ── Selected location status (occupancy / capacity / block state) ── */}
+              {(() => {
+                const blockedNow =
+                  currentLocation.category === 'EXIT'
+                    ? !!exitData.find((e) => e.id === currentLocation.id && e.isBlocked)
+                    : !!findEventAt(
+                        currentLocation.id,
+                        currentLocation.category === 'CORRIDOR'
+                          ? 'BLOCK_CORRIDOR'
+                          : currentLocation.category === 'STAIR'
+                            ? 'BLOCK_STAIR'
+                            : 'BLOCK_ROOM'
+                      );
+                const title =
+                  currentLocation.category === 'CORRIDOR'
+                    ? 'Corridor Occupancy'
+                    : currentLocation.category === 'STAIR'
+                      ? 'Staircase Status'
+                      : currentLocation.category === 'EXIT'
+                        ? 'Exit Status & Capacity'
+                        : 'Room Status';
+                return (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 mb-2 min-w-0">
+                    <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
+                      <span className="text-[11px] font-bold text-slate-800 truncate">{title}</span>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
+                          blockedNow
+                            ? 'bg-red-100 text-red-700 border-red-200'
+                            : 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        }`}
                       >
-                        Remove
-                      </button>
+                        {blockedNow ? 'BLOCKED' : 'OPERATIONAL'}
+                      </span>
                     </div>
-                  ))}
+                    <div className="text-[10.5px] text-slate-600 leading-relaxed min-w-0">
+                      {currentLocation.category === 'ROOM' && (
+                        <>
+                          Occupancy <strong>{currentLocation.current}</strong> / {currentLocation.capacity} ·
+                          Available <strong>{Math.max(0, currentLocation.capacity - currentLocation.current)}</strong> ·
+                          3D object <strong>{mapping3D && mapping3D.found ? mapping3D.id : 'missing'}</strong>
+                          {findEventAt(currentLocation.id, 'FIRE') && (
+                            <span className="ml-1 text-red-600 font-bold">· Fire active</span>
+                          )}
+                          {findEventAt(currentLocation.id, 'SMOKE') && (
+                            <span className="ml-1 text-slate-500 font-bold">· Smoke active</span>
+                          )}
+                        </>
+                      )}
+                      {currentLocation.category === 'CORRIDOR' && (
+                        <>
+                          Agents on segment <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
+                          Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
+                          Design capacity {currentLocation.capacity}
+                        </>
+                      )}
+                      {currentLocation.category === 'STAIR' && (
+                        <>
+                          Agents using <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
+                          Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
+                          Feeds {currentLocation.zone} exit
+                        </>
+                      )}
+                      {currentLocation.category === 'EXIT' && (
+                        <>
+                          Capacity <strong>{currentLocation.capacity}</strong> ·
+                          Load <strong>{currentLocation.current}</strong> people ·
+                          Share <strong>{Math.round((currentLocation.capacity / 200) * 100)}%</strong> of building flow
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── All active events (multi-hazard + per-location, each removable) ── */}
+              {mergedEvents.length > 0 ? (
+                <div className="flex flex-col gap-1.5 mb-2 max-h-[190px] overflow-y-auto pr-0.5">
+                  {mergedEvents.map((haz) => {
+                    const EvIcon =
+                      haz.type === 'MULTI_HAZARD'
+                        ? haz.hazardKey === 'powerGridFailure'
+                          ? Zap
+                          : haz.hazardKey === 'hvacPressurizationFailure'
+                            ? Wind
+                            : haz.hazardKey === 'structuralCollapse'
+                              ? BrickWall
+                              : Flame
+                        : haz.type === 'FIRE'
+                          ? Flame
+                          : haz.type === 'SMOKE'
+                            ? Cloud
+                            : Ban;
+                    const evBg =
+                      haz.type === 'MULTI_HAZARD'
+                        ? haz.hazardKey === 'powerGridFailure'
+                          ? 'bg-amber-100 text-amber-600'
+                          : haz.hazardKey === 'hvacPressurizationFailure'
+                            ? 'bg-purple-100 text-purple-600'
+                            : haz.hazardKey === 'structuralCollapse'
+                              ? 'bg-orange-100 text-orange-600'
+                              : 'bg-red-100 text-red-600'
+                        : haz.type === 'FIRE'
+                          ? 'bg-red-100 text-red-600'
+                          : haz.type === 'SMOKE'
+                            ? 'bg-slate-200 text-slate-600'
+                            : haz.type === 'BLOCK_CORRIDOR'
+                              ? 'bg-blue-100 text-blue-600'
+                              : haz.type === 'BLOCK_STAIR'
+                                ? 'bg-amber-100 text-amber-600'
+                                : 'bg-red-100 text-red-600';
+                    return (
+                      <div
+                        key={haz.id}
+                        onClick={() => {
+                          if (haz.locationId) focusEventLocation(haz);
+                        }}
+                        className={`p-2 rounded-xl border flex items-center justify-between gap-2 min-w-0 cursor-pointer transition-colors ${
+                          haz.locationId === currentLocation.id
+                            ? 'bg-red-50/80 border-red-200'
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                        }`}
+                        title="Click to select this location"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${evBg}`}>
+                            <EvIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[11.5px] font-bold text-slate-800 block leading-tight truncate">
+                              {haz.title}
+                            </span>
+                            <span className="text-[10.5px] text-slate-500 block truncate">
+                              {haz.locationName} · {haz.time}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveHazard(haz.id);
+                          }}
+                          className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors cursor-pointer border border-red-200/60 shadow-sm shrink-0"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center justify-between mb-2 text-xs text-emerald-800 font-semibold min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="truncate">No active hazards in {currentLocation.shortName}</span>
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-bold uppercase shrink-0">Clear</span>
+                <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center mb-2 text-xs text-emerald-800 font-semibold min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mr-2" />
+                  <span className="truncate">No active events across the building</span>
                 </div>
               )}
 
-              {/* People Count Stepper Row */}
-              <div className="flex items-center justify-between mt-2 text-xs flex-wrap gap-2">
-                <span className="font-semibold text-slate-700 shrink-0">People Count</span>
+              {/* People Count Stepper (applies to the selected room ONLY) */}
+              {currentLocation.category === 'ROOM' && (
+                <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                  <span className="font-semibold text-slate-700 shrink-0">People Count (this room)</span>
 
-                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                  <button
-                    onClick={() => handleAdjustPeopleStep(-1)}
-                    className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
-                    title="Decrease 1 Person"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    <button
+                      onClick={() => handleAdjustPeopleStep(-1)}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
+                      title="Decrease 1 Person"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
 
-                  <span className="w-8 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-800 text-xs shadow-sm shrink-0">
-                    {currentLocation.current}
-                  </span>
+                    <span className="w-8 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-800 text-xs shadow-sm shrink-0">
+                      {currentLocation.current}
+                    </span>
 
-                  <button
-                    onClick={() => handleAdjustPeopleStep(1)}
-                    className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
-                    title="Increase 1 Person"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
+                    <button
+                      onClick={() => handleAdjustPeopleStep(1)}
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
+                      title="Increase 1 Person"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
 
-                  <span className="text-slate-400 text-[10.5px] ml-1 shrink-0">/ 50 (Max)</span>
+                    <span className="text-slate-400 text-[10.5px] ml-1 shrink-0">/ {currentLocation.capacity} (Max)</span>
 
-                  <button
-                    onClick={handleResetRoomOccupancy}
-                    className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0"
-                    title="Reset to Baseline"
-                  >
-                    <RotateCcw className="w-3 h-3 text-slate-400" />
-                    <span>Reset</span>
-                  </button>
+                    <button
+                      onClick={handleResetRoomOccupancy}
+                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0"
+                      title="Reset to Baseline"
+                    >
+                      <RotateCcw className="w-3 h-3 text-slate-400" />
+                      <span>Reset</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ── SECTION 4: Scenario Controls (2x2 Grid) ── */}
@@ -1295,6 +2641,86 @@ export function EmergencyCommandCenterPage({
                 </button>
               </div>
             </div>
+
+            {/* ── SECTION 5: Live Environmental Telemetry ── */}
+            <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
+              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-2">
+                5. Live Environmental Telemetry
+              </h3>
+
+              {/* Power Telemetry */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Zap
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      envTelemetry.power.mainGrid === 'OFFLINE' ? 'text-amber-500' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">POWER</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <TelemetryRow label="Main Grid" value={envTelemetry.power.mainGrid} bad={envTelemetry.power.mainGrid === 'OFFLINE'} />
+                  <TelemetryRow label="Emergency Lighting" value={envTelemetry.power.emergencyLighting} warn={envTelemetry.power.emergencyLighting === 'ACTIVE'} />
+                </div>
+              </div>
+
+              {/* HVAC Telemetry */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Wind
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      envTelemetry.hvac.fans === 'DISABLED' ? 'text-purple-500' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">HVAC</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <TelemetryRow label="Stairwell Fans" value={envTelemetry.hvac.fans} bad={envTelemetry.hvac.fans === 'DISABLED'} />
+                  <TelemetryRow label="Smoke Propagation" value={envTelemetry.hvac.smokePropagation} bad={envTelemetry.hvac.smokePropagation !== '1.0x'} />
+                  <TelemetryRow label="Avg Smoke Exposure Rate" value={`${envTelemetry.hvac.avgExposureRate.toFixed(1)}/s`} neutral />
+                  <TelemetryRow label="Exposed Occupants" value={String(envTelemetry.hvac.exposedAgents)} neutral />
+                </div>
+              </div>
+
+              {/* Structural Telemetry */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <BrickWall
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      envTelemetry.structural.corridor === 'BLOCKED' ? 'text-orange-500' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">STRUCTURAL</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <TelemetryRow label="Corridor C-101" value={envTelemetry.structural.corridor} bad={envTelemetry.structural.corridor === 'BLOCKED'} />
+                  <TelemetryRow label="West Stair Connection" value={envTelemetry.structural.westConnection} bad={envTelemetry.structural.westConnection === 'BLOCKED'} />
+                  <TelemetryRow label="Affected Occupants" value={String(envTelemetry.structural.affected)} neutral />
+                  <TelemetryRow label="Rerouted Occupants" value={String(envTelemetry.structural.rerouted)} neutral />
+                </div>
+              </div>
+
+              {/* Emergency Summary */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <ShieldAlert
+                    className={`w-3.5 h-3.5 shrink-0 ${
+                      envTelemetry.summary.activeHazards > 0 ? 'text-red-500' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">EMERGENCY SUMMARY</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <TelemetryRow label="Active Hazards" value={`${envTelemetry.summary.activeHazards}/4`} bad={envTelemetry.summary.activeHazards > 0} />
+                  <TelemetryRow label="Blocked Routes" value={String(envTelemetry.summary.blockedRoutes)} bad={envTelemetry.summary.blockedRoutes > 0} />
+                  <TelemetryRow
+                    label="Evacuating Occupants"
+                    value={envTelemetry.summary.evacuating === null ? '—' : String(envTelemetry.summary.evacuating)}
+                    neutral
+                  />
+                </div>
+              </div>
+            </div>
         </div>
       </div>
 
@@ -1321,11 +2747,38 @@ export function EmergencyCommandCenterPage({
             </div>
 
             <div className="p-4 flex flex-col gap-3">
-              <img
-                src={room204Img}
-                alt="Room"
-                className="w-full h-44 object-cover rounded-xl border border-slate-200"
-              />
+              {/* Live 3D object identity — no static imagery */}
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex flex-col items-center justify-center shrink-0">
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none">
+                    {CATEGORY_LABEL[currentLocation.category] || 'Loc'}
+                  </span>
+                  <span className="text-sm font-extrabold text-white leading-none mt-0.5">
+                    {currentLocation.category === 'ROOM'
+                      ? currentLocation.roomNumber
+                      : currentLocation.category === 'EXIT'
+                        ? 'EXIT'
+                        : currentLocation.zone === 'West'
+                          ? 'W'
+                          : 'E'}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <span className="text-xs font-bold text-white block truncate">3D Object Mapping</span>
+                  <span className="text-[11px] text-slate-400 block truncate">
+                    ID: <strong className="text-slate-200">{currentLocation.id || '—'}</strong>
+                  </span>
+                  <span className="text-[11px] text-slate-400 block truncate">
+                    Status:{' '}
+                    {mapping3D && mapping3D.found ? (
+                      <strong className="text-emerald-400">Mapped ✓</strong>
+                    ) : (
+                      <strong className="text-amber-400">No mapping — effects blocked</strong>
+                    )}
+                  </span>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-3 mt-1">
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-xs text-slate-500 block">Room Capacity</span>
@@ -1334,6 +2787,16 @@ export function EmergencyCommandCenterPage({
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
                   <span className="text-xs text-slate-500 block">Current Occupancy</span>
                   <span className="text-base font-bold text-blue-600">{currentLocation.current} People</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-xs text-slate-500 block">Available Capacity</span>
+                  <span className="text-base font-bold text-emerald-600">
+                    {Math.max(0, currentLocation.capacity - currentLocation.current)} Free
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-xs text-slate-500 block">Department / Zone</span>
+                  <span className="text-sm font-bold text-slate-900 truncate block">{currentLocation.zone || '—'}</span>
                 </div>
               </div>
             </div>
