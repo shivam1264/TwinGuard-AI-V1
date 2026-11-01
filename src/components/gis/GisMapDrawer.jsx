@@ -24,6 +24,13 @@ import {
 
 // Custom tactical Leaflet and HUD styles
 const TACTICAL_GIS_STYLES = `
+  .leaflet-container {
+    background-color: #0b1528 !important;
+    width: 100% !important;
+    height: 100% !important;
+    outline: none !important;
+  }
+
   .tactical-gis-pulse-marker {
     display: flex;
     align-items: center;
@@ -233,7 +240,9 @@ export default function GisMapDrawer({
 
       // Base Satellite Tile Layer
       const baseLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-        maxZoom: 19
+        maxZoom: 19,
+        keepBuffer: 6,
+        updateWhenIdle: false
       }).addTo(map);
       tileLayerRef.current = baseLayer;
 
@@ -357,7 +366,9 @@ export default function GisMapDrawer({
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
     const newLayer = L.tileLayer(TILE_LAYERS[mapMode].url, {
-      maxZoom: 19
+      maxZoom: 19,
+      keepBuffer: 6,
+      updateWhenIdle: false
     }).addTo(mapInstanceRef.current);
     tileLayerRef.current = newLayer;
   }, [mapMode]);
@@ -413,19 +424,66 @@ export default function GisMapDrawer({
     }
   }, [dispatchProgress, isEmergency, isExpanded]);
 
-  // Invalidate map size on expand/collapse or minimize/restore
+  // ResizeObserver: auto-detect any container dimension changes and immediately notify Leaflet
   useEffect(() => {
-    if (mapInstanceRef.current && !isMinimized) {
-      setTimeout(() => {
-        mapInstanceRef.current.invalidateSize();
+    const el = mapContainerRef.current;
+    if (!el) return;
+
+    let rafId = null;
+    const ro = new ResizeObserver(() => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+        }
+      });
+    });
+
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  // Smoothly invalidate map size continuously on expand/collapse or minimize/restore during CSS transition
+  useEffect(() => {
+    if (!mapInstanceRef.current || isMinimized) return;
+
+    let startTime = performance.now();
+    let animId;
+
+    const smoothlyResizeMap = (now) => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+      }
+      if (now - startTime < 380) {
+        animId = requestAnimationFrame(smoothlyResizeMap);
+      } else if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
         if (dispatchProgress > 0 && dispatchProgress < 1.0) {
           const posState = getInterpolatedRoutePosition(dispatchProgress);
           mapInstanceRef.current.panTo([posState.lat, posState.lng]);
         } else {
-          mapInstanceRef.current.setView([28.5028, 77.0850], isExpanded ? 14 : 14);
+          mapInstanceRef.current.setView([28.5028, 77.0850], 14);
         }
-      }, 100);
-    }
+      }
+    };
+
+    animId = requestAnimationFrame(smoothlyResizeMap);
+
+    const timeouts = [50, 100, 200, 300, 350, 420].map((delay) =>
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+        }
+      }, delay)
+    );
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      timeouts.forEach(clearTimeout);
+    };
   }, [isExpanded, isMinimized]);
 
   // Zoom helpers
@@ -475,6 +533,11 @@ export default function GisMapDrawer({
 
       {/* Main Map Container: kept mounted in DOM via display:none/block so Leaflet state and canvas never get destroyed */}
       <div
+        onTransitionEnd={() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize({ debounceMoveend: true });
+          }
+        }}
         className={`fixed top-18 right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
           isMinimized ? 'hidden' : 'flex'
         } ${
@@ -535,8 +598,8 @@ export default function GisMapDrawer({
       </div>
 
       {/* ── 2. Interactive Map Container with Floating HUD Controls ── */}
-      <div className={`relative flex-1 w-full overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-slate-100'}`}>
-        <div ref={mapContainerRef} className="absolute inset-0 z-0" />
+      <div className="relative flex-1 w-full h-full overflow-hidden bg-[#0b1528]">
+        <div ref={mapContainerRef} className="absolute inset-0 z-0 w-full h-full" />
 
         {/* Left Floating Dock Controls: [Layers, Target/Recenter, Zoom +, Zoom -] */}
         <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
