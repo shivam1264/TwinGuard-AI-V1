@@ -18,6 +18,20 @@ export class ScenarioEngine {
     this.activeIncidents = new Map(); // incidentId -> IncidentObject
     this.incidentLog = [];
     this.onIncidentChangeCallbacks = [];
+
+    // ═══ MULTI-HAZARD TOGGLE MATRIX (mirrors src/ai/ScenarioEngine.js) ═══
+    // Centralized hazard schema — single source of truth for the
+    // Interactive Multi-Hazard Simulation. Kept identical to the live AI
+    // scenario engine so both layers stay consistent.
+    this.hazards = {
+      fire: false,
+      powerGridFailure: false,
+      hvacPressurizationFailure: false,
+      structuralCollapse: false
+    };
+    this.hazardZones = { powerGridFailure: [], hvacPressurizationFailure: [], structuralCollapse: [] };
+    this.hazardLog = [];
+    this.hazardListeners = [];
   }
 
   onIncidentChange(callback) {
@@ -172,6 +186,120 @@ export class ScenarioEngine {
 
   getActiveIncidents() {
     return Array.from(this.activeIncidents.values());
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MULTI-HAZARD STATE MANAGEMENT (schema mirror of src/ai/ScenarioEngine)
+  // Toggles are idempotent, independently reversible, and emit consistent
+  // scenario updates to all subscribed UI components.
+  // ══════════════════════════════════════════════════════════════════════
+
+  onHazardChange(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this.hazardListeners.push(callback);
+    return () => {
+      const idx = this.hazardListeners.indexOf(callback);
+      if (idx >= 0) this.hazardListeners.splice(idx, 1);
+    };
+  }
+
+  getHazardState() {
+    return { ...this.hazards, zones: { powerGridFailure: [...this.hazardZones.powerGridFailure], hvacPressurizationFailure: [...this.hazardZones.hvacPressurizationFailure], structuralCollapse: [...this.hazardZones.structuralCollapse] } };
+  }
+
+  getHazardLog() {
+    return this.hazardLog.slice();
+  }
+
+  setHazardState(partial = {}) {
+    Object.keys(this.hazards).forEach((key) => {
+      if (typeof partial[key] === 'boolean') this.hazards[key] = partial[key];
+    });
+    this._notifyHazardChange(null);
+    return this.getHazardState();
+  }
+
+  _commitHazard(key, enabled, meta = {}) {
+    if (this.hazards[key] === enabled) {
+      return this.getHazardState(); // idempotent no-op
+    }
+    this.hazards[key] = enabled;
+
+    const event = {
+      id: `hz_${key}_${enabled ? 'on' : 'off'}_${Date.now()}`,
+      hazard: key,
+      enabled,
+      severity: meta.severity || (enabled ? 'High' : 'Resolved'),
+      location: meta.location || 'Building-wide',
+      floor: typeof meta.floor === 'number' ? meta.floor : null,
+      message: enabled ? meta.onMessage : meta.offMessage,
+      timestamp: Date.now()
+    };
+    this.hazardLog.unshift(event);
+    if (this.hazardLog.length > 200) this.hazardLog.length = 200;
+
+    this._notifyHazardChange(event);
+    return this.getHazardState();
+  }
+
+  _notifyHazardChange(event) {
+    const state = this.getHazardState();
+    this.hazardListeners.forEach((cb) => {
+      try {
+        cb(state, event);
+      } catch (err) {
+        // isolated listener failure
+      }
+    });
+  }
+
+  toggleFire(enabled) {
+    return this._commitHazard('fire', enabled, {
+      severity: enabled ? 'Critical' : 'Resolved',
+      onMessage: 'Fire plume ignited — thermal & toxic smoke simulation active.',
+      offMessage: 'Fire plume suppressed. Smoke dissipation restored.'
+    });
+  }
+
+  togglePowerFailure(enabled, location = null) {
+    return this._commitHazard('powerGridFailure', enabled, {
+      severity: enabled ? 'High' : 'Resolved',
+      location: location ? (location.shortName || location.id) : 'Building-wide',
+      onMessage: 'Main grid failure detected. Emergency lighting activated.',
+      offMessage: 'Main grid restored. Standard facility lighting resumed.'
+    });
+  }
+
+  toggleHvacFailure(enabled, location = null) {
+    return this._commitHazard('hvacPressurizationFailure', enabled, {
+      severity: enabled ? 'High' : 'Resolved',
+      location: location ? (location.shortName || location.id) : 'Building-wide',
+      onMessage: 'Stairwell pressurization lost. Toxic smoke propagation increased.',
+      offMessage: 'Stairwell pressurization fans back online. Smoke propagation normalized.'
+    });
+  }
+
+  toggleStructuralCollapse(enabled, location = null) {
+    const corridorId = location && location.id ? location.id : 'C101';
+    return this._commitHazard('structuralCollapse', enabled, {
+      severity: enabled ? 'Critical' : 'Resolved',
+      location: location ? (location.shortName || corridorId) : `Corridor ${corridorId}, Level 4`,
+      floor: location ? (Number(location.floor) || 4) : 4,
+      onMessage: `Structural debris detected. West Stair Core connection blocked.`,
+      offMessage: `Structure restored. West Stair Core connection reopened.`
+    });
+  }
+
+  resetHazards() {
+    this.hazards = {
+      fire: false,
+      powerGridFailure: false,
+      hvacPressurizationFailure: false,
+      structuralCollapse: false
+    };
+    this.hazardZones = { powerGridFailure: [], hvacPressurizationFailure: [], structuralCollapse: [] };
+    this._notifyHazardChange(null);
+    return this.getHazardState();
   }
 }
 

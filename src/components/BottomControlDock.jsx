@@ -4,7 +4,9 @@ import {
   Pause,
   RotateCcw,
   Gauge,
-  Maximize2
+  Maximize2,
+  Truck,
+  RotateCw
 } from 'lucide-react';
 
 export const BottomControlDock = ({
@@ -14,7 +16,8 @@ export const BottomControlDock = ({
   onPauseResume,
   onReset,
   onSetSpeed,
-  onToggleFullscreen
+  onToggleFullscreen,
+  onOpenEmergencyControl
 }) => {
   const speedOptions = [
     { value: 0.5, label: '0.5x' },
@@ -25,84 +28,72 @@ export const BottomControlDock = ({
 
   return (
     <div
-      className="flex items-center justify-between shrink-0 z-30 select-none"
+      className="flex items-center justify-between shrink-0 z-30 select-none px-4 sm:px-6 h-16 backdrop-blur-md"
       style={{
-        height: '66px',
-        padding: '0 24px',
-        background: '#ffffff',
-        borderTop: '1px solid #e2e8f0',
-        fontFamily: "'Inter', system-ui, sans-serif",
+        background: 'linear-gradient(180deg, rgba(8, 16, 32, 0.92) 0%, rgba(6, 12, 24, 0.96) 100%)',
+        borderTop: '1px solid rgba(56, 189, 248, 0.16)',
+        boxShadow: '0 -4px 24px rgba(0, 0, 0, 0.45)',
+        fontFamily: "'Inter', system-ui, sans-serif"
       }}
     >
-      {/* ── 1. Left Group: Evacuation Action & Reset ── */}
-      <div className="flex items-center" style={{ gap: '12px' }}>
+      {/* ── 1. Left Group: START EVACUATION & RESET ── */}
+      <div className="flex items-center gap-3">
         {!isSimulating ? (
           <button
             onClick={onStartEvacuation}
-            className="flex items-center cursor-pointer transition-all focus:outline-none"
+            className="flex items-center cursor-pointer transition-all focus:outline-none hover:scale-[1.02] active:scale-[0.98]"
             style={{
               height: '42px',
               padding: '0 18px',
-              borderRadius: '999px',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              boxShadow: '0 4px 14px -2px rgba(239, 68, 68, 0.4)',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+              boxShadow: '0 0 20px rgba(239, 68, 68, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
               color: '#ffffff',
               gap: '10px',
-              border: 'none',
+              border: '1px solid rgba(248, 113, 113, 0.5)'
             }}
           >
             <div
-              className="flex items-center justify-center shrink-0"
+              className="flex items-center justify-center shrink-0 w-6 h-6 rounded-lg"
               style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.25)',
+                background: 'rgba(255, 255, 255, 0.2)'
               }}
             >
-              <Flame style={{ width: '13px', height: '13px', fill: 'white', color: 'white' }} />
+              <Flame className="w-3.5 h-3.5 fill-white text-white animate-pulse" />
             </div>
             <div className="text-left">
-              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
+              <div className="text-xs font-black tracking-wider uppercase leading-tight">
                 START EVACUATION
               </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
-                Simulate and manage routes
+              <div className="text-[9.5px] text-red-100 font-medium leading-tight mt-0.5">
+                Simulate & coordinate full response
               </div>
             </div>
           </button>
         ) : (
           <button
             onClick={onPauseResume}
-            className="flex items-center cursor-pointer transition-all focus:outline-none"
+            className="flex items-center cursor-pointer transition-all focus:outline-none hover:scale-[1.02] active:scale-[0.98]"
             style={{
               height: '42px',
               padding: '0 18px',
-              borderRadius: '999px',
-              background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              boxShadow: '0 4px 14px -2px rgba(249, 115, 22, 0.4)',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #f97316 0%, #c2410c 100%)',
+              boxShadow: '0 0 20px rgba(249, 115, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
               color: '#ffffff',
               gap: '10px',
-              border: 'none',
+              border: '1px solid rgba(251, 146, 60, 0.5)'
             }}
           >
-            <div
-              className="flex items-center justify-center shrink-0"
-              style={{
-                width: '24px',
-                height: '24px',
-                borderRadius: '50%',
-                background: 'rgba(255, 255, 255, 0.25)',
-              }}
-            >
-              <Pause style={{ width: '12px', height: '12px', fill: 'white', color: 'white' }} />
+            <div className="flex items-center justify-center shrink-0 w-6 h-6 rounded-lg bg-white/20">
+              <Pause className="w-3.5 h-3.5 fill-white text-white" />
             </div>
             <div className="text-left">
-              <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1.1 }}>
+              <div className="text-xs font-black tracking-wider uppercase leading-tight">
                 PAUSE EVACUATION
               </div>
-              <div style={{ fontSize: '9px', color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500, lineHeight: 1, marginTop: '2px' }}>
-                Simulation in progress
+              <div className="text-[9.5px] text-orange-100 font-medium leading-tight mt-0.5">
+                Simulation running
               </div>
             </div>
           </button>
@@ -111,35 +102,22 @@ export const BottomControlDock = ({
         {/* Reset Button */}
         <button
           onClick={onReset}
-          className="flex items-center cursor-pointer transition-all focus:outline-none"
+          className="flex items-center cursor-pointer transition-all focus:outline-none hover:bg-slate-800/60"
           style={{
             height: '42px',
             padding: '0 14px',
-            borderRadius: '999px',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            gap: '8px',
+            borderRadius: '12px',
+            background: 'rgba(15, 23, 42, 0.8)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            gap: '8px'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; }}
         >
-          <div
-            className="flex items-center justify-center shrink-0"
-            style={{
-              width: '24px',
-              height: '24px',
-              borderRadius: '50%',
-              background: '#f1f5f9',
-              color: '#64748b',
-            }}
-          >
-            <RotateCcw style={{ width: '12px', height: '12px' }} />
-          </div>
+          <RotateCcw className="w-4 h-4 text-slate-400" />
           <div className="text-left">
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+            <div className="text-xs font-black text-white leading-tight">
               RESET
             </div>
-            <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
+            <div className="text-[9.5px] text-slate-400 font-medium mt-0.5">
               Clear scenario
             </div>
           </div>
@@ -147,19 +125,17 @@ export const BottomControlDock = ({
       </div>
 
       {/* ── 2. Center: Simulation Speed Capsule ── */}
-      <div className="flex items-center" style={{ gap: '10px' }}>
-        <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
-          <Gauge style={{ width: '15px', height: '15px', color: '#64748b' }} />
+      <div className="hidden lg:flex items-center gap-2.5">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+          <Gauge className="w-4 h-4 text-sky-400" />
           <span>Simulation Speed</span>
         </div>
 
         <div
-          className="flex items-center"
+          className="flex items-center p-1 rounded-xl gap-1"
           style={{
-            background: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '999px',
-            gap: '2px',
+            background: 'rgba(11, 22, 44, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.2)'
           }}
         >
           {speedOptions.map((opt) => {
@@ -168,17 +144,11 @@ export const BottomControlDock = ({
               <button
                 key={opt.value}
                 onClick={() => onSetSpeed(opt.value)}
-                className="cursor-pointer transition-all"
+                className="cursor-pointer transition-all h-7 px-3 rounded-lg text-xs font-bold"
                 style={{
-                  height: '28px',
-                  padding: '0 12px',
-                  borderRadius: '999px',
-                  fontSize: '11px',
-                  fontWeight: isSelected ? 800 : 600,
-                  background: isSelected ? '#2563eb' : 'transparent',
-                  color: isSelected ? '#ffffff' : '#64748b',
-                  border: 'none',
-                  boxShadow: isSelected ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
+                  background: isSelected ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)' : 'transparent',
+                  color: isSelected ? '#ffffff' : '#94a3b8',
+                  boxShadow: isSelected ? '0 0 10px rgba(37, 99, 235, 0.6)' : 'none'
                 }}
               >
                 {opt.label}
@@ -188,24 +158,23 @@ export const BottomControlDock = ({
         </div>
       </div>
 
-      {/* ── 3. Right: Fullscreen Toggle ── */}
-      <div className="flex items-center" style={{ gap: '10px' }}>
+      {/* ── 3. Right: Essential Action Group (No Duplicates with Top Bar) ── */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onOpenEmergencyControl}
+          className="flex items-center gap-1.5 h-9 px-3 rounded-xl cursor-pointer transition-all hover:bg-sky-500/10 text-xs font-bold text-slate-300 border border-sky-500/20"
+          title="Rapid Dispatch Emergency Fleet"
+        >
+          <Truck className="w-3.5 h-3.5 text-sky-400" />
+          <span>Dispatch Fleet</span>
+        </button>
+
         <button
           onClick={onToggleFullscreen}
-          className="flex items-center justify-center cursor-pointer transition-colors"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            color: '#64748b',
-          }}
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white border border-sky-500/20 bg-slate-900/60 cursor-pointer"
           title="Toggle Fullscreen"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#0f172a'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#64748b'; }}
         >
-          <Maximize2 style={{ width: '14px', height: '14px' }} />
+          <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

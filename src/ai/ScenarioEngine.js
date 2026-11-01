@@ -446,6 +446,25 @@ export const PRESET_SCENARIOS = {
 export class ScenarioEngine {
   constructor(initialScenario = PRESET_SCENARIOS.CASE_1_L1_FRONT_GATE || PRESET_SCENARIOS.STANDARD_OFFICE_FIRE) {
     this.currentScenario = JSON.parse(JSON.stringify(initialScenario));
+
+    // ═══ MULTI-HAZARD TOGGLE MATRIX ═══
+    // Centralized hazard schema — the SINGLE SOURCE OF TRUTH for the
+    // Interactive Multi-Hazard Simulation (fire / power / HVAC / collapse).
+    this.hazards = {
+      fire: !!(this.currentScenario.hazard && this.currentScenario.hazard.roomId),
+      powerGridFailure: false,
+      hvacPressurizationFailure: false,
+      structuralCollapse: false
+    };
+    // Localized zones per hazard (multi-zone, individually reversible)
+    this.hazardZones = {
+      powerGridFailure: [],
+      hvacPressurizationFailure: [],
+      structuralCollapse: []
+    };
+    this._fireRoomId = this.currentScenario.hazard?.roomId || 'f1_r8';
+    this.hazardLog = [];
+    this.hazardListeners = [];
   }
 
   getScenario() {
@@ -474,6 +493,241 @@ export class ScenarioEngine {
       demographics: { ...this.currentScenario.demographics, ...(updates.demographics || {}) }
     };
     return this.currentScenario;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MULTI-HAZARD STATE MANAGEMENT (single source of truth)
+  // Every toggle is idempotent, independently reversible, and emits a
+  // consistent scenario update to all subscribed UI components.
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** Subscribe to hazard changes. Returns an unsubscribe function. */
+  onHazardChange(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this.hazardListeners.push(callback);
+    return () => {
+      const idx = this.hazardListeners.indexOf(callback);
+      if (idx >= 0) this.hazardListeners.splice(idx, 1);
+    };
+  }
+
+  getHazardState() {
+    return { ...this.hazards, zones: { powerGridFailure: [...this.hazardZones.powerGridFailure], hvacPressurizationFailure: [...this.hazardZones.hvacPressurizationFailure], structuralCollapse: [...this.hazardZones.structuralCollapse] } };
+  }
+
+  getHazardZones(key) {
+    return [...(this.hazardZones[key] || [])];
+  }
+
+  getHazardLog() {
+    return this.hazardLog.slice();
+  }
+
+  /** Bulk set (partial). Used by scenario load / reset flows. */
+  setHazardState(partial = {}) {
+    Object.keys(this.hazards).forEach((key) => {
+      if (typeof partial[key] === 'boolean') this.hazards[key] = partial[key];
+    });
+    this._syncScenarioHazards();
+    this._notifyHazardChange(null);
+    return this.getHazardState();
+  }
+
+  /**
+   * Core commit routine. Repeated activation is a no-op (idempotent — never
+   * duplicates rubble meshes / emergency lights / events), and turning one
+   * hazard OFF never disturbs another active hazard.
+   */
+  _commitHazard(key, enabled, meta = {}) {
+    if (this.hazards[key] === enabled) {
+      return this.getHazardState(); // idempotent no-op
+    }
+    this.hazards[key] = enabled;
+    this._syncScenarioHazards();
+
+    const event = {
+      id: `hz_${key}_${enabled ? 'on' : 'off'}_${Date.now()}`,
+      hazard: key,
+      enabled,
+      severity: meta.severity || (enabled ? 'High' : 'Resolved'),
+      location: meta.location || 'Building-wide',
+      floor: typeof meta.floor === 'number' ? meta.floor : null,
+      message: enabled ? meta.onMessage : meta.offMessage,
+      timestamp: Date.now()
+    };
+    this.hazardLog.unshift(event);
+    if (this.hazardLog.length > 200) this.hazardLog.length = 200;
+
+    this._notifyHazardChange(event);
+    return this.getHazardState();
+  }
+
+  _notifyHazardChange(event) {
+    const state = this.getHazardState();
+    this.hazardListeners.forEach((cb) => {
+      try {
+        cb(state, event);
+      } catch (err) {
+        // A failing listener must never break the hazard pipeline
+      }
+    });
+  }
+
+  /** Keep the active scenario document in sync (dashboards / LLM read it). */
+  _syncScenarioHazards() {
+    const h = this.hazards;
+
+    // Power grid telemetry
+    this.currentScenario.power = {
+      mainGrid: h.powerGridFailure ? 'OFFLINE' : 'ONLINE',
+      emergencyLighting: h.powerGridFailure
+    };
+
+    // HVAC pressurization telemetry
+    this.currentScenario.hvac = {
+      compromised: h.hvacPressurizationFailure,
+      fans: h.hvacPressurizationFailure ? 'DISABLED' : 'RUNNING',
+      smokeMultiplier: h.hvacPressurizationFailure ? 2.2 : 1.0,
+      exposureMultiplier: h.hvacPressurizationFailure ? 2.0 : 1.0
+    };
+
+    // Structural collapse → corridor + floor-scoped stair blockage (all zones)
+    const sf = this.currentScenario.structuralFailures ||
+      (this.currentScenario.structuralFailures = {});
+    sf.collapsedCorridors = this.hazardZones.structuralCollapse.map((z) => z.locId);
+    sf.floorBlockedExits = { ...(sf.floorBlockedExits || {}) };
+    // Rebuild floorBlockedExits from zones (only manage exit_west for collapse zones)
+    Object.keys(sf.floorBlockedExits).forEach((fl) => {
+      if (Array.isArray(sf.floorBlockedExits[fl])) {
+        sf.floorBlockedExits[fl] = sf.floorBlockedExits[fl].filter((id) => id !== 'exit_west');
+        if (sf.floorBlockedExits[fl].length === 0) delete sf.floorBlockedExits[fl];
+      }
+    });
+    this.hazardZones.structuralCollapse.forEach((z) => {
+      const fl = z.floor || 4;
+      if (!sf.floorBlockedExits[fl]) sf.floorBlockedExits[fl] = [];
+      if (!sf.floorBlockedExits[fl].includes('exit_west')) sf.floorBlockedExits[fl].push('exit_west');
+    });
+
+    // Fire hazard presence (preserves the designated hazard room for re-arm)
+    this.currentScenario.hazard = { ...(this.currentScenario.hazard || {}) };
+    if (h.fire) {
+      if (!this.currentScenario.hazard.roomId) {
+        this.currentScenario.hazard.roomId = this._fireRoomId || 'f1_r8';
+      }
+      this.currentScenario.hazard.active = true;
+    } else {
+      if (this.currentScenario.hazard.roomId) this._fireRoomId = this.currentScenario.hazard.roomId;
+      this.currentScenario.hazard.roomId = null;
+      this.currentScenario.hazard.active = false;
+    }
+  }
+
+  toggleFire(enabled) {
+    return this._commitHazard('fire', enabled, {
+      severity: enabled ? 'Critical' : 'Resolved',
+      location: enabled ? `Room ${this._fireRoomId}` : 'Building-wide',
+      onMessage: `Fire plume ignited at ${this._fireRoomId} — thermal & toxic smoke simulation active.`,
+      offMessage: 'Fire plume suppressed. Smoke dissipation and safe exposure rates restored.'
+    });
+  }
+
+  togglePowerFailure(enabled, location = null) {
+    return this._commitHazardZone('powerGridFailure', enabled, location, {
+      severity: enabled ? 'High' : 'Resolved',
+      location: location ? (location.shortName || location.id) : 'Building-wide',
+      onMessage: 'Main grid failure detected. Emergency lighting activated.',
+      offMessage: 'Main grid restored. Standard facility lighting resumed.'
+    });
+  }
+
+  toggleHvacFailure(enabled, location = null) {
+    return this._commitHazardZone('hvacPressurizationFailure', enabled, location, {
+      severity: enabled ? 'High' : 'Resolved',
+      location: location ? (location.shortName || location.id) : 'Building-wide',
+      onMessage: 'Stairwell pressurization lost. Toxic smoke propagation increased (2.2x scale, 2.0x exposure).',
+      offMessage: 'Stairwell pressurization fans back online. Smoke propagation normalized.'
+    });
+  }
+
+  toggleStructuralCollapse(enabled, location = null) {
+    const locId = location && location.id ? location.id : 'C101';
+    return this._commitHazardZone('structuralCollapse', enabled, location, {
+      severity: enabled ? 'Critical' : 'Resolved',
+      location: location ? (location.shortName || locId) : 'Corridor C101, Level 4',
+      floor: location ? (Number(location.floor) || 4) : 4,
+      onMessage: `Structural debris detected. West Stair Core connection blocked — occupants rerouted.`,
+      offMessage: `Structure restored. West Stair Core connection reopened.`
+    });
+  }
+
+  /**
+   * Zone-aware commit. Supports multiple simultaneous zones per hazard.
+   * enabled=true adds the zone (idempotent per locId); enabled=false removes
+   * that zone (or all zones when location is null). Fires an event whenever
+   * the boolean (any-active) OR the zone set changes.
+   */
+  _commitHazardZone(key, enabled, location, meta = {}) {
+    const locId = location && location.id ? location.id : (location === null ? null : 'ALL');
+    const zones = this.hazardZones[key];
+    const wasActive = this.hazards[key];
+    let changed = false;
+
+    if (enabled) {
+      if (locId && !zones.some((z) => z.locId === locId)) {
+        zones.push({ locId, floor: location ? Number(location.floor) : null, label: location ? (location.shortName || location.id) : 'Building-wide' });
+        changed = true;
+      }
+    } else {
+      if (locId) {
+        const idx = zones.findIndex((z) => z.locId === locId);
+        if (idx >= 0) { zones.splice(idx, 1); changed = true; }
+      } else {
+        if (zones.length > 0) { zones.length = 0; changed = true; }
+      }
+    }
+
+    const nowActive = zones.length > 0;
+    if (nowActive !== wasActive) {
+      this.hazards[key] = nowActive;
+      changed = true;
+    }
+
+    if (!changed) return this.getHazardState(); // idempotent no-op
+
+    this._syncScenarioHazards();
+
+    const event = {
+      id: `hz_${key}_${enabled ? 'on' : 'off'}_${Date.now()}`,
+      hazard: key,
+      enabled: nowActive,
+      zoneEnabled: enabled,
+      location: locId,
+      severity: meta.severity || (enabled ? 'High' : 'Resolved'),
+      floor: typeof meta.floor === 'number' ? meta.floor : (location ? Number(location.floor) : null),
+      message: enabled ? meta.onMessage : meta.offMessage,
+      timestamp: Date.now()
+    };
+    this.hazardLog.unshift(event);
+    if (this.hazardLog.length > 200) this.hazardLog.length = 200;
+
+    this._notifyHazardChange(event);
+    return this.getHazardState();
+  }
+
+  /** Full reset — clears every hazard and its scenario-side effects. */
+  resetHazards() {
+    this.hazards = {
+      fire: false,
+      powerGridFailure: false,
+      hvacPressurizationFailure: false,
+      structuralCollapse: false
+    };
+    this.hazardZones = { powerGridFailure: [], hvacPressurizationFailure: [], structuralCollapse: [] };
+    this._fireRoomId = this.currentScenario.hazard?.roomId || 'f1_r8';
+    this._syncScenarioHazards();
+    this._notifyHazardChange(null);
+    return this.getHazardState();
   }
 
   // Apply scenario to room definitions

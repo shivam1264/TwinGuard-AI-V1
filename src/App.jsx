@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { SceneManager } from './three/SceneManager';
 import { TopHeader } from './components/TopHeader';
@@ -17,7 +17,19 @@ import { ScenarioConfigModal } from './components/ScenarioConfigModal';
 import { StrategyRankModal } from './components/StrategyRankModal';
 import { BuildingInfoModal } from './components/BuildingInfoModal';
 import { BuildingInfoPage } from './components/BuildingInfoPage';
+import { EmergencyCommandCenterPage } from './components/EmergencyCommandCenterPage';
 import { EmergencyControlModal } from './components/EmergencyControlModal';
+import { EvacueeCompanionView } from './components/EvacueeCompanionView';
+import { EvacueeQrModal } from './components/EvacueeQrModal';
+import { SosAlertModal } from './components/SosAlertModal';
+import GisMapDrawer from './components/gis/GisMapDrawer';
+import { LoginModal } from './components/LoginModal';
+import { ScenariosView } from './components/ScenariosView';
+import { StrategyRankerView } from './components/StrategyRankerView';
+import { IncidentsView } from './components/IncidentsView';
+import { AnalyticsView } from './components/AnalyticsView';
+import { ReportsView } from './components/ReportsView';
+import { DynamicLeftSidebar } from './components/DynamicLeftSidebar';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { resolveStrategyInfo } from './ai/StrategyInfo';
 import { X, Video, BarChart3 } from 'lucide-react';
@@ -43,6 +55,7 @@ const generateInitialRooms = () => {
         center: { x: tmpl.centerX, y: floorBaseY, z: tmpl.centerZ },
         bounds: { minX: tmpl.minX, maxX: tmpl.maxX, minZ: tmpl.minZ, maxZ: tmpl.maxZ },
         peopleCount,
+        capacity: 50, // configured design capacity for this room
         hasFire: false,
         tempCelsius: 22
       });
@@ -89,8 +102,15 @@ const INITIAL_INCIDENTS = [
 
 const calculateTotal = (rooms) => rooms.reduce((sum, r) => sum + (r.peopleCount || 0), 0);
 
+const isEvacueeView = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'evacuee';
+
 export function App() {
+  if (isEvacueeView) {
+    return <EvacueeCompanionView />;
+  }
+
   const threeCanvasRef = useRef(null);
+  const mainSlotRef = useRef(null);
   const sceneManagerRef = useRef(null);
   const socketRef = useRef(null);
 
@@ -105,11 +125,38 @@ export function App() {
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
   const [cameraYaw, setCameraYaw] = useState(0);
 
-  // Collapsible panels state (Default: expanded, clicking collapse shows icon rails)
-  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
-  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  // Theme Mode: 'dark' (default) or 'light'
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('twinguard_theme') || 'dark';
+  });
+
+  const handleToggleTheme = () => {
+    setTheme(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('twinguard_theme', next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('theme-light', 'light');
+      document.documentElement.classList.remove('theme-dark', 'dark');
+    } else {
+      document.documentElement.classList.add('theme-dark', 'dark');
+      document.documentElement.classList.remove('theme-light', 'light');
+    }
+    if (sceneManagerRef.current && sceneManagerRef.current.setTheme) {
+      sceneManagerRef.current.setTheme(theme);
+    }
+  }, [theme]);
+
+  // Collapsible panels state (Default: closed/collapsed on start as requested)
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(true);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(true);
 
   const [activeModalRoomId, setActiveModalRoomId] = useState(null);
+  const [selected3DRoom, setSelected3DRoom] = useState(null);
   const [fireBubbleData, setFireBubbleData] = useState(null);
   const [isCctvOpen, setIsCctvOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
@@ -120,6 +167,11 @@ export function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
   const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [isEvacueeQrOpen, setIsEvacueeQrOpen] = useState(false);
+  const [activeSosAlert, setActiveSosAlert] = useState(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isGisOpen, setIsGisOpen] = useState(true); // Free Fire style persistent radar HUD on 3D view
+  const [isSirenMuted, setIsSirenMuted] = useState(false);
   const [emergencyStatus, setEmergencyStatus] = useState(null);
   const [activeScenario, setActiveScenario] = useState(() => {
     if (AIEngine && AIEngine.getActiveScenario) {
@@ -139,6 +191,9 @@ export function App() {
   const [lastReroute, setLastReroute] = useState(null);
   const [systemStatus, setSystemStatus] = useState("STANDBY");
   const [serverConnected, setServerConnected] = useState(false);
+  // Live SceneManager instance (state so overlays/mounts never see a stale ref)
+  const [sceneMgr, setSceneMgr] = useState(null);
+
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
     evacuated: 0,
@@ -172,8 +227,10 @@ export function App() {
           setSystemStatus('COMPLETED');
         }
       },
-      () => {
-        // Single click popup removed
+      (selectedRoom) => {
+        if (selectedRoom) {
+          setSelected3DRoom(selectedRoom);
+        }
       },
       (matchedRoom, screenPos) => {
         // Double tap / double click: show minimalist fire trigger pill
@@ -188,7 +245,17 @@ export function App() {
     );
 
     sceneManagerRef.current = manager;
+    setSceneMgr(manager);
     window.__sceneManager = manager;
+    window.__twinguardApp = {
+      startEvacuation: handleStartEvacuation,
+      reset: handleReset,
+      setSimSpeed: handleSetSpeed,
+      toggleGis: () => setIsGisOpen(prev => !prev),
+      getStats: () => stats,
+      getEmergencyStatus: () => emergencyStatus,
+      sceneManager: manager
+    };
     manager.syncOccupants(rooms);
 
     return () => {
@@ -207,13 +274,36 @@ export function App() {
 
   // Smoothly trigger Three.js resize when panels collapse or expand
   useEffect(() => {
-    if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
-      const timer = setTimeout(() => {
+    if (!sceneManagerRef.current || !sceneManagerRef.current.handleResize) return;
+
+    let startTime = performance.now();
+    let animationFrameId;
+
+    const smoothlyResize = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      if (sceneManagerRef.current && sceneManagerRef.current.handleResize) {
         sceneManagerRef.current.handleResize();
-      }, 310);
-      return () => clearTimeout(timer);
+      }
+      if (elapsed < 320) {
+        animationFrameId = requestAnimationFrame(smoothlyResize);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(smoothlyResize);
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [isLeftCollapsed]);
+
+  const handleToggleSirenMute = () => {
+    if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
+      const newMuted = sceneManagerRef.current.emergencyVehicles.toggleMute();
+      setIsSirenMuted(newMuted);
+    } else {
+      setIsSirenMuted(!isSirenMuted);
     }
-  }, [isLeftCollapsed, isRightCollapsed]);
+  };
 
   // Track camera rotation for real-time Compass Rose updates & Emergency Telemetry
   useEffect(() => {
@@ -225,16 +315,50 @@ export function App() {
       if (sceneManagerRef.current && sceneManagerRef.current.getEmergencyStatus) {
         const em = sceneManagerRef.current.getEmergencyStatus();
         if (em) {
-          setEmergencyStatus(em);
+          setEmergencyStatus({ ...em });
         }
       }
     }, 80);
     return () => clearInterval(interval);
   }, []);
 
+  // Synthesize Command Center Tactical Distress Alarm Tone for SOS Alerts
+  const playCommandCenterSosChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      // High-urgency alert burst 1
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(880, now);
+      gain1.gain.setValueAtTime(0.28, now);
+      gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+
+      // High-urgency alert burst 2
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(1174.66, now + 0.16);
+      gain2.gain.setValueAtTime(0.32, now + 0.16);
+      gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.16);
+      osc2.stop(now + 0.6);
+    } catch {}
+  };
+
   // Socket.io backend sync
   useEffect(() => {
-    const socket = io('http://localhost:5000', {
+    const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+    const socket = io(`http://${backendHost}:5000`, {
       transports: ['websocket', 'polling'],
       timeout: 3000
     });
@@ -252,9 +376,23 @@ export function App() {
       handleTriggerFire(data.roomId, false);
     });
 
+    socket.on('incident-sos', (sosAlert) => {
+      setIncidents((prev) => [sosAlert, ...prev]);
+      setSystemStatus((prev) => (prev === 'STANDBY' ? 'ALARM' : prev));
+      setActiveSosAlert(sosAlert);
+      playCommandCenterSosChime();
+    });
+
     socket.on('state-update', (state) => {
       if (state.rooms) setRooms(state.rooms);
       if (state.exits) setExits(state.exits);
+      if (state.evacuatedCount !== undefined) {
+        setStats((prev) => ({
+          ...prev,
+          evacuated: state.evacuatedCount,
+          inTransit: state.inTransitCount !== undefined ? state.inTransitCount : prev.inTransit
+        }));
+      }
     });
 
     return () => socket.disconnect();
@@ -444,6 +582,12 @@ export function App() {
       sceneManagerRef.current.reset(freshRooms);
     }
 
+    // Multi-hazard reset: clear the centralized hazard store as well
+    // (the scene-side hazards are cleaned inside sceneManager.reset)
+    if (AIEngine && AIEngine.resetHazards) {
+      AIEngine.resetHazards();
+    }
+
     if (socketRef.current && socketRef.current.connected) {
       fetch('http://localhost:5000/api/reset', { method: 'POST' }).catch(() => {});
     }
@@ -469,6 +613,28 @@ export function App() {
     }
   };
 
+  // Multi-hazard toggles → global incident feed (sidebar + command center)
+  const handleHazardEvent = useCallback((evt) => {
+    if (!evt) return;
+    const nowTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    setIncidents((prev) =>
+      [
+        {
+          id: evt.id || `hz_${Date.now()}`,
+          time: nowTime,
+          title: evt.message || 'Multi-hazard state change',
+          subtitle: `${evt.hazard} · ${evt.location || 'Building-wide'}`,
+          severity: evt.enabled ? 'High' : 'Low'
+        },
+        ...prev
+      ].slice(0, 40)
+    );
+  }, []);
+
   const handleSetFacadeMode = (mode) => {
     if (sceneManagerRef.current && sceneManagerRef.current.setFacadeModeDirect) {
       const newMode = sceneManagerRef.current.setFacadeModeDirect(mode);
@@ -491,22 +657,49 @@ export function App() {
     }
   };
 
+  const handleSelectTab = (tab) => {
+    if (tab === 'BUILDING_INFO') {
+      setActiveSidebarMode('INFO');
+      setActiveTab('BUILDING_INFO');
+      return;
+    }
+    if (tab === 'COMMAND_CENTER') {
+      setActiveSidebarMode('COMMAND_CENTER');
+      setActiveTab('COMMAND_CENTER');
+      return;
+    }
+    if (tab === 'LIVE_VIEW') {
+      setActiveSidebarMode('3D_VIEW');
+      setActiveTab('LIVE_VIEW');
+      handleSetCameraPreset('HERO_VIEW');
+      setIsCctvOpen(false);
+      setIsAnalyticsOpen(false);
+      setIsIncidentsOpen(false);
+      setIsReportsOpen(false);
+      return;
+    }
+    if (tab === 'SETTINGS') {
+      setIsSettingsOpen(true);
+      return;
+    }
+    setActiveSidebarMode('3D_VIEW');
+    setActiveTab(tab);
+  };
+
   const hasAnyFire = rooms.some((r) => r.hasFire);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#f1f5f9] text-slate-800 overflow-hidden font-sans select-none">
-      {/* 1. TOP HEADER (Matching Image 1) */}
+    <div
+      className={`flex flex-col h-screen w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
+        theme === 'dark' ? 'bg-[#070d18] text-slate-100' : 'bg-[#f1f5f9] text-slate-900'
+      }`}
+    >
+      {/* 1. TOP HEADER */}
       <TopHeader
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
-        onSelectTab={(tab) => {
-          setActiveTab(tab);
-          if (tab === 'LIVE_VIEW') {
-            setIsCctvOpen(false);
-            setIsAnalyticsOpen(false);
-            setIsIncidentsOpen(false);
-            setIsReportsOpen(false);
-          }
-        }}
+        onSelectTab={handleSelectTab}
         incidentCount={incidents.length}
         onOpenCctv={() => setIsCctvOpen(true)}
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
@@ -515,63 +708,141 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
-        onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
+        onOpenBuildingInfo={() => handleSelectTab('BUILDING_INFO')}
+        onOpenEvacueeQr={() => setIsEvacueeQrOpen(true)}
+        onOpenGis={() => setIsGisOpen(!isGisOpen)}
+        isGisOpen={isGisOpen}
         serverConnected={serverConnected}
+        onOpenLogin={() => setIsLoginOpen(true)}
       />
 
-      {/* 2. MAIN WORKSPACE (Collapsible Left Sidebar + Center 3D Digital Twin Viewport + Collapsible Right Sidebar) */}
+      {/* 2. MAIN WORKSPACE (Persistent Left Sidebar + Center 3D & Modules Dynamic Viewport) */}
       <div className="flex-1 flex overflow-hidden w-full relative">
-        {/* Left Sidebar (Collapsible with icon-only rail) */}
-        <LeftSidebar
+        {/* Dynamic Contextual Left Sidebar (Persistent across all 8 modules) */}
+        <DynamicLeftSidebar
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
           isCollapsed={isLeftCollapsed}
           onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
           activeMode={activeSidebarMode}
           onSelectMode={(mode) => {
             setActiveSidebarMode(mode);
             if (mode === '3D_VIEW') {
               handleSetCameraPreset('HERO_VIEW');
               handleSetFloorView('ALL');
-            } else if (mode === 'FLOOR_VIEW') {
-              handleSetCameraPreset('HERO_VIEW');
             } else if (mode === 'STAIRS_FOCUS') {
               handleSetCameraPreset('STAIRS_FOCUS');
-            } else if (mode === 'ELEVATORS') {
-              handleSetCameraPreset('FLOOR_1');
+              handleSetFacadeMode('CUTAWAY');
             } else if (mode === 'CCTV') {
               setIsCctvOpen(true);
             } else if (mode === 'SYSTEMS') {
               setIsAnalyticsOpen(true);
             } else if (mode === 'EMERGENCY') {
               setIsEmergencyControlOpen(true);
-            } else if (mode === 'INFO') {
-              setActiveSidebarMode('INFO');
             }
           }}
           activeFloorView={activeFloorView}
           onSelectFloor={handleSetFloorView}
-          rooms={rooms}
+          isSimulating={isSimulating}
+          simSpeed={simSpeed}
+          onStartEvacuation={handleStartEvacuation}
+          onPauseResume={handlePauseResume}
+          onReset={handleReset}
+          onSetSpeed={handleSetSpeed}
+          elapsedSeconds={stats.elapsedSeconds}
           onOpenCctv={() => setIsCctvOpen(true)}
           onOpenSystems={() => setIsAnalyticsOpen(true)}
-          onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
           onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
-          onSetCameraPreset={handleSetCameraPreset}
-          isSimulating={isSimulating}
-          elapsedSeconds={stats.elapsedSeconds}
-          emergencyStatus={emergencyStatus}
+          onOpenGis={() => setIsGisOpen(!isGisOpen)}
+          rooms={rooms}
+          exits={exits}
+          incidents={incidents}
         />
 
-        {/* Central 3D Digital Twin Viewport (Contains untouched furnished building!) */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#f1f5f9] relative overflow-hidden">
-          {/* Full Three.js 3D Viewport */}
+        {/* Central Dynamic Workspace (Displays 3D Digital Twin, Command Center, Building Info, AI Scenarios, Strategy Ranker, Incidents, Analytics, or Reports) */}
+        <div
+          className={`flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden transition-colors duration-300 ${
+            theme === 'dark' ? 'bg-[#070d18]' : 'bg-[#f1f5f9]'
+          }`}
+        >
+          {/* 1. AI SCENARIOS VIEW */}
+          {activeTab === 'SCENARIOS' && (
+            <ScenariosView
+              theme={theme}
+              rooms={rooms}
+              currentScenario={activeScenario}
+              onApplyScenario={handleApplyScenario}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 2. STRATEGY RANKER VIEW */}
+          {activeTab === 'STRATEGY_RANKER' && (
+            <StrategyRankerView
+              theme={theme}
+              scenario={activeScenario}
+              rooms={rooms}
+              exits={exits}
+              onApplyStrategy={handleApplyStrategyToSimulation}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 3. INCIDENTS COMMAND CENTER VIEW */}
+          {activeTab === 'INCIDENTS' && (
+            <IncidentsView
+              theme={theme}
+              incidents={incidents}
+              onStartEvacuation={handleStartEvacuation}
+              onOpenGis={() => setIsGisOpen(true)}
+              onOpenCctv={() => setIsCctvOpen(true)}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 4. PREDICTIVE ANALYTICS VIEW */}
+          {activeTab === 'ANALYTICS' && (
+            <AnalyticsView
+              theme={theme}
+              stats={stats}
+              rooms={rooms}
+              exits={exits}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 5. LIFE SAFETY AUDIT & COMPLIANCE REPORTS VIEW */}
+          {activeTab === 'REPORTS' && (
+            <ReportsView
+              theme={theme}
+              stats={stats}
+              exits={exits}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+            />
+          )}
+
+          {/* 6. Main Three.js 3D Viewport Slot (Preserved completely intact; hidden when in 2D views or Command Center) */}
           <div
-            ref={threeCanvasRef}
-            className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
-            style={{ display: activeSidebarMode === 'INFO' ? 'none' : 'block' }}
-          />
+            ref={mainSlotRef}
+            className="w-full h-full relative overflow-hidden"
+            style={{
+              display: activeTab === 'LIVE_VIEW'
+                ? 'block'
+                : 'none'
+            }}
+          >
+            <div
+              ref={threeCanvasRef}
+              className="w-full h-full cursor-grab active:cursor-grabbing relative overflow-hidden"
+            />
+          </div>
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          {activeSidebarMode !== 'INFO' && (
+          {activeTab === 'LIVE_VIEW' && (
             <ViewportOverlay
+              theme={theme}
               facadeMode={facadeMode}
               onSetFacadeMode={handleSetFacadeMode}
               activeFloorView={activeFloorView}
@@ -579,33 +850,100 @@ export function App() {
               cameraYaw={cameraYaw}
               onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
               onZoomOut={() => sceneManagerRef.current && sceneManagerRef.current.zoomOut(6)}
+              onPanLeft={() => sceneManagerRef.current && sceneManagerRef.current.panLeft(6)}
+              onPanRight={() => sceneManagerRef.current && sceneManagerRef.current.panRight(6)}
+              onMoveForward={() => sceneManagerRef.current && sceneManagerRef.current.moveForward(6)}
+              onMoveBackward={() => sceneManagerRef.current && sceneManagerRef.current.moveBackward(6)}
               onResetView={(preset) => handleSetCameraPreset(preset)}
               onToggleExploded={() =>
                 handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
               }
+              onToggleGis={() => setIsGisOpen(!isGisOpen)}
+              onToggleFullscreen={handleToggleFullscreen}
+              isGisOpen={isGisOpen}
               rooms={rooms}
+              sceneManager={sceneMgr}
             />
           )}
 
-          {/* EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
-          {activeSidebarMode === 'INFO' && (
-            <div className="absolute inset-0 z-10 overflow-hidden bg-[#f8fafc]">
+          {/* 7. EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
+          {activeTab === 'BUILDING_INFO' && (
+            <div className={`absolute inset-0 z-10 overflow-hidden transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-[#070e1b]' : 'bg-[#f8fafc]'
+            }`}>
               <BuildingInfoPage
+                theme={theme}
                 rooms={rooms}
                 exits={exits}
-                onClose={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
-                onSwitchTo3D={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
+                onClose={() => handleSelectTab('LIVE_VIEW')}
+                onSwitchTo3D={() => handleSelectTab('LIVE_VIEW')}
                 onSelectFloor={(floorNum) => {
                   handleSetFloorView(floorNum);
-                  setActiveSidebarMode('FLOOR_VIEW');
+                  handleSelectTab('LIVE_VIEW');
                   handleSetCameraPreset(`FLOOR_${floorNum}`);
                 }}
+              />
+            </div>
+          )}
+
+          {/* 8. EMERGENCY COMMAND CENTER DASHBOARD (Rendered in central workspace area) */}
+          {activeTab === 'COMMAND_CENTER' && (
+            <div className={`absolute inset-0 z-20 overflow-hidden flex flex-col transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-[#070e1b]' : 'bg-[#f4f6fa]'
+            }`}>
+              <EmergencyCommandCenterPage
+                theme={theme}
+                threeCanvasRef={threeCanvasRef}
+                mainSlotRef={mainSlotRef}
+                sceneManager={sceneMgr}
+                onHazardEvent={handleHazardEvent}
+                rooms={rooms}
+                selected3DRoom={selected3DRoom}
+                onSelect3DRoom={(r) => setSelected3DRoom(r)}
+                onUpdateRooms={(updatedRooms) => {
+                  setRooms(updatedRooms);
+                  if (sceneManagerRef.current && sceneManagerRef.current.syncOccupants) {
+                    sceneManagerRef.current.syncOccupants(updatedRooms);
+                  }
+                }}
+                /* Strict per-room occupancy: updates ONLY that room, syncs the 3D
+                   occupancy indicator of that room and persists to the backend */
+                onUpdateOccupancy={handleUpdateCrowd}
+                onBlockStairwell={(coreName, floorNum) => {
+                  fetch('http://localhost:5000/api/block-stairwell', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ coreName, floorNum })
+                  }).catch(() => {});
+                }}
+                onUpdateExits={(updatedExits) => {
+                  setExits(updatedExits);
+                }}
+                exits={exits}
+                isSimulating={isSimulating}
+                systemStatus={systemStatus}
+                stats={stats}
+                onStartSimulation={handleStartEvacuation}
+                onPauseSimulation={handlePauseResume}
+                onResetSimulation={handleReset}
+                onTriggerFire={handleTriggerFire}
+                onExtinguishFire={(roomId) => {
+                  setRooms(prev => prev.map(r => r.id === roomId ? { ...r, hasFire: false, tempCelsius: 22 } : r));
+                  if (sceneManagerRef.current && sceneManagerRef.current.extinguishFire) {
+                    sceneManagerRef.current.extinguishFire(roomId);
+                  }
+                }}
+                onClearAllFires={() => {
+                  setRooms(prev => prev.map(r => ({ ...r, hasFire: false, tempCelsius: 22 })));
+                  if (sceneManagerRef.current && sceneManagerRef.current.extinguishAll) {
+                    sceneManagerRef.current.extinguishAll();
+                  }
+                }}
+                onUpdateCrowd={(roomId, newCount) => {
+                  setRooms(prev => prev.map(r => r.id === roomId ? { ...r, peopleCount: newCount } : r));
+                }}
+                onSwitchTo3D={() => handleSelectTab('LIVE_VIEW')}
+                onClose={() => handleSelectTab('LIVE_VIEW')}
               />
             </div>
           )}
@@ -623,22 +961,9 @@ export function App() {
           hasFire={hasAnyFire}
           onOpenAnalytics={() => setIsAnalyticsOpen(true)}
           onOpenIncidents={() => setIsIncidentsOpen(true)}
+          onOpenGis={() => setIsGisOpen(true)}
         />
       </div>
-
-      {/* 3. BOTTOM CONTROL DOCK (Start Evacuation, Reset, Speed, BIM Layers, Camera View - Matching Image 1) */}
-      <BottomControlDock
-        isSimulating={isSimulating}
-        simSpeed={simSpeed}
-        onStartEvacuation={handleStartEvacuation}
-        onPauseResume={handlePauseResume}
-        onReset={handleReset}
-        onSetSpeed={handleSetSpeed}
-        onSetCameraPreset={handleSetCameraPreset}
-        bimLayers={bimLayers}
-        onToggleBimLayer={handleToggleBimLayer}
-        onToggleFullscreen={handleToggleFullscreen}
-      />
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
@@ -733,12 +1058,11 @@ export function App() {
         />
       )}
 
-      {/* MODAL 9: System Settings Modal */}
+      {/* MODAL 9: Combined Profile & System Settings Modal */}
       {isSettingsOpen && (
         <SettingsModal
           onClose={() => setIsSettingsOpen(false)}
-          onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
-          onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
+          onOpenLogin={() => setIsLoginOpen(true)}
         />
       )}
 
@@ -765,6 +1089,45 @@ export function App() {
         isSimulating={isSimulating}
         elapsedSeconds={stats.elapsedSeconds}
       />
+
+      {/* MODAL 11: Live Mobile Evacuee Companion QR Modal */}
+      <EvacueeQrModal
+        isOpen={isEvacueeQrOpen}
+        onClose={() => setIsEvacueeQrOpen(false)}
+      />
+
+      {/* REAL-TIME DISTRESS NOTIFICATION: Mobile Occupant Trapped SOS Modal */}
+      {activeSosAlert && (
+        <SosAlertModal
+          sosData={activeSosAlert}
+          onClose={() => setActiveSosAlert(null)}
+          onFocusFloor={(floor) => {
+            handleSetFloorView(floor);
+            handleSetCameraPreset('FLOOR_' + floor);
+          }}
+        />
+      )}
+
+      {/* LOGIN & AUTHENTICATION PORTAL (Matching Image 1) */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        onLoginSuccess={() => setIsLoginOpen(false)}
+      />
+
+      {/* KILLER FEATURE 1: Live Interactive Satellite GIS Mini-Map (Free Fire style Top-Right Radar HUD) */}
+      {activeTab === 'LIVE_VIEW' && (
+        <GisMapDrawer
+          isOpen={isGisOpen}
+          onClose={() => setIsGisOpen(false)}
+          emergencyStatus={emergencyStatus}
+          onFocusCampusView={() => {
+            handleSetCameraPreset('CAMPUS_HERO');
+          }}
+          isMuted={isSirenMuted}
+          onToggleMute={handleToggleSirenMute}
+        />
+      )}
 
       {/* MODAL 6: Floating Double-Tap Quick Fire Trigger Emoji Bubble */}
       {fireBubbleData && (

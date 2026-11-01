@@ -6,6 +6,8 @@ import { CampusBuildingsManager } from './CampusBuildingsManager.js';
 import { ParkingManager } from './ParkingManager.js';
 import { LandscapeManager } from './LandscapeManager.js';
 import { WorldEnvironmentManager } from './WorldEnvironmentManager.js';
+import { CampusSpatialModel } from './CampusSpatialModel.js';
+import { CampusGISOverlay } from './CampusGISOverlay.js';
 import {
   CAMPUS_BOUNDS,
   CAMPUS_DISTRICTS,
@@ -52,6 +54,13 @@ export class CampusSite {
     this.group.add(this.futurePlotManager.group);
     this.group.add(this.buildingsManager.group);
     this.group.add(this.worldEnvironment.group);
+
+    // 4. Initialize Semantic Spatial Foundation Model (Step 5.1)
+    this.spatialModel = new CampusSpatialModel();
+    this.spatialModel.resolveGeometryReferences(this);
+
+    // 5. Initialize 3D Campus GIS & Emergency Overlay
+    this.gisOverlay = new CampusGISOverlay(this.scene, this.spatialModel);
   }
 
   initSharedMaterials() {
@@ -523,7 +532,8 @@ export class CampusSite {
       assemblyPlaza: CENTRAL_ASSEMBLY_PLAZA,
       lake: CAMPUS_LAKE,
       sportsComplex: SPORTS_COMPLEX,
-      entrances: CAMPUS_ENTRANCES
+      entrances: CAMPUS_ENTRANCES,
+      spatialModel: this.spatialModel
     };
   }
 
@@ -531,7 +541,12 @@ export class CampusSite {
     this.group.visible = isVisible;
   }
 
+  update(delta) {
+    if (this.gisOverlay) this.gisOverlay.update(delta);
+  }
+
   dispose() {
+    if (this.gisOverlay) this.gisOverlay.dispose();
     this.group.traverse(child => {
       if (child.geometry) child.geometry.dispose();
       if (child.material) {

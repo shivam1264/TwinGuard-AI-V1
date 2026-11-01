@@ -246,6 +246,44 @@ function getFireSourcePositions(room) {
       break;
     }
 
+    case 'CORRIDOR': {
+      // Primary & Secondary along the real corridor floor runner
+      primary = {
+        x: cx,
+        y: baseY + 0.18,
+        z: 0.0,
+        type: 'CORRIDOR_RUNNER',
+        floorY: baseY + 0.02
+      };
+      secondary = {
+        x: cx + (cx < 0 ? 3.2 : -3.2),
+        y: baseY + 0.18,
+        z: 0.35,
+        type: 'CORRIDOR_RUNNER',
+        floorY: baseY + 0.02
+      };
+      break;
+    }
+
+    case 'STAIR': {
+      // Primary & Secondary in the stairwell core landing
+      primary = {
+        x: cx,
+        y: baseY + 0.18,
+        z: 0.0,
+        type: 'STAIR_WELL',
+        floorY: baseY + 0.02
+      };
+      secondary = {
+        x: cx,
+        y: baseY + 0.18,
+        z: 1.4,
+        type: 'STAIR_WELL',
+        floorY: baseY + 0.02
+      };
+      break;
+    }
+
     case 'EXECUTIVE_OFFICE': {
       // Primary: Executive Timber Desk
       primary = {
@@ -303,8 +341,47 @@ export class FireParticles {
     this.group = new THREE.Group(); // Master container for BIM layer toggling
     this.scene.add(this.group);
 
+    // ── HVAC PRESSURIZATION FAILURE (multi-hazard state) ──
+    // When the stairwell pressurization fans fail, positive-pressure smoke
+    // containment is lost: propagation velocity, particle scale and corridor
+    // escape all change — this alters the underlying propagation model,
+    // not just the visual size of the smoke.
+    this.hvacFailure = false;
+    this.hvacFailureFloors = null;
+    this.smokeScaleMultiplier = 1.0; // 1.0 normal · 2.2 HVAC failure
+    this.smokeSpreadMultiplier = 1.0; // 1.0 normal · 2.0 HVAC failure
+
     // Shared procedural textures
     this.textures = this.initTextures();
+  }
+
+  /**
+   * HVAC pressurization failure toggle. Doubles smoke propagation velocity,
+   * scales smoke particles 2.2x and lets pressurized smoke escape the rooms
+   * into the central corridor toward the stair cores.
+   */
+  setHvacFailure(active, affectedFloors = null) {
+    const enabled = !!active;
+    if (enabled) {
+      this.hvacFailure = true;
+      this.hvacFailureFloors = new Set(Array.isArray(affectedFloors) ? affectedFloors : []);
+      if (this.hvacFailureFloors.size === 0) this.hvacFailureFloors = null; // null => all floors (legacy)
+    } else {
+      this.hvacFailure = false;
+      this.hvacFailureFloors = new Set();
+    }
+    this.smokeScaleMultiplier = enabled ? 2.2 : 1.0;
+    this.smokeSpreadMultiplier = enabled ? 2.0 : 1.0;
+    return enabled;
+  }
+
+  getEnvironmentalTelemetry() {
+    return {
+      hvacFailure: this.hvacFailure,
+      smokeScaleMultiplier: this.smokeScaleMultiplier,
+      smokeSpreadMultiplier: this.smokeSpreadMultiplier,
+      stairwellFans: this.hvacFailure ? 'DISABLED' : 'RUNNING'
+    };
   }
 
   initTextures() {
@@ -633,12 +710,28 @@ export class FireParticles {
       this.group.add(fireGroup);
     }
 
+    const isCorridor = room?.category === 'CORRIDOR' || roomId.startsWith('corr_');
+    const isStair = room?.category === 'STAIR' || roomId.startsWith('stair_');
+    if (isCorridor || isStair) {
+      if (deskCharMesh) deskCharMesh.visible = false;
+      if (fireLight) {
+        fireLight.intensity = 3.5;
+        fireLight.distance = 16;
+      }
+      if (flameMat && flameMat.uniforms) {
+        flameMat.uniforms.uHeight.value = 1.8;
+        flameMat.uniforms.uIntensity.value = 0.85;
+      }
+    }
+
     // Create Fire Instance state record
     const fireInstance = {
       roomId,
       floor,
       floorGroup,
       group: fireGroup,
+      isCorridor,
+      isStair,
       basePos: sources.primary,
       primarySource: sources.primary,
       secondarySource: sources.secondary,
@@ -804,8 +897,11 @@ export class FireParticles {
 
   setFloorMode(mode) {
     this.floorMode = mode;
+    const isExploded = (mode === 'EXPLODED');
     this.activeFires.forEach((fire, roomId) => {
       const floorNum = fire.floor || 1;
+      const yOffset = isExploded ? (floorNum - 1) * 6.5 : 0;
+      fire.group.position.y = yOffset;
       if (mode === 'ALL' || mode === 'EXPLODED') {
         fire.group.visible = true;
       } else {
@@ -827,15 +923,15 @@ export class FireParticles {
       fire.intensityStateNum = metrics.stateNum;
       fire.intensityFactor = metrics.factor;
 
-      if (metrics.readyToSpread && !fire.hasSpreadToAdjacentRoom) {
+      if (metrics.readyToSpread && !fire.hasSpreadToAdjacentRoom && !fire.smokeOnly) {
         fire.hasSpreadToAdjacentRoom = true;
         this.attemptSpread(fire);
       }
 
       // 2. Realistic Heat Flicker on Localized Point Light
       const flicker = 1.0 + Math.sin(timeNow * 11.3) * 0.08 + Math.sin(timeNow * 19.7) * 0.05 + Math.cos(timeNow * 6.4) * 0.04;
-      fire.light.intensity = metrics.lightIntensity * flicker;
-      fire.light.distance = metrics.lightRadius;
+      fire.light.intensity = fire.smokeOnly ? 0.35 * flicker : metrics.lightIntensity * flicker;
+      fire.light.distance = fire.smokeOnly ? 9 : metrics.lightRadius;
 
       // 3. Update Primary Procedural Flame Uniforms & Scale
       fire.primFlameMat.uniforms.uTime.value = timeNow;
@@ -850,16 +946,20 @@ export class FireParticles {
       if (metrics.secondaryIgnited) {
         if (!fire.hasSecondaryIgnited) {
           fire.hasSecondaryIgnited = true;
-          fire.secFlameMesh.visible = true;
-          fire.secCharMesh.visible = true;
+          if (!fire.smokeOnly) {
+            fire.secFlameMesh.visible = true;
+            fire.secCharMesh.visible = true;
+          }
         }
-        fire.secFlameMat.uniforms.uTime.value = timeNow + 3.14;
-        fire.secFlameMat.uniforms.uIntensity.value = metrics.factor * 0.85;
-        fire.secFlameMat.uniforms.uTurbulence.value = metrics.turbulence;
-        fire.secFlameMat.uniforms.uHeight.value = 1.4 * (metrics.flameScale * 0.8);
+        if (!fire.smokeOnly) {
+          fire.secFlameMat.uniforms.uTime.value = timeNow + 3.14;
+          fire.secFlameMat.uniforms.uIntensity.value = metrics.factor * 0.85;
+          fire.secFlameMat.uniforms.uTurbulence.value = metrics.turbulence;
+          fire.secFlameMat.uniforms.uHeight.value = 1.4 * (metrics.flameScale * 0.8);
 
-        const secScale = metrics.flameScale * 0.75 * (1.0 + Math.sin(timeNow * 7.2) * 0.035);
-        fire.secFlameMesh.scale.set(secScale, secScale, secScale);
+          const secScale = metrics.flameScale * 0.75 * (1.0 + Math.sin(timeNow * 7.2) * 0.035);
+          fire.secFlameMesh.scale.set(secScale, secScale, secScale);
+        }
       }
 
       // 5. Update Delicate Airborne Ember Flecks
@@ -896,11 +996,22 @@ export class FireParticles {
       const doorWidth = fire.doorway.width || 2.2;
       const bounds = fire.roomBounds;
       const ceilingY = fire.ceilingY;
+      // Localized HVAC: multipliers apply only when this fire's floor is affected
+      const _hvacAffected = this.hvacFailure && ((this.hvacFailureFloors === null || (this.hvacFailureFloors && (this.hvacFailureFloors.size === 0 || this.hvacFailureFloors.has(Number(fire.floor))))));
+      const _smokeCountMult = _hvacAffected ? 1.35 : 1.0;
+      const _smokeSpreadMult = _hvacAffected ? 2.0 : 1.0;
+      const _smokeScaleMult = _hvacAffected ? 2.2 : 1.0;
+
+      // HVAC failure: pressurization loss increases active smoke density
+      const activeSmokeCount = Math.min(
+        fire.smokeParticles.length,
+        Math.round(metrics.activeSmokeCount * _smokeCountMult)
+      );
 
       for (let i = 0; i < fire.smokeParticles.length; i++) {
         const p = fire.smokeParticles[i];
 
-        if (i < metrics.activeSmokeCount) {
+        if (i < activeSmokeCount) {
           if (!p.active) {
             p.active = true;
             this.resetSmokeParticle(p, fire, metrics);
@@ -914,8 +1025,8 @@ export class FireParticles {
           }
 
           if (p.phase === 'PLUME') {
-            // A. Upward Buoyant Rise
-            p.y += p.vy * delta * fire.intensityFactor;
+            // A. Upward Buoyant Rise (accelerated when stairwell pressurization is lost)
+            p.y += p.vy * delta * fire.intensityFactor * _smokeSpreadMult;
             p.x += (p.vx + Math.sin(timeNow * 2.5 + p.seed) * 0.12) * delta;
             p.z += (p.vz + Math.cos(timeNow * 2.2 + p.seed) * 0.12) * delta;
 
@@ -937,6 +1048,38 @@ export class FireParticles {
               p.scaleY = p.scaleX * 0.55;
               p.scaleX = p.scaleX * 1.4;
             }
+          } else if (p.phase === 'CORRIDOR') {
+            // ── HVAC FAILURE: PRESSURIZED CORRIDOR FLOODING ──
+            // Smoke that escaped through the doorway now travels along the
+            // central corridor toward the nearest stair core at high speed,
+            // exactly like a real loss of stairwell pressurization.
+            p.y = ceilingY - 0.12 + Math.sin(timeNow * 1.3 + p.seed) * 0.05;
+
+            const corridorSpeed = (2.3 + fire.intensityFactor * 0.8) * (_hvacAffected ? 1.0 : 2.6);
+            p.x += (p.corridorDir || (doorX < 0 ? -1 : 1)) * corridorSpeed * delta;
+            // Ease toward the corridor centerline
+            p.z += (0.0 - p.z) * Math.min(1.0, delta * 1.8);
+
+            // Grow into a dense traveling smoke bank
+            p.scaleX = Math.min(p.targetScale * 1.7, p.scaleX + delta * 0.45);
+            p.scaleY = p.scaleX * 0.42;
+
+            const travelled = Math.abs(p.x - doorX);
+            if (_hvacAffected) {
+              // Dissipate as it nears the end of its corridor run (~25 m)
+              if (travelled > 14.0) {
+                p.opacity = Math.max(0.0, p.maxOpacity * (1.0 - (travelled - 14.0) / 10.0));
+              }
+              if (travelled > 24.5) {
+                this.resetSmokeParticle(p, fire, metrics);
+              }
+            } else {
+              // Pressurization restored: corridor smoke rapidly dissipates
+              p.opacity = Math.max(0.0, p.opacity - delta * 0.9);
+              if (p.opacity <= 0.015) {
+                this.resetSmokeParticle(p, fire, metrics);
+              }
+            }
           } else {
             // B. Ceiling Layer Radial Spread & Room Containment
             p.y = ceilingY - 0.10 + Math.sin(timeNow * 1.5 + p.seed) * 0.04;
@@ -944,13 +1087,14 @@ export class FireParticles {
             const dx = p.x - fire.primarySource.x;
             const dz = p.z - fire.primarySource.z;
             const dist = Math.hypot(dx, dz) || 0.1;
-            const radialSpeed = (0.7 + 0.5 * fire.intensityFactor);
+            // Propagation velocity doubles when stairwell pressurization is lost
+            const radialSpeed = (0.7 + 0.5 * fire.intensityFactor) * _smokeSpreadMult;
 
             p.x += (dx / dist) * radialSpeed * delta;
             p.z += (dz / dist) * radialSpeed * delta;
 
             // Further horizontal expansion in shallow ceiling layer
-            p.scaleX = Math.min(p.targetScale * 1.5, p.scaleX + delta * 0.28);
+            p.scaleX = Math.min(p.targetScale * 1.5, p.scaleX + delta * 0.28 * _smokeSpreadMult);
             p.scaleY = p.scaleX * 0.48;
 
             // Gradual dissipation at outer ceiling boundary
@@ -967,39 +1111,59 @@ export class FireParticles {
               p.x = bounds.maxX - 0.35;
             }
 
-            // North/South Room Walls:
-            const isNorthWing = doorZ < 0; // Door at z = -2.6
-            if (isNorthWing) {
-              // Exterior North wall at minZ
-              if (p.z < bounds.minZ + 0.35) {
-                p.z = bounds.minZ + 0.35;
-              }
-              // South interior dividing wall at maxZ (-2.6)
-              if (p.z > bounds.maxZ - 0.2) {
-                const isNearDoor = Math.abs(p.x - doorX) <= (doorWidth * 0.5 + 0.2);
-                if (isNearDoor) {
-                  // Corridor migration: smoke drifts out through open doorway into corridor ceiling
-                  if (p.z > 0.2) p.z = 0.2;
-                } else {
-                  // Blocked by solid wall
-                  p.z = bounds.maxZ - 0.2;
-                }
-              }
+            if (fire.isCorridor) {
+              // Corridor smoke expands freely along the central hallway ceiling
+              if (p.z < -2.2) p.z = -2.2;
+              else if (p.z > 2.2) p.z = 2.2;
+            } else if (fire.isStair) {
+              // Stairwell smoke rises vertically and billows inside the core
+              if (p.z < bounds.minZ + 0.35) p.z = bounds.minZ + 0.35;
+              else if (p.z > bounds.maxZ - 0.35) p.z = bounds.maxZ - 0.35;
             } else {
-              // South Wing: Door at z = 2.6
-              // Exterior South wall at maxZ
-              if (p.z > bounds.maxZ - 0.35) {
-                p.z = bounds.maxZ - 0.35;
-              }
-              // North interior dividing wall at minZ (2.6)
-              if (p.z < bounds.minZ + 0.2) {
-                const isNearDoor = Math.abs(p.x - doorX) <= (doorWidth * 0.5 + 0.2);
-                if (isNearDoor) {
-                  // Corridor migration: smoke drifts out through doorway into corridor ceiling
-                  if (p.z < -0.2) p.z = -0.2;
-                } else {
-                  // Blocked by solid wall
-                  p.z = bounds.minZ + 0.2;
+              // North/South Room Walls:
+              const isNorthWing = doorZ < 0; // Door at z = -2.6
+              if (isNorthWing) {
+                // Exterior North wall at minZ
+                if (p.z < bounds.minZ + 0.35) {
+                  p.z = bounds.minZ + 0.35;
+                }
+                // South interior dividing wall at maxZ (-2.6)
+                if (p.z > bounds.maxZ - 0.2) {
+                  const isNearDoor = Math.abs(p.x - doorX) <= (doorWidth * 0.5 + 0.2);
+                  if (isNearDoor) {
+                    if (_hvacAffected) {
+                      // Pressurized escape: smoke floods the central corridor
+                      p.phase = 'CORRIDOR';
+                      p.corridorDir = doorX < 0 ? -1 : 1;
+                    } else if (p.z > 0.2) {
+                      p.z = 0.2; // Corridor migration, contained at doorway
+                    }
+                  } else {
+                    // Blocked by solid wall
+                    p.z = bounds.maxZ - 0.2;
+                  }
+                }
+              } else {
+                // South Wing: Door at z = 2.6
+                // Exterior South wall at maxZ
+                if (p.z > bounds.maxZ - 0.35) {
+                  p.z = bounds.maxZ - 0.35;
+                }
+                // North interior dividing wall at minZ (2.6)
+                if (p.z < bounds.minZ + 0.2) {
+                  const isNearDoor = Math.abs(p.x - doorX) <= (doorWidth * 0.5 + 0.2);
+                  if (isNearDoor) {
+                    if (_hvacAffected) {
+                      // Pressurized escape: smoke floods the central corridor
+                      p.phase = 'CORRIDOR';
+                      p.corridorDir = doorX < 0 ? -1 : 1;
+                    } else if (p.z < -0.2) {
+                      p.z = -0.2; // Corridor migration, contained at doorway
+                    }
+                  } else {
+                    // Blocked by solid wall
+                    p.z = bounds.minZ + 0.2;
+                  }
                 }
               }
             }
@@ -1039,7 +1203,9 @@ export class FireParticles {
     p.vz = (Math.random() - 0.5) * 0.25;
     p.scaleX = 0.5 + Math.random() * 0.25;
     p.scaleY = p.scaleX;
-    p.targetScale = 2.2 + Math.random() * 1.0;
+    // HVAC failure scales the smoke bank 2.2x (pressurization containment lost) — localized
+    const _hvacAffected = this.hvacFailure && ((this.hvacFailureFloors === null || (this.hvacFailureFloors && (this.hvacFailureFloors.size === 0 || this.hvacFailureFloors.has(Number(fire.floor))))));
+    p.targetScale = (2.2 + Math.random() * 1.0) * (_hvacAffected ? 2.2 : 1.0);
     p.opacity = 0.0;
     p.maxOpacity = 0.36 + Math.random() * 0.18;
     p.life = 0.0;

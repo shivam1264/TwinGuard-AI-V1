@@ -30,12 +30,14 @@ import {
 import { FLOOR_THEMES } from '../simulation/Doorways';
 
 export const BuildingInfoPage = ({
+  theme = 'dark',
   rooms = [],
   exits = [],
   onClose,
   onSwitchTo3D,
   onSelectFloor
 }) => {
+  const isDark = theme === 'dark';
   const [selectedFloor, setSelectedFloor] = useState(4);
   const [activeModelTab, setActiveModelTab] = useState('3D View');
   const [isEditing, setIsEditing] = useState(false);
@@ -137,11 +139,11 @@ export const BuildingInfoPage = ({
 
   return (
     <div
-      className="w-full h-full overflow-y-auto select-none"
+      className={`w-full h-full overflow-y-auto select-none transition-colors duration-300 ${isDark ? 'theme-dark' : 'theme-light'}`}
       style={{
-        background: '#f8fafc',
+        background: isDark ? '#070e1b' : '#f8fafc',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        color: '#0f172a',
+        color: isDark ? '#f8fafc' : '#0f172a',
         padding: '20px 24px 32px 24px'
       }}
     >

@@ -20,7 +20,7 @@ export class CrowdOptimizer {
     };
   }
 
-  optimizeRoutes(agents, fireLocations = [], blockedExitIds = [], strategyType = 'LOAD_BALANCED', floorBlockedMap = null) {
+  optimizeRoutes(agents, fireLocations = [], blockedExitIds = [], strategyType = 'LOAD_BALANCED', floorBlockedMap = null, structuralCollapse = null) {
     // Backward-compatible: support options-object calling convention
     // optimizeRoutes(agents, fireLocations, { blockedExitIds, strategyType, routingContext, floorBlockedMap })
     let routingContext = null;
@@ -30,6 +30,7 @@ export class CrowdOptimizer {
       strategyType = options.strategyType ?? 'LOAD_BALANCED';
       floorBlockedMap = options.floorBlockedMap ?? null;
       routingContext = options.routingContext || null;
+      structuralCollapse = options.structuralCollapse ?? structuralCollapse;
     }
 
     // Global blocked exits (e.g. Ground Floor portals blocked by fire or global structural failure)
@@ -51,6 +52,35 @@ export class CrowdOptimizer {
         }
       });
     }
+
+    // ── STRUCTURAL DEBRIS COLLAPSE (e.g. Corridor C-101 on Level 4) ──
+    // The rubble severs the collapsed segment's connection to its nearest
+    // stair core for THAT FLOOR ONLY — occupants on the affected floor are
+    // diverted to the opposite core (e.g. East Core B), while all other
+    // floors keep both stairs. Feeds the middle-floor hazard logic below,
+    // so agents visibly turn around and take the safe alternative core.
+    const collapseZones = Array.isArray(structuralCollapse)
+      ? structuralCollapse.filter((z) => z && typeof z.floor === 'number')
+      : (structuralCollapse && typeof structuralCollapse === 'object' && typeof structuralCollapse.floor === 'number'
+        ? [structuralCollapse]
+        : []);
+    collapseZones.forEach((cz) => {
+      const b = cz.bounds || cz;
+      const maxX = b.maxX !== undefined ? b.maxX : (cz.maxX !== undefined ? cz.maxX : 0);
+      let blockedCore = cz.coreBlocked;
+      if (!blockedCore) {
+        if (cz.kind === 'CORRIDOR') blockedCore = maxX <= 0 ? 'exit_west' : 'exit_east';
+        else if (cz.kind === 'STAIR') blockedCore = (cz.locId && cz.locId.includes('east')) ? 'exit_east' : 'exit_west';
+        else if (cz.kind === 'EXIT') blockedCore = cz.locId;
+        else blockedCore = maxX <= 0 ? 'exit_west' : 'exit_east';
+      }
+      if (cz.kind === 'EXIT' || cz.floor === 1) {
+        globalBlockedExits.add(blockedCore);
+      }
+      getFloorBlocked(cz.floor).add(blockedCore);
+    });
+    // Primary zone for backward-compat references below
+    const collapseZone = collapseZones.length ? collapseZones[0] : null;
 
     // Dynamic Hazard Detection across floors (Case I: Ground Floor L1, Case II: Top Floor L10, Case III: Middle Floors L2 - L9)
     fireLocations.forEach(fire => {
@@ -170,6 +200,9 @@ export class CrowdOptimizer {
 
     // Corridor crossover helper connecting West Core (x: -26.4) and East Core (x: +26.4) along Z = 0
     const appendCorridorCrossover = (path, floorNum, fromStairId, toStairId) => {
+      // Structural collapse severs east-west corridor transit on its floor —
+      // occupants keep to the stair core reachable from their side.
+      if (collapseZones.some((cz) => cz.floor === floorNum)) return;
       const floorBaseY = (floorNum - 1) * this.floorHeight;
       const y = floorBaseY + 0.175;
       const westToEast = fromStairId === 'exit_west';
@@ -372,6 +405,11 @@ let fallbackAssignment = false;
         // 1. MUST ROUTE THROUGH ROOM'S PHYSICAL DOORWAY!
         const full3DPath = [];
 
+        // Floor-aware structural debris context: while routing this agent's
+        // corridor path, NavGrid treats the collapse footprint as unwalkable
+        // for THIS floor only (other floors keep full connectivity).
+        if (collapseZones.length && this.navGrid) this.navGrid.routeFloor = agentFloor;
+
         if (agent.roomId) {
           const doorway = getRoomDoorway(agent.roomId);
 
@@ -379,7 +417,20 @@ let fallbackAssignment = false;
           const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
 
           // Path 2: From corridor staging point along central corridor to stairwell/exit entry
-          const pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z);
+          let effectiveStairEntry = stairEntry;
+          let pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
+          if ((!pathInCorridor || pathInCorridor.length === 0) && agentFloor > 1) {
+            const altStairId = stairCoreId === 'exit_west' ? 'exit_east' : 'exit_west';
+            const altStairEntry = this.stairwellEntries[altStairId];
+            if (altStairEntry) {
+              const altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altStairEntry.x, altStairEntry.z);
+              if (altPath && altPath.length > 0) {
+                stairCoreId = altStairId;
+                effectiveStairEntry = altStairEntry;
+                pathInCorridor = altPath;
+              }
+            }
+          }
 
           pathInsideRoom.forEach(pt => {
             full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
@@ -402,6 +453,9 @@ let fallbackAssignment = false;
             full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
           });
         }
+
+        // Clear the transient floor context for the next agent
+        if (collapseZones.length && this.navGrid) this.navGrid.routeFloor = null;
 
         // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
         let exitStairAtGround = stairCoreId;
@@ -475,7 +529,11 @@ let fallbackAssignment = false;
         }
 
         // 3. Step out through Ground Floor Emergency Exit into safety plaza & Muster Zone
-        const actualExitId = (agent.floor > 1 && bestExit.id !== 'exit_south') ? exitStairAtGround : bestExit.id;
+        let actualExitId = (agent.floor > 1 && bestExit.id !== 'exit_south') ? exitStairAtGround : bestExit.id;
+        if (globalBlockedExits.has(actualExitId)) {
+          const safeFallback = ['exit_south', 'exit_east', 'exit_west'].find(eId => !globalBlockedExits.has(eId));
+          if (safeFallback) actualExitId = safeFallback;
+        }
         const actualExit = this.exits.find(e => e.id === actualExitId) || bestExit;
 
         const isWest = actualExit.id === 'exit_west';
@@ -490,10 +548,20 @@ let fallbackAssignment = false;
         const jitterZ = Math.sin(jAngle) * jDist;
 
         if (isWest) {
+          if (agent.floor > 1 && exitStairAtGround === 'exit_east') {
+            full3DPath.push({ x: 26.4, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: -26.4, y: 0.15, z: 0.0 });
+          }
           full3DPath.push({ x: -29.2, y: 0.15, z: 0.0 });
           full3DPath.push({ x: -33.5, y: 0.15, z: 0.0 });
           full3DPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
         } else if (isEast) {
+          if (agent.floor > 1 && exitStairAtGround === 'exit_west') {
+            full3DPath.push({ x: -26.4, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: 26.4, y: 0.15, z: 0.0 });
+          }
           full3DPath.push({ x: 29.2, y: 0.15, z: 0.0 });
           full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
           full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });

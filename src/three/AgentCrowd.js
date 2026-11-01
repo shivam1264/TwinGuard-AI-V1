@@ -527,6 +527,68 @@ export class AgentCrowd {
     this.pathLinesGroup.visible = true;
   }
 
+  rerouteAgents(assignments) {
+    const assignmentMap = new Map();
+    assignments.forEach(a => assignmentMap.set(a.agentId, a));
+
+    this.agents.forEach(agent => {
+      if (agent.state === 'SAFE' || agent.isEvacuated) return;
+
+      const assignment = assignmentMap.get(agent.id);
+      if (!assignment || !assignment.path || assignment.path.length === 0) return;
+
+      if (agent.state === 'IDLE') {
+        this.standUpAgent(agent);
+        agent.path = assignment.path;
+        agent.currentWaypointIdx = 0;
+        agent.state = 'EVACUATING';
+        agent.assignedExitColor = assignment.exitColor;
+      } else if (agent.state === 'EVACUATING') {
+        // Find nearest forward waypoint on same or lower altitude
+        const newPath = assignment.path;
+        let bestIdx = 0;
+        let minDistSq = Infinity;
+        for (let i = 0; i < newPath.length; i++) {
+          const pt = newPath[i];
+          if (pt.y <= agent.y + 0.5) {
+            const dSq = (pt.x - agent.x) ** 2 + (pt.y - agent.y) ** 2 + (pt.z - agent.z) ** 2;
+            if (dSq < minDistSq) {
+              minDistSq = dSq;
+              bestIdx = i;
+            }
+          }
+        }
+        if (bestIdx < newPath.length - 1 && minDistSq < 1.0) {
+          bestIdx++;
+        }
+        agent.path = newPath;
+        agent.currentWaypointIdx = bestIdx;
+        agent.assignedExitColor = assignment.exitColor;
+
+        // ── REROUTE VISUALIZATION: stop & turn toward the new route ──
+        // Detect a major direction reversal (e.g. West Core path invalidated
+        // by structural debris → the agent visibly turns around toward the
+        // alternative East Core B, then resumes — never teleported).
+        const turnTarget = newPath[bestIdx];
+        if (turnTarget && agent.mesh) {
+          const tdx = turnTarget.x - agent.x;
+          const tdz = turnTarget.z - agent.z;
+          if (tdx * tdx + tdz * tdz > 0.04) {
+            const desiredAngle = Math.atan2(tdx, tdz);
+            let angleDiff = desiredAngle - agent.mesh.rotation.y;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            if (Math.abs(angleDiff) > 1.9) {
+              agent.reroutePause = 0.7; // brief halt while turning in place
+              agent.rerouteTurnTarget = desiredAngle;
+              agent.rerouteCount = (agent.rerouteCount || 0) + 1;
+            }
+          }
+        }
+      }
+    });
+  }
+
   _createRouteEntry(agent, path) {
     const points = path.map(p => new THREE.Vector3(p.x, (p.y ?? 0) + 0.12, p.z));
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -645,6 +707,25 @@ export class AgentCrowd {
           const distH_Sq = dx * dx + dz * dz;
           if (distH_Sq > 0.0025) {
             agent.mesh.rotation.y = Math.atan2(dx, dz);
+          }
+
+          if (agent.reroutePause > 0) {
+            agent.reroutePause -= effectiveDelta;
+            if (agent.mesh && agent.rerouteTurnTarget !== undefined) {
+              let turnDiff = agent.rerouteTurnTarget - agent.mesh.rotation.y;
+              while (turnDiff > Math.PI) turnDiff -= Math.PI * 2;
+              while (turnDiff < -Math.PI) turnDiff += Math.PI * 2;
+              agent.mesh.rotation.y += turnDiff * Math.min(1.0, effectiveDelta * 5.5);
+            }
+            agent.leftLeg.rotation.x *= 0.8;
+            agent.rightLeg.rotation.x *= 0.8;
+            agent.leftKnee.rotation.x *= 0.8;
+            agent.rightKnee.rotation.x *= 0.8;
+            agent.leftArm.rotation.x *= 0.8;
+            agent.rightArm.rotation.x *= 0.8;
+            agent.torso.position.y += (0.86 - agent.torso.position.y) * 0.2;
+            agent.headGroup.position.y += (1.48 - agent.headGroup.position.y) * 0.2;
+            continue;
           }
 
           agent.animCycle += effectiveDelta * agent.speed * 5.0;

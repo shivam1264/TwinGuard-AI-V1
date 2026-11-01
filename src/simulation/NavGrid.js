@@ -14,6 +14,13 @@ export class NavGrid {
     this.blockedStatic = [];
     this.hazardCosts = [];
 
+    // ── Structural debris collapse registry (floor-aware dynamic blocks) ──
+    // Cells are NOT written into the shared 2D grid (that would block every
+    // floor); instead isWalkable() consults these boxes whenever a transient
+    // `routeFloor` context is active for the floor currently being routed.
+    this.structuralBoxes = new Map(); // id -> { minX, maxX, minZ, maxZ, floor }
+    this.routeFloor = null; // transient floor context for path queries
+
     this.initGrid();
     this.markBuildingObstacles();
   }
@@ -129,6 +136,23 @@ export class NavGrid {
     this.markDoorWalkable(0, 22.8, 4.0, 2.5);  // South Main Lobby Exit
   }
 
+  clearFireZone(centerX, centerZ, radius = 5.5) {
+    const center = this.worldToGrid(centerX, centerZ);
+    const gridRadius = Math.round(radius / this.cellSize);
+
+    for (let r = Math.max(0, center.r - gridRadius); r <= Math.min(this.rows - 1, center.r + gridRadius); r++) {
+      for (let c = Math.max(0, center.c - gridRadius); c <= Math.min(this.cols - 1, center.c + gridRadius); c++) {
+        const dist = Math.hypot(c - center.c, r - center.r) * this.cellSize;
+        if (dist <= radius) {
+          if (!this.blockedStatic[r][c]) {
+            this.grid[r][c] = 0;
+          }
+          this.hazardCosts[r][c] = 0;
+        }
+      }
+    }
+  }
+
   setFireZone(centerX, centerZ, radius = 5.5) {
     const center = this.worldToGrid(centerX, centerZ);
     const gridRadius = Math.round(radius / this.cellSize);
@@ -224,6 +248,37 @@ export class NavGrid {
 
   isWalkable(c, r) {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return false;
-    return this.grid[r][c] === 0;
+    if (this.grid[r][c] !== 0) return false;
+
+    // Floor-aware structural debris blocking (e.g. Corridor C-101 collapse)
+    if (this.routeFloor !== null && this.routeFloor !== undefined && this.structuralBoxes.size > 0) {
+      const world = this.gridToWorld(c, r);
+      const boxes = this.structuralBoxes.values();
+      for (const box of boxes) {
+        if (box.floor !== null && box.floor !== undefined && box.floor !== this.routeFloor) continue;
+        if (world.x >= box.minX && world.x <= box.maxX && world.z >= box.minZ && world.z <= box.maxZ) {
+          return false; // structural rubble — impassable on this floor
+        }
+      }
+    }
+    return true;
+  }
+
+  /** Floor-scoped dynamic obstacle (structural collapse debris footprint). */
+  markStructuralBlocked(id, box, floor = null) {
+    const b = box && box.bounds ? box.bounds : box;
+    const fl = (box && box.floor !== undefined) ? box.floor : floor;
+    if (!b) return;
+    this.structuralBoxes.set(id, {
+      minX: b.minX !== undefined ? b.minX : -999,
+      maxX: b.maxX !== undefined ? b.maxX : 999,
+      minZ: b.minZ !== undefined ? b.minZ : -999,
+      maxZ: b.maxZ !== undefined ? b.maxZ : 999,
+      floor: fl
+    });
+  }
+
+  unmarkStructuralBlocked(id) {
+    this.structuralBoxes.delete(id);
   }
 }

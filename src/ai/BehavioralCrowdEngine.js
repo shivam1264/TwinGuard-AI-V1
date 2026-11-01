@@ -58,6 +58,12 @@ export class BehavioralCrowdEngine {
     this.doorwayCapacities = new Map(); // roomId -> queue of waiting agentIds
     this.maxDoorThroughput = 1.6; // Max persons per second per door (NFPA standard)
 
+    // ── HVAC PRESSURIZATION FAILURE (multi-hazard state) ──
+    // Doubles the cumulative toxic smoke exposure rate so occupants reach
+    // coughing / hesitation / reduced-speed thresholds twice as fast.
+    this.hvacFailure = false;
+    this.smokeExposureMultiplier = 1.0; // effectiveSmokeRate = base * multiplier
+
     this.telemetry = {
       states: {
         idle: 0,
@@ -73,6 +79,20 @@ export class BehavioralCrowdEngine {
       stairwellCongestion: { coreA: 0, coreB: 0, exitC: 0 },
       bottleneckDoors: []
     };
+  }
+
+  /**
+   * HVAC pressurization failure toggle: the cumulative toxic smoke exposure
+   * rate doubles (exposure is accumulated as rate * dt, so this is a rate
+   * change — not a per-frame multiplication of the cumulative value).
+   */
+  setHvacFailure(active, affectedFloors = null) {
+    const enabled = !!active;
+    if (this.hvacFailure === enabled && !affectedFloors) return enabled; // idempotent (global)
+    this.hvacFailure = enabled;
+    this.hvacFailureFloors = (enabled && Array.isArray(affectedFloors)) ? new Set(affectedFloors) : (enabled ? null : new Set());
+    this.smokeExposureMultiplier = enabled ? 2.0 : 1.0;
+    return enabled;
   }
 
   reset() {
@@ -91,6 +111,10 @@ export class BehavioralCrowdEngine {
 
   // Master Behavioral Step: processes reaction delays, physical repulsions, doorway queues & stairwell friction
   updateCrowdPhysics(agents, delta, simSpeed, fireLocations = [], floorMode = 'ALL') {
+    // Environmental telemetry reflects the live HVAC hazard state
+    this.telemetry.smokeExposureMultiplier = this.smokeExposureMultiplier;
+    this.telemetry.stairwellFans = this.hvacFailure ? 'DISABLED' : 'RUNNING';
+
     if (!agents || agents.length === 0) return { telemetry: this.telemetry, safeCount: 0 };
 
     const effectiveDelta = delta * (simSpeed > 0 ? simSpeed : 0);
@@ -353,7 +377,9 @@ export class BehavioralCrowdEngine {
             const sameLevel = Math.abs(agent.y - fire.y) < 2.5;
 
             if (sameLevel && fDist < 9.0) {
-              const exposureRate = (9.0 - fDist) * 1.5;
+              const _floorAffected = !this.hvacFailureFloors || this.hvacFailureFloors === null || this.hvacFailureFloors.size === 0 || this.hvacFailureFloors.has(Number(agent.floor));
+               const _mult = (this.hvacFailure && _floorAffected) ? this.smokeExposureMultiplier : 1.0;
+               const exposureRate = (9.0 - fDist) * 1.5 * _mult;
               agent.totalRiskExposure = (agent.totalRiskExposure || 0) + exposureRate * effectiveDelta;
               totalExposureThisFrame += exposureRate * effectiveDelta;
             }

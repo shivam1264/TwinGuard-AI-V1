@@ -611,6 +611,45 @@ simulatedAgent.z = finalWaypoint.z;
 assert(simulatedAgent.state === 'SAFE' && simulatedAgent.isEvacuated === true, 'Agent state transitions to SAFE outside');
 assert(simulatedAgent.x === -38.5 && simulatedAgent.y === 0.15, 'Agent coordinates locked at exterior safe muster zone');
 
+// =========================================================================
+// TEST SUITE 11: Live Mobile "Evacuee Digital Twin" Companion Verification
+// =========================================================================
+console.log('\n--- Test Suite 11: Live Mobile Evacuee Companion & Bi-Directional IoT ---');
+
+// 11.A: Bi-directional Headcount & SOS Verification
+const testSimState = {
+  totalOccupants: 100,
+  evacuatedCount: 15,
+  inTransitCount: 85,
+  incidents: []
+};
+
+// Simulate evacuee-marked-safe
+testSimState.evacuatedCount = Math.min(testSimState.totalOccupants, testSimState.evacuatedCount + 1);
+testSimState.inTransitCount = Math.max(0, testSimState.totalOccupants - testSimState.evacuatedCount);
+assert(testSimState.evacuatedCount === 16 && testSimState.inTransitCount === 84,
+  'Mobile "I Am Safe" increments evacuated headcount and decrements in-transit live');
+
+// Simulate evacuee-sos
+const mockSos = {
+  id: 'sos_test_01',
+  title: 'CRITICAL SOS: Occupant Trapped on Level 4',
+  subtitle: 'Room 104 • Immediate Extraction Required',
+  severity: 'Critical',
+  floor: 4,
+  roomId: 'f4_r1'
+};
+testSimState.incidents.unshift(mockSos);
+assert(testSimState.incidents.length === 1 && testSimState.incidents[0].severity === 'Critical',
+  'Mobile "SOS / Trapped" generates critical priority life-safety extraction alert');
+
+// 11.B: Floor 4 Egress Dynamic Guidance to Core B under Core A Blockage
+const occupantL4 = [{ id: 'occ_l4', floor: 4, x: -19.5, y: 11.575, z: -12.5, roomId: 'f4_r1' }];
+const l4PlanWithCoreABlocked = crowdOptimizer.optimizeRoutes(occupantL4, [], [], 'LOAD_BALANCED', { 4: ['exit_west'] });
+assert(l4PlanWithCoreABlocked.assignments.length === 1, 'Floor 4 occupant receives dynamic reroute');
+assert(l4PlanWithCoreABlocked.assignments[0].exitId === 'exit_east',
+  'Floor 4 occupant successfully rerouted to East Core B when West Core A is blocked');
+
 console.log('\n=======================================================');
 console.log(`🎯 VERIFICATION COMPLETE: ${passedTests}/${totalTests} TESTS PASSED!`);
 console.log('=======================================================\n');

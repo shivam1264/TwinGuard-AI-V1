@@ -6,6 +6,7 @@ export class Building3D {
   constructor(scene) {
     this.scene = scene;
     this.group = new THREE.Group();
+    this.group.name = 'HeroBuilding';
     this.scene.add(this.group);
     this.floorHeight = 3.8; // Realistic commercial floor-to-floor height
     this.totalFloors = 10;
@@ -43,6 +44,9 @@ export class Building3D {
     this.layers.facade.add(this.facadeCutawayGroup);
     this.cutawayProgress = 0.0; // 0.0 = Full Exterior (default Appearance), 1.0 = Cutaway (De-appearance)
     this.targetCutawayProgress = 0.0;
+    this.explodeProgress = 0.0; // 0.0 = Solid Stack, 1.0 = Fully Exploded Layered BIM Stack
+    this.targetExplodeProgress = 0.0;
+    this.explodeGap = 6.5; // Gap between exploded floor layers (meters)
     this.hvacFans = []; // For subtle mechanical rotation in update()
     this.stairCoreMeshes = []; // For dual-mode exterior vs inspection toggling
     // === High-Performance Shared Architectural Materials (PBR) ===
@@ -2359,23 +2363,28 @@ export class Building3D {
       if (this.glassExteriorMat) this.glassExteriorMat.opacity = 0.72;
     }
   }
-    setFloorMode(mode) {
+  setFloorMode(mode) {
     this.floorMode = mode;
     const isGlobal = (mode === 'ALL' || mode === 'EXPLODED');
+    const isExploded = (mode === 'EXPLODED');
     const targetFloor = isGlobal ? null : parseInt(mode, 10);
+
+    this.targetExplodeProgress = isExploded ? 1.0 : 0.0;
+
     // Floor groups: visible per target floor
     for (let f = 1; f <= this.totalFloors; f++) {
       const group = this.floorGroups[f];
-      group.position.y = 0;
-      if (isGlobal) {
-        group.visible = true;
-      } else {
-        group.visible = (f === targetFloor);
+      if (group) {
+        if (isGlobal) {
+          group.visible = true;
+        } else {
+          group.visible = (f === targetFloor);
+        }
       }
     }
+
     // Continuous Vertical Circulation: Stairs
     if (this.stairsGroup) {
-      this.stairsGroup.position.y = 0;
       this.stairsGroup.visible = true;
       this.stairsGroup.children.forEach(child => {
         if (isGlobal) {
@@ -2385,9 +2394,9 @@ export class Building3D {
         }
       });
     }
+
     // Continuous Vertical Core: Elevator Bank
     if (this.elevatorGroup) {
-      this.elevatorGroup.position.y = 0;
       this.elevatorGroup.visible = true;
       this.elevatorGroup.children.forEach(child => {
         if (child.userData && child.userData.floor !== undefined) {
@@ -2407,9 +2416,9 @@ export class Building3D {
         }
       });
     }
+
     // Continuous Structural Framework: Concrete Columns & Corner Piers
     if (this.layers.structure) {
-      this.layers.structure.position.y = 0;
       this.layers.structure.visible = true;
       this.layers.structure.children.forEach(child => {
         if (isGlobal) {
@@ -2419,11 +2428,12 @@ export class Building3D {
         }
       });
     }
+
     // Roof & Helipad: Visible in ALL, EXPLODED, or Level 10
     if (this.roofGroup) {
-      this.roofGroup.position.y = 0;
       this.roofGroup.visible = isGlobal || (targetFloor === this.totalFloors);
     }
+
     // Exterior Envelope Facade
     if (this.facadeCutawayGroup) {
       if (mode === 'EXPLODED') {
@@ -2432,7 +2442,6 @@ export class Building3D {
       const isShowingFacade = (this.facadeMode === 'FULL' || this.facadeMode === 'TRANSPARENT');
       this.facadeCutawayGroup.children.forEach(sub => {
         const fl = (sub.userData && sub.userData.floor !== undefined) ? sub.userData.floor : 1;
-        sub.position.y = 0;
         if (isGlobal) {
           sub.visible = isShowingFacade;
         } else {
@@ -2440,7 +2449,63 @@ export class Building3D {
         }
       });
     }
+
+    // Immediately apply offsets for responsive interaction
+    this.applyExplodeOffset(this.targetExplodeProgress);
   }
+
+  applyExplodeOffset(progress) {
+    this.explodeProgress = progress;
+    const gap = this.explodeGap * progress;
+
+    // 1. Move each floor group (slab, rooms, interior walls, furnishings, lights)
+    for (let f = 1; f <= this.totalFloors; f++) {
+      const group = this.floorGroups[f];
+      if (group) {
+        group.position.y = (f - 1) * gap;
+      }
+    }
+
+    // 2. Move roof and helipad
+    if (this.roofGroup) {
+      this.roofGroup.position.y = this.totalFloors * gap;
+    }
+
+    // 3. Move structural columns per floor
+    if (this.layers.structure) {
+      this.layers.structure.children.forEach(child => {
+        const fl = (child.userData && child.userData.floor !== undefined) ? child.userData.floor : 1;
+        child.position.y = (fl - 1) * gap;
+      });
+    }
+
+    // 4. Move stairs per floor
+    if (this.stairsGroup) {
+      this.stairsGroup.children.forEach(child => {
+        const fl = (child.userData && child.userData.floor !== undefined) ? child.userData.floor : 1;
+        child.position.y = (fl - 1) * gap;
+      });
+    }
+
+    // 5. Move elevator shafts per floor
+    if (this.elevatorGroup) {
+      this.elevatorGroup.children.forEach(child => {
+        if (child.userData && child.userData.floor !== undefined) {
+          const fl = child.userData.floor;
+          child.position.y = (fl - 1) * gap;
+        }
+      });
+    }
+
+    // 6. Move facade pieces per floor
+    if (this.facadeCutawayGroup) {
+      this.facadeCutawayGroup.children.forEach(sub => {
+        const fl = (sub.userData && sub.userData.floor !== undefined) ? sub.userData.floor : 1;
+        sub.position.y = (fl - 1) * gap;
+      });
+    }
+  }
+
   update(delta) {
     // Smooth Animated Cutaway Fade Transition
     if (this.cutawayProgress !== this.targetCutawayProgress) {
@@ -2451,6 +2516,17 @@ export class Building3D {
         this.cutawayProgress = Math.max(this.targetCutawayProgress, this.cutawayProgress - step);
       }
       this.applyCutawayTransition(this.cutawayProgress);
+    }
+
+    // Smooth Animated Floor Stack Explosion Transition
+    if (this.explodeProgress !== this.targetExplodeProgress) {
+      const step = delta * 3.5;
+      if (this.targetExplodeProgress > this.explodeProgress) {
+        this.explodeProgress = Math.min(this.targetExplodeProgress, this.explodeProgress + step);
+      } else {
+        this.explodeProgress = Math.max(this.targetExplodeProgress, this.explodeProgress - step);
+      }
+      this.applyExplodeOffset(this.explodeProgress);
     }
     if (this.elevatorCars && this.elevatorCars.length > 0) {
       this.elevatorCars.forEach(car => {
@@ -2694,5 +2770,62 @@ export class Building3D {
     mapMesh(buckets.wallTvScreensCyan, this.wallTvScreenGeo, this.screenDisplayCyanMat);
     mapMesh(buckets.wallTvScreensOrange, this.wallTvScreenGeo, this.screenDisplayOrangeMat);
     mapMesh(buckets.whiteboards, this.wallTvFrameGeo, this.whiteboardMat);
+  }
+
+  setZonePowerOff(floorNum, bounds, isOff) {
+    if (!this.blackoutOverlays) this.blackoutOverlays = new Map();
+    const key = `${floorNum}_${bounds ? `${bounds.minX.toFixed(1)}_${bounds.maxX.toFixed(1)}_${bounds.minZ.toFixed(1)}_${bounds.maxZ.toFixed(1)}` : 'all'}`;
+
+    if (isOff) {
+      if (this.blackoutOverlays.has(key)) return;
+      const b = bounds || { minX: -28, maxX: 28, minZ: -22, maxZ: 22 };
+      const w = Math.max(2.0, b.maxX - b.minX);
+      const d = Math.max(2.0, b.maxZ - b.minZ);
+      const h = 3.35;
+      const baseY = (floorNum - 1) * this.floorHeight;
+
+      const group = new THREE.Group();
+      group.name = `BlackoutOverlay_${key}`;
+
+      const darkMat = new THREE.MeshBasicMaterial({
+        color: 0x050811,
+        transparent: true,
+        opacity: 0.86,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), darkMat);
+      boxMesh.position.set((b.minX + b.maxX) / 2, baseY + 0.18 + h / 2, (b.minZ + b.maxZ) / 2);
+      group.add(boxMesh);
+
+      const ledGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.06, 12);
+      const ledMat = new THREE.MeshBasicMaterial({ color: 0xff1e1e });
+      const ledMesh = new THREE.Mesh(ledGeo, ledMat);
+      ledMesh.position.set((b.minX + b.maxX) / 2, baseY + 3.45, (b.minZ + b.maxZ) / 2);
+      group.add(ledMesh);
+
+      const light = new THREE.PointLight(0xff1e1e, 1.4, Math.max(6.0, Math.max(w, d) * 0.9), 2.0);
+      light.position.set((b.minX + b.maxX) / 2, baseY + 3.25, (b.minZ + b.maxZ) / 2);
+      group.add(light);
+      group.userData.pulseLight = light;
+
+      this.scene.add(group);
+      this.blackoutOverlays.set(key, group);
+    } else {
+      const g = this.blackoutOverlays.get(key);
+      if (g) {
+        if (g.parent) g.parent.remove(g);
+        this.blackoutOverlays.delete(key);
+      }
+    }
+  }
+
+  updateZonePowerAnimations(time) {
+    if (!this.blackoutOverlays || this.blackoutOverlays.size === 0) return;
+    this.blackoutOverlays.forEach((group) => {
+      if (group.userData && group.userData.pulseLight) {
+        group.userData.pulseLight.intensity = 1.2 + 0.6 * Math.sin(time * 3.2);
+      }
+    });
   }
 }

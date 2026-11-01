@@ -1,13 +1,22 @@
 import React from 'react';
 import {
   ZoomIn,
+  ZoomOut,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   RotateCcw,
   Layers,
   Crosshair,
-  Maximize2
+  Maximize2,
+  Building,
+  Info
 } from 'lucide-react';
 
+
 export const ViewportOverlay = ({
+  theme = 'dark',
   facadeMode = 'FULL',
   onSetFacadeMode,
   activeFloorView = 'ALL',
@@ -15,10 +24,20 @@ export const ViewportOverlay = ({
   cameraYaw = 0,
   onZoomIn,
   onZoomOut,
+  onPanLeft,
+  onPanRight,
+  onMoveForward,
+  onMoveBackward,
   onResetView,
   onToggleExploded,
-  rooms = []
+  onOpenBuildingInfo,
+  onToggleFullscreen,
+  rooms = [],
+  sceneManager = null,
+  onHazardEvent = null
 }) => {
+  const isDark = theme === 'dark';
+  // L1 to L10 in ascending natural sequence for horizontal layout (or reverse if desired)
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
   // Check which floors have active fires
@@ -28,102 +47,134 @@ export const ViewportOverlay = ({
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none z-10 p-5 select-none"
+      className="absolute inset-0 pointer-events-none z-10 p-4 sm:p-5 select-none"
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
-      {/* ── Top-Left: View Mode Selector Pills & Compass Rose ── */}
-      <div className="absolute top-5 left-5 flex flex-col pointer-events-auto" style={{ gap: '12px' }}>
-        {/* Pills: [Exterior] [Interior] [Top View] */}
+      {/* ── Top-Left: View Mode Selector Pills & Compass Rose (Matching Image 2) ── */}
+      <div className="absolute top-4 left-4 flex flex-col pointer-events-auto gap-3">
+        {/* Pills: [Exterior] [Interior] [Top View] [Exploded] */}
         <div
-          className="flex items-center"
+          className="flex items-center backdrop-blur-md p-1 rounded-xl gap-1 transition-colors"
           style={{
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '12px',
-            padding: '3px',
-            gap: '2px',
-            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+            background: isDark ? 'rgba(11, 22, 44, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.5)' : '0 4px 16px rgba(0, 0, 0, 0.08)'
           }}
         >
+          {/* 1. Exterior Mode */}
           <button
-            onClick={() => onSetFacadeMode('FULL')}
-            className="cursor-pointer transition-all"
+            onClick={() => {
+              onSetFacadeMode('FULL');
+              if (activeFloorView === 'EXPLODED') {
+                onSelectFloor('ALL');
+              }
+              onResetView('HERO_VIEW');
+            }}
+            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
-              padding: '6px 14px',
-              borderRadius: '9px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              background: facadeMode === 'FULL' ? '#2563eb' : 'transparent',
-              color: facadeMode === 'FULL' ? '#ffffff' : '#64748b',
-              border: 'none',
-              boxShadow: facadeMode === 'FULL' ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
+              background: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+                ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+                ? '#ffffff'
+                : (isDark ? '#94a3b8' : '#475569'),
+              boxShadow: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+                ? '0 0 10px rgba(37, 99, 235, 0.6)'
+                : 'none'
             }}
           >
             Exterior
           </button>
 
+          {/* 2. Interior Mode */}
           <button
-            onClick={() => onSetFacadeMode('CUTAWAY')}
-            className="cursor-pointer transition-all"
+            onClick={() => {
+              onSetFacadeMode('CUTAWAY');
+              if (activeFloorView === 'EXPLODED') {
+                onSelectFloor('ALL');
+              }
+              onResetView('CUTAWAY_VIEW');
+            }}
+            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
-              padding: '6px 14px',
-              borderRadius: '9px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              background: facadeMode === 'CUTAWAY' ? '#2563eb' : 'transparent',
-              color: facadeMode === 'CUTAWAY' ? '#ffffff' : '#64748b',
-              border: 'none',
-              boxShadow: facadeMode === 'CUTAWAY' ? '0 2px 6px -1px rgba(37, 99, 235, 0.4)' : 'none',
+              background: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+                ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+                ? '#ffffff'
+                : (isDark ? '#94a3b8' : '#475569'),
+              boxShadow: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+                ? '0 0 10px rgba(37, 99, 235, 0.6)'
+                : 'none'
             }}
           >
             Interior
           </button>
 
+          {/* 3. Top View Mode */}
           <button
-            onClick={() => onResetView('TOP_DOWN')}
-            className="cursor-pointer transition-all"
-            style={{
-              padding: '6px 14px',
-              borderRadius: '9px',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              background: 'transparent',
-              color: '#64748b',
-              border: 'none',
+            onClick={() => {
+              onSetFacadeMode('CUTAWAY');
+              onResetView('TOP_DOWN');
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#2563eb'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = '#64748b'; }}
+            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
+            style={{
+              background: 'transparent',
+              color: isDark ? '#94a3b8' : '#475569'
+            }}
           >
             Top View
           </button>
+
+          {/* 4. Exploded BIM Mode */}
+          <button
+            onClick={() => {
+              onSetFacadeMode('CUTAWAY');
+              onToggleExploded();
+            }}
+            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
+            style={{
+              background: activeFloorView === 'EXPLODED'
+                ? 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)'
+                : 'transparent',
+              color: activeFloorView === 'EXPLODED'
+                ? '#ffffff'
+                : (isDark ? '#94a3b8' : '#475569'),
+              boxShadow: activeFloorView === 'EXPLODED'
+                ? '0 0 10px rgba(20, 184, 166, 0.6)'
+                : 'none'
+            }}
+          >
+            Exploded
+          </button>
         </div>
 
-        {/* Dynamic Compass Rose */}
+        {/* Dynamic Compass Rose (Matching Image 2) */}
         <div
-          className="flex items-center justify-center relative cursor-pointer transition-transform"
+          className="flex items-center justify-center relative cursor-pointer transition-transform backdrop-blur-md"
           style={{
             width: '46px',
             height: '46px',
             borderRadius: '50%',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+            background: 'rgba(11, 22, 44, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)'
           }}
           onClick={() => onResetView('HERO_VIEW')}
           title="Reset Camera Orientation to North"
         >
           {/* Compass Dial Cardinal Points */}
-          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: '#2563eb' }}>N</span>
-          <span style={{ position: 'absolute', bottom: '3px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>S</span>
-          <span style={{ position: 'absolute', left: '4px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>W</span>
-          <span style={{ position: 'absolute', right: '4px', fontSize: '7px', fontWeight: 700, color: '#94a3b8' }}>E</span>
+          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: '#38bdf8' }}>N</span>
+          <span style={{ position: 'absolute', bottom: '3px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>S</span>
+          <span style={{ position: 'absolute', left: '4px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>W</span>
+          <span style={{ position: 'absolute', right: '4px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>E</span>
 
           {/* Rotating Compass Needle */}
           <div
             className="w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
             style={{ transform: `rotate(${-cameraYaw}deg)` }}
           >
-            <div style={{ width: '2px', height: '22px', background: 'linear-gradient(to top, #cbd5e1, #2563eb)', borderRadius: '999px', position: 'relative' }}>
+            <div style={{ width: '2px', height: '22px', background: 'linear-gradient(to top, #475569, #38bdf8)', borderRadius: '999px', position: 'relative' }}>
               <div
                 style={{
                   position: 'absolute',
@@ -133,7 +184,7 @@ export const ViewportOverlay = ({
                   height: 0,
                   borderLeft: '4px solid transparent',
                   borderRight: '4px solid transparent',
-                  borderBottom: '7px solid #2563eb',
+                  borderBottom: '7px solid #38bdf8'
                 }}
               />
             </div>
@@ -141,146 +192,209 @@ export const ViewportOverlay = ({
         </div>
       </div>
 
-      {/* ── Right Side: Floating Vertical Level Stack [Layers] [L10]..[L1] ── */}
-      <div className="absolute top-1/2 -translate-y-1/2 right-5 flex flex-col pointer-events-auto" style={{ gap: '4px' }}>
-        {/* Top Layers Icon Pill */}
+      {/* ── Bottom-Left: Floating Building Metadata Card (Shifted to Bottom) ── */}
+      <div
+        className="absolute bottom-4 left-4 hidden sm:flex flex-col p-3 rounded-2xl backdrop-blur-md gap-2 w-48 pointer-events-auto"
+        style={{
+          background: 'rgba(11, 22, 44, 0.85)',
+          border: '1px solid rgba(56, 189, 248, 0.25)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)'
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400">
+            <Building className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-white">10-Storey Tower</div>
+            <div className="text-[9.5px] text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              Digital Twin (Live)
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1 text-[10.5px] text-slate-300 font-mono pt-1 border-t border-sky-500/15">
+          <div className="flex justify-between">
+            <span className="text-slate-400">Floors</span>
+            <span className="font-bold text-white">10</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">Rooms</span>
+            <span className="font-bold text-white">100</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">Gross Area</span>
+            <span className="font-bold text-white">25,400 m²</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-400">Occupancy</span>
+            <span className="font-bold text-white">190</span>
+          </div>
+        </div>
+
+        {onOpenBuildingInfo && (
+          <button
+            onClick={onOpenBuildingInfo}
+            className="text-[10.5px] font-bold text-sky-400 hover:text-sky-300 text-left pt-1 flex items-center gap-1 cursor-pointer"
+          >
+            <span>View Building Info</span>
+            <span>→</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Left-Side: Vertical Floor Stack Selector [Exploded] [L10..L1] [ALL] (Transferred to Left) ── */}
+      <div className={`absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto z-10 gap-1 backdrop-blur-md px-1.5 py-2 rounded-2xl border shadow-2xl transition-colors ${
+        isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
+      }`}>
+        {/* Exploded BIM Stack Pill at top */}
         <button
           onClick={onToggleExploded}
-          className="flex items-center justify-center cursor-pointer transition-all shadow-sm"
+          className="flex items-center justify-center cursor-pointer transition-all shadow-sm w-7 h-7 rounded-lg mb-1"
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '10px',
-            background: activeFloorView === 'EXPLODED' ? '#2563eb' : '#ffffff',
-            color: activeFloorView === 'EXPLODED' ? '#ffffff' : '#64748b',
-            border: '1px solid #e2e8f0',
-            marginBottom: '2px',
+            background: activeFloorView === 'EXPLODED' ? '#2563eb' : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9'),
+            color: activeFloorView === 'EXPLODED' ? '#ffffff' : (isDark ? '#38bdf8' : '#0284c7'),
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #cbd5e1'
           }}
           title="Toggle Exploded BIM Stack"
         >
           <Layers style={{ width: '14px', height: '14px' }} />
         </button>
 
-        {/* Level Badges L10 to L1 */}
+        {/* Vertical Floor Buttons: L10 down to L1 */}
         {floorsList.map((fl) => {
-          const isSelected = activeFloorView === String(fl);
-          const hasFire = floorHasFire(fl);
+          const isSelected = activeFloorView === fl;
+          const isFire = floorHasFire(fl);
 
           return (
             <button
               key={fl}
-              onClick={() => onSelectFloor(isSelected ? 'ALL' : String(fl))}
-              className="flex items-center justify-center relative cursor-pointer transition-all shadow-sm"
+              onClick={() => onSelectFloor(fl)}
+              className="flex items-center justify-center relative cursor-pointer transition-all w-7 h-6 rounded-md"
               style={{
-                width: '32px',
-                height: '28px',
-                borderRadius: '8px',
-                background: isSelected ? '#2563eb' : '#ffffff',
-                color: isSelected ? '#ffffff' : '#475569',
-                border: isSelected ? 'none' : '1px solid #e2e8f0',
-                fontSize: '11px',
-                fontWeight: isSelected ? 800 : 700,
+                fontSize: '10px',
+                fontWeight: isSelected ? 900 : 700,
                 fontFamily: 'monospace',
-                boxShadow: isSelected ? '0 2px 8px -1px rgba(37, 99, 235, 0.4)' : '0 1px 2px rgba(0,0,0,0.03)',
+                background: isSelected
+                  ? '#2563eb'
+                  : isFire
+                  ? 'rgba(239, 68, 68, 0.25)'
+                  : 'transparent',
+                color: isSelected
+                  ? '#ffffff'
+                  : isFire
+                  ? '#ef4444'
+                  : (isDark ? '#94a3b8' : '#475569'),
+                border: isSelected
+                  ? '1px solid #60a5fa'
+                  : isFire
+                  ? '1px solid rgba(239, 68, 68, 0.6)'
+                  : '1px solid transparent',
+                boxShadow: isSelected ? '0 0 10px rgba(37, 99, 235, 0.6)' : 'none'
               }}
-              title={`Level ${fl}${hasFire ? ' (Fire Incident)' : ''}`}
+              title={`Isolate Level ${fl}`}
             >
               L{fl}
-              {hasFire && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: '-2px',
-                    right: '-2px',
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: '#ef4444',
-                    border: '1.5px solid #ffffff',
-                  }}
-                />
+              {isFire && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-ping" />
               )}
             </button>
           );
         })}
+
+        {/* ALL Floors Pill at bottom */}
+        <button
+          onClick={() => onSelectFloor('ALL')}
+          className="flex items-center justify-center cursor-pointer transition-all w-7 h-6 rounded-md text-[9px] font-black tracking-wider mt-1"
+          style={{
+            background: activeFloorView === 'ALL'
+              ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+              : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9'),
+            color: activeFloorView === 'ALL'
+              ? '#ffffff'
+              : (isDark ? '#94a3b8' : '#475569'),
+            border: activeFloorView === 'ALL'
+              ? '1px solid #60a5fa'
+              : (isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1'),
+            boxShadow: activeFloorView === 'ALL' ? '0 0 10px rgba(37, 99, 235, 0.6)' : 'none'
+          }}
+          title="View All Floors (Full Building)"
+        >
+          ALL
+        </button>
       </div>
 
-      {/* ── Bottom-Right: Viewport Mini Tool Dock ── */}
-      <div
-        className="absolute bottom-5 right-5 flex items-center pointer-events-auto"
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: '12px',
-          padding: '4px',
-          gap: '3px',
-          boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
-        }}
-      >
+      {/* ── Bottom-Right: Viewport Navigation [Zoom In, Zoom Out, Left, Right, Forward, Back] ── */}
+      <div className={`absolute bottom-4 right-4 flex items-center pointer-events-auto gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-2xl transition-colors ${
+        isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
+      }`}>
+        {/* Zoom In */}
         <button
           onClick={onZoomIn}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Zoom In"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
         >
-          <ZoomIn style={{ width: '15px', height: '15px' }} />
+          <ZoomIn className={`w-4 h-4 ${isDark ? 'text-sky-400' : 'text-blue-600'}`} />
         </button>
 
+        {/* Zoom Out */}
         <button
-          onClick={() => onResetView('HERO_VIEW')}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
-          title="Target / Center View"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+          onClick={onZoomOut}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Zoom Out"
         >
-          <Crosshair style={{ width: '15px', height: '15px' }} />
+          <ZoomOut className={`w-4 h-4 ${isDark ? 'text-sky-400' : 'text-blue-600'}`} />
         </button>
 
+        <div className={`w-px h-5 mx-1 ${isDark ? 'bg-sky-500/20' : 'bg-slate-200'}`} />
+
+        {/* Left */}
         <button
-          onClick={() => onResetView('DEFAULT')}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
-          title="Reset View"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+          onClick={onPanLeft}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Move Left"
         >
-          <RotateCcw style={{ width: '14px', height: '14px' }} />
+          <ArrowLeft className="w-4 h-4" />
         </button>
 
+        {/* Right */}
         <button
-          onClick={onToggleExploded}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: activeFloorView === 'EXPLODED' ? '#eff6ff' : 'transparent',
-            color: activeFloorView === 'EXPLODED' ? '#2563eb' : '#475569',
-            border: 'none',
-          }}
-          title="Toggle Exploded BIM View"
+          onClick={onPanRight}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Move Right"
         >
-          <Layers style={{ width: '15px', height: '15px' }} />
+          <ArrowRight className="w-4 h-4" />
         </button>
 
+        {/* Forward */}
         <button
-          onClick={() => {
-            if (!document.fullscreenElement) {
-              document.documentElement.requestFullscreen().catch(() => {});
-            } else {
-              document.exitFullscreen().catch(() => {});
-            }
-          }}
-          className="cursor-pointer transition-colors flex items-center justify-center"
-          style={{ width: '32px', height: '32px', borderRadius: '8px', color: '#475569', background: 'transparent', border: 'none' }}
-          title="Fullscreen View"
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.color = '#2563eb'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#475569'; }}
+          onClick={onMoveForward}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Move Forward"
         >
-          <Maximize2 style={{ width: '14px', height: '14px' }} />
+          <ArrowUp className="w-4 h-4" />
+        </button>
+
+        {/* Back / Backward */}
+        <button
+          onClick={onMoveBackward}
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Move Back"
+        >
+          <ArrowDown className="w-4 h-4" />
         </button>
       </div>
     </div>

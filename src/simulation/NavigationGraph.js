@@ -64,6 +64,7 @@ export class NavigationGraph {
     const capacity = width * 1.3; // Persons/sec (SFPE egress capacity model)
 
     const fullEdge = {
+      ...edge,
       id: edge.id,
       from: edge.from,
       to: edge.to,
@@ -399,6 +400,101 @@ export class NavigationGraph {
     const musterAlphaNode = this.nodes.get(musterAlphaId);
     const musterBravoNode = this.nodes.get(musterBravoId);
 
+    // Step 5.1 Indoor <-> Outdoor Graph Boundary Nodes & Edges
+    const pnodeWestId = 'campus_pnode_hero_west';
+    const pnodeEastId = 'campus_pnode_hero_east';
+    const pnodeSouthId = 'campus_pnode_hero_south';
+
+    this.addNode({
+      id: pnodeWestId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero West)',
+      pos: { x: -32.0, y: 0.15, z: 0.0 }
+    });
+
+    this.addNode({
+      id: pnodeEastId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero East)',
+      pos: { x: 32.0, y: 0.15, z: 0.0 }
+    });
+
+    this.addNode({
+      id: pnodeSouthId,
+      type: NODE_TYPES.CORRIDOR,
+      floor: 0,
+      name: 'Campus Pedestrian Portal (Hero South Grand Plaza)',
+      pos: { x: 0.0, y: 0.15, z: 28.0 }
+    });
+
+    const pnodeWest = this.nodes.get(pnodeWestId);
+    const pnodeEast = this.nodes.get(pnodeEastId);
+    const pnodeSouth = this.nodes.get(pnodeSouthId);
+
+    // Connect Ground Exits to Boundary Pedestrian Nodes
+    this.addEdge({
+      id: 'edge_exit_a_to_pnode_west',
+      from: exitANodeId,
+      to: pnodeWestId,
+      fromPos: exitANode.pos,
+      toPos: pnodeWest.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 4.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_exit_b_to_pnode_east',
+      from: exitBNodeId,
+      to: pnodeEastId,
+      fromPos: exitBNode.pos,
+      toPos: pnodeEast.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 4.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_exit_c_to_pnode_south',
+      from: exitCNodeId,
+      to: pnodeSouthId,
+      fromPos: exitCNode.pos,
+      toPos: pnodeSouth.pos,
+      floor: 0,
+      type: EDGE_TYPES.GROUND_EXIT_PORTAL,
+      width: 5.0,
+      isBidirectional: true
+    });
+
+    // Connect Boundary Nodes to Muster Zones
+    this.addEdge({
+      id: 'edge_pnode_south_to_muster_alpha',
+      from: pnodeSouthId,
+      to: musterAlphaId,
+      fromPos: pnodeSouth.pos,
+      toPos: musterAlphaNode.pos,
+      floor: 0,
+      type: EDGE_TYPES.SAFE_ZONE_PATH,
+      width: 6.0,
+      isBidirectional: true
+    });
+
+    this.addEdge({
+      id: 'edge_pnode_west_to_muster_bravo',
+      from: pnodeWestId,
+      to: musterBravoId,
+      fromPos: pnodeWest.pos,
+      toPos: musterBravoNode.pos,
+      floor: 0,
+      type: EDGE_TYPES.SAFE_ZONE_PATH,
+      width: 4.0,
+      isBidirectional: true
+    });
+
     // Exit C -> Muster Alpha
     this.addEdge({
       id: 'edge_exit_c_to_muster_alpha',
@@ -497,6 +593,129 @@ export class NavigationGraph {
         edgeCorrToStairRev.hazardLevel = 1.0;
       }
     }
+  }
+
+  unblockStairwell(coreName, floorNum = null) {
+    const isWest = coreName.toLowerCase().includes('west') || coreName.toLowerCase().includes('a');
+    const side = isWest ? 'west' : 'east';
+    const prefix = isWest ? 'edge_stair_west' : 'edge_stair_east';
+
+    this.edges.forEach((edge, id) => {
+      if (id.startsWith(prefix)) {
+        if (!floorNum || edge.floor === floorNum) {
+          edge.status = EDGE_STATUS.OPEN;
+          edge.hazardLevel = 0.0;
+        }
+      }
+    });
+
+    if (floorNum) {
+      if (floorNum < this.floorCount) {
+        const edgeIntoFloor = this.edges.get(`edge_stair_${side}_f${floorNum + 1}_to_f${floorNum}`);
+        if (edgeIntoFloor) {
+          edgeIntoFloor.status = EDGE_STATUS.OPEN;
+          edgeIntoFloor.hazardLevel = 0.0;
+        }
+      }
+      const edgeCorrToStair = this.edges.get(`edge_f${floorNum}_corr_to_${side}_stair`);
+      if (edgeCorrToStair) {
+        edgeCorrToStair.status = EDGE_STATUS.OPEN;
+        edgeCorrToStair.hazardLevel = 0.0;
+      }
+      const edgeCorrToStairRev = this.edges.get(`edge_f${floorNum}_corr_to_${side}_stair_rev`);
+      if (edgeCorrToStairRev) {
+        edgeCorrToStairRev.status = EDGE_STATUS.OPEN;
+        edgeCorrToStairRev.hazardLevel = 0.0;
+      }
+    }
+  }
+
+  unblockExit(exitId) {
+    const id = String(exitId).toLowerCase();
+    const isWest = id.includes('west') || id.includes('a');
+    const isEast = id.includes('east') || id.includes('b');
+    const targetNode = isWest ? 'node_exit_a_west' : (isEast ? 'node_exit_b_east' : 'node_exit_c_south');
+    this.edges.forEach((edge) => {
+      if (edge.from === targetNode || edge.to === targetNode) {
+        edge.status = EDGE_STATUS.OPEN;
+        edge.hazardLevel = 0.0;
+      }
+    });
+  }
+
+  unblockRoom(roomId) {
+    this.edges.forEach((edge) => {
+      if ((edge.from && edge.from.includes(roomId)) || (edge.to && edge.to.includes(roomId))) {
+        edge.status = EDGE_STATUS.OPEN;
+        edge.hazardLevel = 0.0;
+      }
+    });
+  }
+
+  unblockCorridor(floorNum, bounds = null) {
+    this.edges.forEach((edge) => {
+      if (edge.floor === floorNum && (edge.type === EDGE_TYPES.CORRIDOR_SEGMENT || edge.type === EDGE_TYPES.CORRIDOR_TO_STAIR)) {
+        if (!bounds) {
+          edge.status = EDGE_STATUS.OPEN;
+          edge.hazardLevel = 0.0;
+        } else {
+          const fromNode = this.nodes.get(edge.from);
+          const toNode = this.nodes.get(edge.to);
+          if (fromNode && toNode) {
+            const midX = (fromNode.pos.x + toNode.pos.x) / 2;
+            const midZ = (fromNode.pos.z + toNode.pos.z) / 2;
+            if (midX >= bounds.minX - 2.0 && midX <= bounds.maxX + 2.0 && midZ >= bounds.minZ - 2.0 && midZ <= bounds.maxZ + 2.0) {
+              edge.status = EDGE_STATUS.OPEN;
+              edge.hazardLevel = 0.0;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  blockExit(exitId) {
+    const id = String(exitId).toLowerCase();
+    const isWest = id.includes("west") || id.includes("a");
+    const isEast = id.includes("east") || id.includes("b");
+    const targetNode = isWest ? "node_exit_a_west" : (isEast ? "node_exit_b_east" : "node_exit_c_south");
+    this.edges.forEach((edge) => {
+      if (edge.from === targetNode || edge.to === targetNode) {
+        edge.status = EDGE_STATUS.BLOCKED;
+        edge.hazardLevel = 1.0;
+      }
+    });
+  }
+
+  blockRoom(roomId) {
+    this.edges.forEach((edge) => {
+      if ((edge.from && edge.from.includes(roomId)) || (edge.to && edge.to.includes(roomId))) {
+        edge.status = EDGE_STATUS.BLOCKED;
+        edge.hazardLevel = 1.0;
+      }
+    });
+  }
+
+  blockCorridor(floorNum, bounds = null) {
+    this.edges.forEach((edge) => {
+      if (edge.floor === floorNum && (edge.type === EDGE_TYPES.CORRIDOR_SEGMENT || edge.type === EDGE_TYPES.CORRIDOR_TO_STAIR)) {
+        if (!bounds) {
+          edge.status = EDGE_STATUS.BLOCKED;
+          edge.hazardLevel = 1.0;
+        } else {
+          const fromNode = this.nodes.get(edge.from);
+          const toNode = this.nodes.get(edge.to);
+          if (fromNode && toNode) {
+            const midX = (fromNode.pos.x + toNode.pos.x) / 2;
+            const midZ = (fromNode.pos.z + toNode.pos.z) / 2;
+            if (midX >= bounds.minX && midX <= bounds.maxX && midZ >= bounds.minZ && midZ <= bounds.maxZ) {
+              edge.status = EDGE_STATUS.BLOCKED;
+              edge.hazardLevel = 1.0;
+            }
+          }
+        }
+      }
+    });
   }
 
   setHazardInZone(centerX, centerY, centerZ, radiusMeters, hazardLevel = 0.8) {
