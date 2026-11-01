@@ -354,9 +354,9 @@ export function App() {
           if (
             prev.isActive === em.isActive &&
             prev.isArrived === em.isArrived &&
-            prev.pct === em.pct &&
-            Math.floor(prev.remainingSec || 0) === Math.floor(em.remainingSec || 0) &&
-            prev.isSirenMuted === em.isSirenMuted &&
+            prev.progress === em.progress &&
+            Math.floor(prev.etaSeconds || 0) === Math.floor(em.etaSeconds || 0) &&
+            prev.phase === em.phase &&
             prev.targetGate?.id === em.targetGate?.id
           ) {
             return prev;
