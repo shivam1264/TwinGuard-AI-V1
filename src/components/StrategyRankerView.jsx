@@ -15,7 +15,7 @@ import {
   Maximize2
 } from 'lucide-react';
 
-export const StrategyRankerView = ({
+const StrategyRankerViewComponent = ({
   theme = 'dark',
   scenario,
   rooms = [],
@@ -116,7 +116,7 @@ export const StrategyRankerView = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white leading-tight">
+              <h2 className={`text-lg font-black leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                 AI Multi-Strategy Simulation & Decision Ranker
               </h2>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
@@ -146,11 +146,11 @@ export const StrategyRankerView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-3"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
-            <div className="text-xs font-bold text-white">
+            <div className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
               Simulation Context
               <span className="block text-[11px] text-slate-400 font-normal">
                 Scenario and evaluation parameters
@@ -159,7 +159,7 @@ export const StrategyRankerView = ({
 
             <div className="flex flex-col gap-1 text-xs">
               <label className="text-slate-400 text-[11px] font-semibold">Active Scenario</label>
-              <div className="p-2 rounded-xl bg-slate-900 border border-sky-500/30 text-white font-medium flex items-center gap-2">
+              <div className={`p-2 rounded-xl border font-medium ${isDark ? "bg-slate-900 border-sky-500/30 text-white" : "bg-slate-50 border-slate-200 text-slate-900"} flex items-center gap-2`}>
                 <span className="text-red-400">🔥</span>
                 <span>Case 1: L1 Fire Near Main / Front Gate</span>
               </div>
@@ -167,14 +167,14 @@ export const StrategyRankerView = ({
 
             <div className="flex flex-col gap-1 text-xs">
               <label className="text-slate-400 text-[11px] font-semibold">Building</label>
-              <div className="p-2 rounded-xl bg-slate-900 border border-sky-500/30 text-white font-medium">
+              <div className={`p-2 rounded-xl border font-medium ${isDark ? "bg-slate-900 border-sky-500/30 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`}>
                 10-Storey Tower (BIM)
               </div>
             </div>
 
             <div className="flex flex-col gap-1 text-xs">
               <label className="text-slate-400 text-[11px] font-semibold">Occupants</label>
-              <div className="p-2 rounded-xl bg-slate-900 border border-sky-500/30 text-white font-mono font-bold">
+              <div className={`p-2 rounded-xl border font-mono font-bold ${isDark ? "bg-slate-900 border-sky-500/30 text-white" : "bg-slate-50 border-slate-200 text-slate-900"}`}>
                 190
               </div>
             </div>
@@ -186,7 +186,7 @@ export const StrategyRankerView = ({
               <div>
                 <div className="flex justify-between text-[11px] text-slate-400 mb-1">
                   <span>Evacuation Time</span>
-                  <span className="font-bold text-white font-mono">{weights.time}%</span>
+                  <span className={`font-bold font-mono ${isDark ? "text-white" : "text-slate-900"}`}>{weights.time}%</span>
                 </div>
                 <input
                   type="range"
@@ -201,7 +201,7 @@ export const StrategyRankerView = ({
               <div>
                 <div className="flex justify-between text-[11px] text-slate-400 mb-1">
                   <span>Crowd Density</span>
-                  <span className="font-bold text-white font-mono">{weights.density}%</span>
+                  <span className={`font-bold font-mono ${isDark ? "text-white" : "text-slate-900"}`}>{weights.density}%</span>
                 </div>
                 <input
                   type="range"
@@ -216,7 +216,7 @@ export const StrategyRankerView = ({
               <div>
                 <div className="flex justify-between text-[11px] text-slate-400 mb-1">
                   <span>Toxic Exposure</span>
-                  <span className="font-bold text-white font-mono">{weights.exposure}%</span>
+                  <span className={`font-bold font-mono ${isDark ? "text-white" : "text-slate-900"}`}>{weights.exposure}%</span>
                 </div>
                 <input
                   type="range"
@@ -250,8 +250,8 @@ export const StrategyRankerView = ({
                   onClick={() => setSelectedStrategy(strat.id)}
                   className="rounded-2xl p-3 flex flex-col justify-between cursor-pointer transition-all"
                   style={{
-                    background: isSelected ? 'rgba(15, 23, 42, 0.95)' : 'rgba(11, 22, 44, 0.75)',
-                    border: `1.5px solid ${isSelected ? strat.borderColor : 'rgba(56, 189, 248, 0.2)'}`,
+                    background: isSelected ? 'rgba(15, 23, 42, 0.95)' : isDark ? 'rgba(11, 22, 44, 0.75)' : '#ffffff',
+                    border: `1.5px solid ${isSelected ? strat.borderColor : (isDark ? 'rgba(56, 189, 248, 0.2)' : '#e2e8f0')}`,
                     boxShadow: isSelected ? `0 0 16px ${strat.borderColor}40` : 'none'
                   }}
                 >
@@ -264,14 +264,14 @@ export const StrategyRankerView = ({
                       {strat.tag}
                     </div>
 
-                    <div className="text-xs font-black text-white">{strat.title}</div>
+                    <div className={`text-xs font-black ${isDark ? "text-white" : "text-slate-900"}`}>{strat.title}</div>
                     <div className="text-[10px] text-slate-400 leading-tight">{strat.desc}</div>
 
                     {/* Stats */}
                     <div className="flex flex-col gap-1 text-[11px] font-mono pt-2 border-t border-slate-800">
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-sans">Clearance Time</span>
-                        <span className="font-bold text-white">{strat.time}</span>
+                        <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{strat.time}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-sans">Peak Density</span>
@@ -295,7 +295,7 @@ export const StrategyRankerView = ({
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-slate-800 text-[10px] font-mono text-center text-slate-400">
-                    TOPSIS Score: <span className="font-bold text-white">{strat.topsisScore}</span>
+                    TOPSIS Score: <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{strat.topsisScore}</span>
                   </div>
                 </div>
               );
@@ -309,11 +309,11 @@ export const StrategyRankerView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-2"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
-            <div className="text-xs font-bold text-white">
+            <div className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
               Multi-Criteria Analysis (XAI)
             </div>
 
@@ -353,11 +353,11 @@ export const StrategyRankerView = ({
           <div
             className="p-4 rounded-2xl flex flex-col gap-3"
             style={{
-              background: 'rgba(11, 22, 44, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.2)'
+              background: isDark ? 'rgba(11, 22, 44, 0.85)' : '#ffffff',
+              border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'
             }}
           >
-            <div className="text-xs font-bold text-white">
+            <div className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
               TOPSIS Ranking & Score
             </div>
 
@@ -371,7 +371,7 @@ export const StrategyRankerView = ({
                   <div className="w-16 h-2 rounded-full bg-slate-800 overflow-hidden">
                     <div className="h-full bg-emerald-400 rounded-full" style={{ width: '65%' }} />
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-white">0.650</span>
+                  <span className={`font-mono text-[11px] font-bold ${isDark ? "text-white" : "text-slate-900"}`}>0.650</span>
                 </div>
               </div>
 
@@ -384,7 +384,7 @@ export const StrategyRankerView = ({
                   <div className="w-16 h-2 rounded-full bg-slate-800 overflow-hidden">
                     <div className="h-full bg-sky-400 rounded-full" style={{ width: '67%' }} />
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-white">0.670</span>
+                  <span className={`font-mono text-[11px] font-bold ${isDark ? "text-white" : "text-slate-900"}`}>0.670</span>
                 </div>
               </div>
 
@@ -397,7 +397,7 @@ export const StrategyRankerView = ({
                   <div className="w-16 h-2 rounded-full bg-slate-800 overflow-hidden">
                     <div className="h-full bg-red-400 rounded-full" style={{ width: '35%' }} />
                   </div>
-                  <span className="font-mono text-[11px] font-bold text-white">0.350</span>
+                  <span className={`font-mono text-[11px] font-bold ${isDark ? "text-white" : "text-slate-900"}`}>0.350</span>
                 </div>
               </div>
             </div>
@@ -406,14 +406,14 @@ export const StrategyRankerView = ({
       </div>
 
       {/* ── Bottom Selected Strategy Bar (Matching Reference Image 4) ── */}
-      <div className="px-6 py-3 rounded-2xl flex items-center justify-between border border-sky-500/20 bg-slate-900/80 text-xs">
+      <div className={`px-6 py-3 rounded-2xl flex items-center justify-between border border-sky-500/20 ${isDark ? 'bg-slate-900/80 text-white' : 'bg-white text-slate-900 shadow-sm'} border text-xs`}>
         <div className="flex items-center gap-4">
           <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
             <Trophy className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-black text-white text-sm">Nearest Core Evacuation</span>
+              <span className={`font-black text-sm ${isDark ? "text-white" : "text-slate-900"}`}>Nearest Core Evacuation</span>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono">
                 TOPSIS Score: 0.650
               </span>
@@ -438,4 +438,7 @@ export const StrategyRankerView = ({
     </div>
   );
 };
+
+export const StrategyRankerView = React.memo(StrategyRankerViewComponent);
+export default StrategyRankerView;
 

@@ -20,10 +20,12 @@ import {
 } from 'lucide-react';
 
 export const SettingsModal = ({
+  theme = 'dark',
   onClose,
   initialTab = 'PROFILE',
   onOpenLogin
 }) => {
+  const isDark = theme === 'dark';
   const [activeSection, setActiveSection] = useState(initialTab);
   const [audioAlerts, setAudioAlerts] = useState(true);
   const [autoReroute, setAutoReroute] = useState(true);
@@ -59,14 +61,14 @@ export const SettingsModal = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-150 select-none">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center ${isDark ? 'bg-slate-950/75 theme-dark' : 'bg-slate-900/40 theme-light'} backdrop-blur-md p-4 animate-in fade-in duration-150 select-none`}>
       <div
-        className="w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] text-slate-100"
+        className={`w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] ${isDark ? "text-slate-100" : "text-slate-900"}`}
         style={{
-          background: 'linear-gradient(180deg, #0b1528 0%, #080f1d 100%)',
+          background: isDark ? 'linear-gradient(180deg, #0b1528 0%, #080f1d 100%)' : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
           borderRadius: '20px',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.1)',
+          border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #e2e8f0',
+          boxShadow: isDark ? '0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px rgba(56, 189, 248, 0.1)' : '0 20px 40px -15px rgba(0, 0, 0, 0.15)',
           fontFamily: "'Inter', system-ui, sans-serif",
         }}
       >
@@ -74,8 +76,8 @@ export const SettingsModal = ({
         <div
           className="flex items-center justify-between px-6 py-4"
           style={{
-            borderBottom: '1px solid rgba(56, 189, 248, 0.16)',
-            background: 'rgba(15, 23, 42, 0.6)',
+            borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.16)' : '1px solid #e2e8f0',
+            background: isDark ? 'rgba(15, 23, 42, 0.6)' : '#ffffff',
           }}
         >
           <div className="flex items-center gap-3">
@@ -95,7 +97,7 @@ export const SettingsModal = ({
               )}
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className={`text-base font-bold ${isDark ? 'text-white' : 'text-slate-900'} flex items-center gap-2`}>
                 <span>Profile & System Settings</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300">
                   v2.4 Live
@@ -109,7 +111,7 @@ export const SettingsModal = ({
 
           <button
             onClick={onClose}
-            className="flex items-center justify-center cursor-pointer transition-colors w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/60 text-slate-400 hover:text-white hover:bg-slate-700/80"
+            className={`flex items-center justify-center cursor-pointer transition-colors w-8 h-8 rounded-lg ${isDark ? 'bg-slate-800/80 border-slate-700/60 text-slate-400 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-800'}`}
           >
             <X className="w-4 h-4" />
           </button>

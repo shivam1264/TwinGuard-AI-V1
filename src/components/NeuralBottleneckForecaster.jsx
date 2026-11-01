@@ -22,6 +22,7 @@ export const NeuralBottleneckForecaster = React.memo(({
   elapsed = 0
 }) => {
   // Derive baseline live telemetry from simulation state
+  const isDark = theme === "dark";
   const liveDerivedDensity = useMemo(() => {
     const activeRooms = rooms.filter(r => (r.peopleCount || 0) > 0);
     const count = activeRooms.length || 6;
@@ -175,7 +176,7 @@ export const NeuralBottleneckForecaster = React.memo(({
           label: 'LAMINAR / SAFE'
         };
     }
-  }, [prediction.risk_level]);
+  }, [prediction.risk_level, isDark]);
 
   return (
     <div
@@ -209,7 +210,7 @@ export const NeuralBottleneckForecaster = React.memo(({
 
           <div>
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+              <span style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                 Neural Bottleneck Forecaster
               </span>
               <span
@@ -227,7 +228,7 @@ export const NeuralBottleneckForecaster = React.memo(({
                 Random Forest Regressor (R² = 0.945)
               </span>
             </div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+            <div style={{ fontSize: '11px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500 }}>
               SFPE Handbook & Helbing Social Force Model calibrated on 10,000 egress records
             </div>
           </div>

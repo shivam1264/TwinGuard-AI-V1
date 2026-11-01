@@ -156,25 +156,25 @@ export const ViewportOverlay = ({
             width: '46px',
             height: '46px',
             borderRadius: '50%',
-            background: 'rgba(11, 22, 44, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)'
+            background: isDark ? 'rgba(11, 22, 44, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #cbd5e1',
+            boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.5)' : '0 4px 12px rgba(0, 0, 0, 0.08)'
           }}
           onClick={() => onResetView('HERO_VIEW')}
           title="Reset Camera Orientation to North"
         >
           {/* Compass Dial Cardinal Points */}
-          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: '#38bdf8' }}>N</span>
-          <span style={{ position: 'absolute', bottom: '3px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>S</span>
-          <span style={{ position: 'absolute', left: '4px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>W</span>
-          <span style={{ position: 'absolute', right: '4px', fontSize: '7px', fontWeight: 700, color: '#64748b' }}>E</span>
+          <span style={{ position: 'absolute', top: '3px', fontSize: '8px', fontWeight: 900, color: isDark ? '#38bdf8' : '#0284c7' }}>N</span>
+          <span style={{ position: 'absolute', bottom: '3px', fontSize: '7px', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8' }}>S</span>
+          <span style={{ position: 'absolute', left: '4px', fontSize: '7px', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8' }}>W</span>
+          <span style={{ position: 'absolute', right: '4px', fontSize: '7px', fontWeight: 700, color: isDark ? '#64748b' : '#94a3b8' }}>E</span>
 
           {/* Rotating Compass Needle */}
           <div
             className="w-full h-full flex items-center justify-center transition-transform duration-100 ease-out"
             style={{ transform: `rotate(${-cameraYaw}deg)` }}
           >
-            <div style={{ width: '2px', height: '22px', background: 'linear-gradient(to top, #475569, #38bdf8)', borderRadius: '999px', position: 'relative' }}>
+            <div style={{ width: '2px', height: '22px', background: isDark ? 'linear-gradient(to top, #475569, #38bdf8)' : 'linear-gradient(to top, #94a3b8, #0284c7)', borderRadius: '999px', position: 'relative' }}>
               <div
                 style={{
                   position: 'absolute',
@@ -184,7 +184,7 @@ export const ViewportOverlay = ({
                   height: 0,
                   borderLeft: '4px solid transparent',
                   borderRight: '4px solid transparent',
-                  borderBottom: '7px solid #38bdf8'
+                  borderBottom: `7px solid ${isDark ? '#38bdf8' : '#0284c7'}`
                 }}
               />
             </div>
@@ -194,11 +194,11 @@ export const ViewportOverlay = ({
 
       {/* ── Bottom-Left: Floating Building Metadata Card (Shifted to Bottom) ── */}
       <div
-        className="absolute bottom-4 left-4 hidden sm:flex flex-col p-3 rounded-2xl backdrop-blur-md gap-2 w-48 pointer-events-auto"
+        className="absolute bottom-4 left-4 hidden sm:flex flex-col p-3 rounded-2xl backdrop-blur-md gap-2 w-48 pointer-events-auto transition-colors"
         style={{
-          background: 'rgba(11, 22, 44, 0.85)',
-          border: '1px solid rgba(56, 189, 248, 0.25)',
-          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)'
+          background: isDark ? 'rgba(11, 22, 44, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+          border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #e2e8f0',
+          boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.5)' : '0 4px 16px rgba(0, 0, 0, 0.08)'
         }}
       >
         <div className="flex items-center gap-2">
@@ -206,37 +206,39 @@ export const ViewportOverlay = ({
             <Building className="w-3.5 h-3.5" />
           </div>
           <div>
-            <div className="text-xs font-bold text-white">10-Storey Tower</div>
-            <div className="text-[9.5px] text-emerald-400 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>10-Storey Tower</div>
+            <div className="text-[9.5px] text-emerald-500 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               Digital Twin (Live)
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 text-[10.5px] text-slate-300 font-mono pt-1 border-t border-sky-500/15">
+        <div className={`flex flex-col gap-1 text-[10.5px] font-mono pt-1 border-t ${
+          isDark ? 'text-slate-300 border-sky-500/15' : 'text-slate-700 border-slate-200'
+        }`}>
           <div className="flex justify-between">
-            <span className="text-slate-400">Floors</span>
-            <span className="font-bold text-white">10</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Floors</span>
+            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>10</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Rooms</span>
-            <span className="font-bold text-white">100</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Rooms</span>
+            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>100</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Gross Area</span>
-            <span className="font-bold text-white">25,400 m²</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Gross Area</span>
+            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>25,400 m²</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Occupancy</span>
-            <span className="font-bold text-white">190</span>
+            <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Occupancy</span>
+            <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>190</span>
           </div>
         </div>
 
         {onOpenBuildingInfo && (
           <button
             onClick={onOpenBuildingInfo}
-            className="text-[10.5px] font-bold text-sky-400 hover:text-sky-300 text-left pt-1 flex items-center gap-1 cursor-pointer"
+            className="text-[10.5px] font-bold text-sky-500 hover:text-sky-600 text-left pt-1 flex items-center gap-1 cursor-pointer"
           >
             <span>View Building Info</span>
             <span>→</span>

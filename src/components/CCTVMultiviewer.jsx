@@ -19,7 +19,10 @@ import {
   Scan
 } from 'lucide-react';
 
-export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdateCrowd, onFocusRoom, onClose }) => {
+export const CCTVMultiviewer = React.memo(({
+  theme = 'dark',
+  rooms = [], onTriggerFire, onUpdateCrowd, onFocusRoom, onClose }) => {
+  const isDark = theme === 'dark';
   const [selectedCam, setSelectedCam] = useState(null);
   const [selectedFloor, setSelectedFloor] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -212,10 +215,10 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
             <Video style={{ width: '22px', height: '22px' }} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: '16px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               Facility CCTV Security Multiviewer
             </h1>
-            <p style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '3px' }}>
+            <p style={{ fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500, marginTop: '3px' }}>
               Real-time monitoring across floors and locations
             </p>
           </div>
@@ -235,7 +238,7 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
               }}
             />
             <div className="text-right">
-              <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.2 }}>
                 100 Cameras Active
               </div>
               <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
@@ -244,7 +247,7 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '28px', background: '#e2e8f0' }} />
+          <div style={{ width: '1px', height: '28px', background: isDark ? 'rgba(56, 189, 248, 0.2)' : '#e2e8f0' }} />
 
           {/* Quick Actions (Bell, Settings, Close) */}
           <div className="flex items-center" style={{ gap: '8px' }}>
@@ -254,8 +257,8 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
                 width: '36px',
                 height: '36px',
                 borderRadius: '11px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f8fafc',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 color: '#64748b',
               }}
               title="Alert Notifications"
@@ -282,8 +285,8 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
                 width: '36px',
                 height: '36px',
                 borderRadius: '11px',
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
+                background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f8fafc',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                 color: '#64748b',
               }}
               title="Camera Grid Settings"
@@ -301,8 +304,8 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
                   width: '36px',
                   height: '36px',
                   borderRadius: '11px',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
+                  background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f8fafc',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
                   color: '#64748b',
                 }}
                 title="Close Multiviewer"
@@ -331,7 +334,7 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
         <div className="flex items-center" style={{ gap: '10px' }}>
           <div className="flex items-center" style={{ gap: '6px', marginRight: '4px' }}>
             <Layers style={{ width: '15px', height: '15px', color: '#64748b' }} />
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: isDark ? '#94a3b8' : '#334155', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Floor
             </span>
           </div>
@@ -349,9 +352,9 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
               fontSize: '12px',
               fontWeight: 700,
               gap: '6px',
-              background: selectedFloor === 'ALL' ? '#2563eb' : '#ffffff',
-              color: selectedFloor === 'ALL' ? '#ffffff' : '#64748b',
-              border: selectedFloor === 'ALL' ? 'none' : '1px solid #e2e8f0',
+              background: selectedFloor === 'ALL' ? '#2563eb' : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff'),
+              color: selectedFloor === 'ALL' ? '#ffffff' : (isDark ? '#cbd5e1' : '#64748b'),
+              border: selectedFloor === 'ALL' ? 'none' : (isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'),
               boxShadow: selectedFloor === 'ALL' ? '0 2px 8px -1px rgba(37, 99, 235, 0.35)' : 'none',
             }}
           >
@@ -376,9 +379,9 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
                   fontSize: '11.5px',
                   fontFamily: 'monospace',
                   fontWeight: isSelected ? 800 : 600,
-                  background: isSelected ? '#2563eb' : '#ffffff',
-                  color: isSelected ? '#ffffff' : '#64748b',
-                  border: isSelected ? 'none' : '1px solid #e2e8f0',
+                  background: isSelected ? '#2563eb' : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#ffffff'),
+                  color: isSelected ? '#ffffff' : (isDark ? '#cbd5e1' : '#64748b'),
+                  border: isSelected ? 'none' : (isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0'),
                   boxShadow: isSelected ? '0 2px 6px -1px rgba(37, 99, 235, 0.35)' : 'none',
                 }}
               >
@@ -394,8 +397,8 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
           <div
             className="flex items-center"
             style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
+              background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f8fafc',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.2)' : '1px solid #e2e8f0',
               borderRadius: '10px',
               padding: '6px 12px',
               gap: '8px',
@@ -603,7 +606,7 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
 
                   {/* Room Name & Floor details */}
                   <div className="min-w-0">
-                    <div className="truncate" style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                    <div className="truncate" style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.2 }}>
                       {room.name}
                     </div>
                     <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, marginTop: '2px' }}>
@@ -646,9 +649,9 @@ export const CCTVMultiviewer = React.memo(({ rooms = [], onTriggerFire, onUpdate
                       gap: '5px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em',
-                      background: room.hasFire ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : '#fff1f2',
-                      color: room.hasFire ? '#ffffff' : '#e11d48',
-                      border: room.hasFire ? 'none' : '1px solid #fecdd3',
+                      background: room.hasFire ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : (isDark ? 'rgba(239, 68, 68, 0.15)' : '#fff1f2'),
+                      color: room.hasFire ? '#ffffff' : (isDark ? '#f87171' : '#e11d48'),
+                      border: room.hasFire ? 'none' : (isDark ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #fecdd3'),
                       boxShadow: room.hasFire ? '0 2px 8px -1px rgba(239, 68, 68, 0.4)' : 'none',
                     }}
                     onMouseEnter={(e) => {

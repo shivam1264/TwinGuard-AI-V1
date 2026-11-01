@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 
 export const BottleneckAnalytics = React.memo(({
+  theme = 'dark',
   stats = {},
   exits = [],
   rooms = [],
@@ -34,6 +35,7 @@ export const BottleneckAnalytics = React.memo(({
   onClose,
   onReset
 }) => {
+  const isDark = theme === 'dark';
   const [floorViewMode, setFloorViewMode] = useState('floors'); // 'floors' | 'rooms'
   const [selectedRoomFloor, setSelectedRoomFloor] = useState('ALL'); // 'ALL' | 1..10
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
@@ -203,10 +205,10 @@ export const BottleneckAnalytics = React.memo(({
             <Building2 style={{ width: '22px', height: '22px' }} />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: '16px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               Stairwell Cores & 10-Floor Population Analytics
             </h1>
-            <p style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginTop: '3px' }}>
+            <p style={{ fontSize: '12px', color: isDark ? '#94a3b8' : '#64748b', fontWeight: 500, marginTop: '3px' }}>
               Live occupancy, egress flow rates & evacuation throughput telemetry
             </p>
           </div>
@@ -257,7 +259,7 @@ export const BottleneckAnalytics = React.memo(({
           >
             <Clock style={{ width: '16px', height: '16px', color: '#334155' }} />
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', lineHeight: 1.1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', fontFamily: 'monospace', lineHeight: 1.1 }}>
                 {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}s
               </div>
               <div style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
@@ -334,10 +336,10 @@ export const BottleneckAnalytics = React.memo(({
                 <Users style={{ width: '18px', height: '18px' }} />
               </div>
               <div>
-                <span style={{ fontSize: '10.5px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span style={{ fontSize: '10.5px', fontWeight: 800, color: isDark ? '#94a3b8' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   TOWER TOTAL
                 </span>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', lineHeight: 1.1 }}>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.1 }}>
                   {total}
                 </div>
                 <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, marginTop: '2px' }}>
@@ -354,7 +356,7 @@ export const BottleneckAnalytics = React.memo(({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9' }}>
             <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
               <Building style={{ width: '12px', height: '12px' }} />
               <span>10 Floors • 100 Rooms</span>
@@ -416,7 +418,7 @@ export const BottleneckAnalytics = React.memo(({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9' }}>
             <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: '#16a34a', fontWeight: 600 }}>
               <ShieldCheck style={{ width: '13px', height: '13px' }} />
               <span>{evacProgress}% evacuated</span>
@@ -466,7 +468,7 @@ export const BottleneckAnalytics = React.memo(({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9' }}>
             <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: '#b45309', fontWeight: 600 }}>
               <Activity style={{ width: '12px', height: '12px' }} />
               <span>Active movement</span>
@@ -528,7 +530,7 @@ export const BottleneckAnalytics = React.memo(({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: '1px solid #f1f5f9' }}>
+          <div className="flex items-center justify-between pt-3 mt-3" style={{ borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9' }}>
             <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: '#dc2626', fontWeight: 600 }}>
               <AlertTriangle style={{ width: '12px', height: '12px' }} />
               <span>Awaiting clearance</span>
@@ -559,7 +561,7 @@ export const BottleneckAnalytics = React.memo(({
                 <Flag style={{ width: '14px', height: '14px' }} />
               </div>
               <div>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                   Total Evacuation Progress
                 </span>
                 <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, marginLeft: '8px' }}>
@@ -573,7 +575,7 @@ export const BottleneckAnalytics = React.memo(({
           </div>
 
           {/* Clean Progress Bar */}
-          <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
+          <div style={{ width: '100%', height: '8px', background: isDark ? '#1e293b' : '#f1f5f9', borderRadius: '999px', overflow: 'hidden' }}>
             <div
               className="transition-all"
               style={{
@@ -609,7 +611,7 @@ export const BottleneckAnalytics = React.memo(({
               <div style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>
                 Estimated Evacuation Time
               </div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace', marginTop: '2px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', fontFamily: 'monospace', marginTop: '2px' }}>
                 {estimatedTimeStr}
               </div>
             </div>
@@ -638,7 +640,7 @@ export const BottleneckAnalytics = React.memo(({
               <Layers style={{ width: '16px', height: '16px' }} />
             </div>
             <div>
-              <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                 {floorViewMode === 'floors' ? '10-Floor Population Distribution' : 'Room-Level Occupancy & Density Breakdown'}
               </div>
               <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500, marginTop: '1px' }}>
@@ -727,7 +729,7 @@ export const BottleneckAnalytics = React.memo(({
                   {/* Floor Header (Icon + L1) */}
                   <div className="flex items-center" style={{ gap: '6px' }}>
                     <Building style={{ width: '14px', height: '14px', color: isCritical ? '#e11d48' : '#16a34a' }} />
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                       L{fl}
                     </span>
                     {data.hasFire && <Flame style={{ width: '12px', height: '12px', color: '#ef4444' }} />}
@@ -736,7 +738,7 @@ export const BottleneckAnalytics = React.memo(({
                   {/* Occupants Count with User Icon */}
                   <div className="flex items-center" style={{ gap: '4px' }}>
                     <Users style={{ width: '12px', height: '12px', color: isCritical ? '#e11d48' : '#16a34a' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 900, color: isCritical ? '#e11d48' : '#0f172a', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 900, color: isCritical ? (isDark ? '#f87171' : '#e11d48') : (isDark ? '#f8fafc' : '#0f172a'), fontFamily: 'monospace' }}>
                       {data.occupants}
                     </span>
                   </div>
@@ -914,7 +916,7 @@ export const BottleneckAnalytics = React.memo(({
                         {room.name || `Room ${room.id}`}
                       </div>
 
-                      <div className="flex items-center justify-between pt-1.5" style={{ borderTop: '1px solid #f1f5f9' }}>
+                      <div className="flex items-center justify-between pt-1.5" style={{ borderTop: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #f1f5f9' }}>
                         <div className="flex items-center" style={{ gap: '4px', fontSize: '11px', fontWeight: 800, color: occ > 0 ? '#0f172a' : '#94a3b8' }}>
                           <Users style={{ width: '12px', height: '12px', color: occ > 0 ? '#2563eb' : '#94a3b8' }} />
                           <span>{occ}p</span>
@@ -1037,7 +1039,7 @@ export const BottleneckAnalytics = React.memo(({
                     }}
                   />
                   <ArrowUpRight style={{ width: '14px', height: '14px', color: '#64748b' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a' }}>
                     {item.name}
                   </span>
                 </div>
@@ -1185,7 +1187,7 @@ export const BottleneckAnalytics = React.memo(({
                       <ArrowUpRight style={{ width: '12px', height: '12px' }} />
                     </div>
                     <div className="text-left">
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', lineHeight: 1.1 }}>
                         {item.key}
                       </div>
                       <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 500 }}>
@@ -1208,7 +1210,7 @@ export const BottleneckAnalytics = React.memo(({
                         fill="none"
                       />
                     </svg>
-                    <span style={{ position: 'absolute', fontSize: '11px', fontWeight: 900, color: '#0f172a' }}>
+                    <span style={{ position: 'absolute', fontSize: '11px', fontWeight: 900, color: isDark ? '#f8fafc' : '#0f172a' }}>
                       {item.percent}%
                     </span>
                   </div>
@@ -1216,7 +1218,7 @@ export const BottleneckAnalytics = React.memo(({
                   {/* Bottom: Occupants info */}
                   <div className="flex items-center" style={{ gap: '4px', marginTop: '6px' }}>
                     <Users style={{ width: '11px', height: '11px', color: themeStyles.text }} />
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: isDark ? '#f8fafc' : '#0f172a', fontFamily: 'monospace' }}>
                       {item.load} / {item.capacity}
                     </span>
                   </div>

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import building3dImg from '../assets/building/building_3d_render.png';
 
-export const IncidentsView = ({
+const IncidentsViewComponent = ({
   theme = 'dark',
   incidents = [],
   onStartEvacuation,
@@ -103,7 +103,7 @@ export const IncidentsView = ({
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-white leading-tight">
+            <h2 className={`text-lg font-black leading-tight ${isDark ? "text-white" : "text-slate-900"}`}>
               Incidents Command Center
             </h2>
             <p className="text-xs text-slate-400 font-medium">
@@ -138,14 +138,14 @@ export const IncidentsView = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-white">
+              <span className={`text-sm font-black ${isDark ? "text-white" : "text-slate-900"}`}>
                 CASE: L7 – WEST STAIR FIRE
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-black bg-red-500 text-white">
                 CRITICAL
               </span>
             </div>
-            <div className="text-xs text-slate-300">
+            <div className={`text-xs ${isDark ? "text-slate-300" : "text-slate-600"}`}>
               Active fire with smoke spread in West Stair Core (A)
             </div>
           </div>
@@ -154,11 +154,11 @@ export const IncidentsView = ({
         <div className="flex items-center gap-6 text-xs font-mono">
           <div>
             <span className="text-slate-400 block text-[10px] font-sans">Incident ID</span>
-            <span className="font-bold text-white">INC-2026-107</span>
+            <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>INC-2026-107</span>
           </div>
           <div>
             <span className="text-slate-400 block text-[10px] font-sans">Started At</span>
-            <span className="font-bold text-white">11:43:12 PM</span>
+            <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>11:43:12 PM</span>
           </div>
           <div>
             <span className="text-slate-400 block text-[10px] font-sans">Elapsed Time</span>
@@ -188,8 +188,8 @@ export const IncidentsView = ({
                   className="p-3 rounded-2xl cursor-pointer transition-all"
                   style={{
                     background: isSelected
-                      ? 'rgba(15, 23, 42, 0.95)'
-                      : 'rgba(11, 22, 44, 0.65)',
+                      ? isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(239, 246, 255, 0.95)'
+                      : isDark ? 'rgba(11, 22, 44, 0.65)' : '#ffffff',
                     border: isSelected
                       ? `1.5px solid ${inc.color}`
                       : '1px solid rgba(56, 189, 248, 0.15)',
@@ -197,7 +197,7 @@ export const IncidentsView = ({
                   }}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white">{inc.title}</span>
+                    <span className={`text-xs font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{inc.title}</span>
                     <span
                       className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded"
                       style={{
@@ -209,8 +209,8 @@ export const IncidentsView = ({
                       {inc.severity}
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-1">{inc.subtitle}</div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono mt-2 pt-1 border-t border-slate-800">
+                  <div className={`text-[11px] mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>{inc.subtitle}</div>
+                  <div className={`flex items-center justify-between text-[10px] ${isDark ? "text-slate-400 border-slate-800" : "text-slate-500 border-slate-200"} font-mono mt-2 pt-1 border-t`}>
                     <span>{inc.time}</span>
                     <span>{inc.level}</span>
                   </div>
@@ -223,7 +223,7 @@ export const IncidentsView = ({
         {/* Column 2: 3D Twin Locator (6 Cols) */}
         <div className="lg:col-span-6 flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-900/80 border border-sky-500/20 text-xs font-bold">
+            <div className={`flex items-center gap-1 p-1 rounded-xl ${isDark ? 'bg-slate-900/80 text-white' : 'bg-slate-100 text-slate-800'} border border-sky-500/20 text-xs font-bold`}>
               {['Exterior', 'Interior', 'Top View', 'Floors'].map((tab) => (
                 <button
                   key={tab}
@@ -270,7 +270,7 @@ export const IncidentsView = ({
                   className={`w-7 h-5 flex items-center justify-center rounded text-[9.5px] font-mono font-bold ${
                     lvl === 7
                       ? 'bg-red-500 text-white font-black animate-pulse'
-                      : 'bg-slate-900/80 text-slate-400 border border-slate-800'
+                      : `${isDark ? 'bg-slate-900/80 text-white' : 'bg-slate-100 text-slate-800'} text-slate-400 border border-slate-800`
                   }`}
                 >
                   L{lvl}
@@ -280,32 +280,32 @@ export const IncidentsView = ({
 
             {/* Location Info Box */}
             <div
-              className="absolute bottom-3 left-3 p-3 rounded-2xl backdrop-blur-md flex flex-col gap-1.5 text-xs"
+              className={`absolute bottom-3 left-3 p-3 rounded-2xl backdrop-blur-md flex flex-col gap-1.5 text-xs shadow-lg ${
+                isDark ? "bg-[#081020]/90 border border-sky-400/30 text-white" : "bg-white/95 border border-slate-200 text-slate-800"
+              }`}
               style={{
-                background: 'rgba(8, 16, 32, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
                 width: '210px'
               }}
             >
-              <div className="font-bold text-white flex items-center gap-1.5">
+              <div className={`font-bold flex items-center gap-1.5 ${isDark ? "text-white" : "text-slate-900"}`}>
                 <span className="w-2 h-2 rounded-full bg-red-500" />
                 <span>Incident Location</span>
               </div>
-              <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                <span className="text-slate-400">Floor</span>
-                <span className="font-bold text-white">Level 7</span>
+              <div className={`text-[11px] flex justify-between font-mono ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Floor</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Level 7</span>
               </div>
-              <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                <span className="text-slate-400">Area</span>
-                <span className="font-bold text-white">West Stair Core (A)</span>
+              <div className={`text-[11px] flex justify-between font-mono ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Area</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>West Stair Core (A)</span>
               </div>
-              <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                <span className="text-slate-400">Affected Zone</span>
-                <span className="font-bold text-white">Stairwell + Adj.</span>
+              <div className={`text-[11px] flex justify-between font-mono ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Affected Zone</span>
+                <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Stairwell + Adj.</span>
               </div>
-              <div className="text-[11px] text-slate-300 flex justify-between font-mono">
-                <span className="text-slate-400">Affected Occupants</span>
-                <span className="font-bold text-red-400">42</span>
+              <div className={`text-[11px] flex justify-between font-mono ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                <span className={isDark ? "text-slate-400" : "text-slate-600 font-semibold"}>Affected Occupants</span>
+                <span className="font-bold text-red-500">42</span>
               </div>
             </div>
           </div>
@@ -314,7 +314,7 @@ export const IncidentsView = ({
         {/* Column 3: Timeline & Quick Actions (3 Cols) */}
         <div className="lg:col-span-3 flex flex-col justify-between gap-3">
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+            <div className={`text-xs font-bold flex items-center gap-1.5 ${isDark ? "text-slate-300" : "text-slate-800"}`}>
               <Clock className="w-4 h-4 text-sky-400" />
               <span>Incident Timeline</span>
             </div>
@@ -333,10 +333,10 @@ export const IncidentsView = ({
                   />
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-slate-400">{step.time}</span>
-                      <span className="font-bold text-white">{step.title}</span>
+                      <span className={`font-mono text-[10px] ${isDark ? "text-slate-400" : "text-slate-600 font-bold"}`}>{step.time}</span>
+                      <span className={`font-bold ${isDark ? "text-white" : "text-slate-900"}`}>{step.title}</span>
                     </div>
-                    <div className="text-[10.5px] text-slate-400">{step.detail}</div>
+                    <div className={`text-[10.5px] ${isDark ? "text-slate-400" : "text-slate-700 font-medium"}`}>{step.detail}</div>
                   </div>
                 </div>
               ))}
@@ -344,8 +344,8 @@ export const IncidentsView = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex flex-col gap-2 pt-2 border-t border-sky-500/20">
-            <div className="text-xs font-bold text-slate-300">
+          <div className={`flex flex-col gap-2 pt-2 border-t ${isDark ? "border-sky-500/20" : "border-slate-200"}`}>
+            <div className={`text-xs font-bold ${isDark ? "text-slate-300" : "text-slate-800"}`}>
               Quick Actions
             </div>
 
@@ -371,7 +371,7 @@ export const IncidentsView = ({
 
               <button
                 onClick={onOpenGis}
-                className="py-2.5 px-3 rounded-xl font-bold text-xs text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-600 cursor-pointer flex items-center justify-center gap-1.5"
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs text-slate-200 ${isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'} border cursor-pointer flex items-center justify-center gap-1.5`}
               >
                 <Compass className="w-3.5 h-3.5 text-sky-400" />
                 <span>Open GIS Route</span>
@@ -379,7 +379,7 @@ export const IncidentsView = ({
 
               <button
                 onClick={onOpenCctv}
-                className="py-2.5 px-3 rounded-xl font-bold text-xs text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-600 cursor-pointer flex items-center justify-center gap-1.5"
+                className={`py-2.5 px-3 rounded-xl font-bold text-xs text-slate-200 ${isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-700'} border cursor-pointer flex items-center justify-center gap-1.5`}
               >
                 <Video className="w-3.5 h-3.5 text-emerald-400" />
                 <span>View CCTV (L7)</span>
@@ -390,7 +390,7 @@ export const IncidentsView = ({
       </div>
 
       {/* ── Bottom Impact Analysis Live Bar (Matching Reference Image 5) ── */}
-      <div className="px-6 py-3 rounded-2xl flex items-center justify-between border border-sky-500/20 bg-slate-900/60 text-xs">
+      <div className={`px-6 py-3 rounded-2xl flex items-center justify-between border border-sky-500/20 ${isDark ? 'bg-slate-900/60 text-white' : 'bg-white text-slate-900 shadow-sm'} text-xs`}>
         <div className="flex items-center gap-6">
           <div className="text-left">
             <span className="text-[10px] text-slate-400 block font-semibold">Impact Analysis (Live)</span>
@@ -436,4 +436,7 @@ export const IncidentsView = ({
     </div>
   );
 };
+
+export const IncidentsView = React.memo(IncidentsViewComponent);
+export default IncidentsView;
 

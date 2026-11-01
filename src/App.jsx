@@ -313,22 +313,43 @@ export function App() {
     }
   };
 
-  // Track camera rotation for real-time Compass Rose updates & Emergency Telemetry
+  // Pause heavy Three.js 60fps WebGL rendering when viewing 2D tabs to eliminate CPU/GPU lag
+  useEffect(() => {
+    if (sceneManagerRef.current && sceneManagerRef.current.setRenderPaused) {
+      const is3DNeeded = activeTab === 'LIVE_VIEW' || activeTab === 'COMMAND_CENTER';
+      sceneManagerRef.current.setRenderPaused(!is3DNeeded);
+    }
+  }, [activeTab]);
+
+  // Track camera rotation for real-time Compass Rose updates & Emergency Telemetry with zero redundant re-renders
   useEffect(() => {
     const interval = setInterval(() => {
-      if (sceneManagerRef.current && sceneManagerRef.current.getCameraYaw) {
-        const yaw = sceneManagerRef.current.getCameraYaw();
-        setCameraYaw(Math.round(yaw));
+      if (activeTab === 'LIVE_VIEW' && sceneManagerRef.current && sceneManagerRef.current.getCameraYaw) {
+        const yaw = Math.round(sceneManagerRef.current.getCameraYaw());
+        setCameraYaw((prev) => (prev === yaw ? prev : yaw));
       }
       if (sceneManagerRef.current && sceneManagerRef.current.getEmergencyStatus) {
         const em = sceneManagerRef.current.getEmergencyStatus();
-        if (em) {
-          setEmergencyStatus({ ...em });
-        }
+        setEmergencyStatus((prev) => {
+          if (!prev && !em) return prev;
+          if (!prev && em) return { ...em };
+          if (prev && !em) return null;
+          if (
+            prev.isActive === em.isActive &&
+            prev.isArrived === em.isArrived &&
+            prev.pct === em.pct &&
+            Math.floor(prev.remainingSec || 0) === Math.floor(em.remainingSec || 0) &&
+            prev.isSirenMuted === em.isSirenMuted &&
+            prev.targetGate?.id === em.targetGate?.id
+          ) {
+            return prev;
+          }
+          return { ...em };
+        });
       }
-    }, 80);
+    }, 200);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTab]);
 
   // Synthesize Command Center Tactical Distress Alarm Tone for SOS Alerts
   const playCommandCenterSosChime = () => {
@@ -629,18 +650,18 @@ export function App() {
     }
   };
 
-  const handleSetCameraPreset = (preset, roomId = null) => {
+  const handleSetCameraPreset = useCallback((preset, roomId = null) => {
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setCameraPreset(preset, roomId);
     }
-  };
+  }, []);
 
-  const handleSetFloorView = (floorMode) => {
+  const handleSetFloorView = useCallback((floorMode) => {
     setActiveFloorView(floorMode);
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setFloorMode(floorMode);
     }
-  };
+  }, []);
 
   // Multi-hazard toggles → global incident feed (sidebar + command center)
   const handleHazardEvent = useCallback((evt) => {
@@ -664,27 +685,27 @@ export function App() {
     );
   }, []);
 
-  const handleSetFacadeMode = (mode) => {
+  const handleSetFacadeMode = useCallback((mode) => {
     if (sceneManagerRef.current && sceneManagerRef.current.setFacadeModeDirect) {
       const newMode = sceneManagerRef.current.setFacadeModeDirect(mode);
       setFacadeMode(newMode);
     }
-  };
+  }, []);
 
-  const handleToggleBimLayer = (layerName, isVisible) => {
+  const handleToggleBimLayer = useCallback((layerName, isVisible) => {
     setBimLayers((prev) => ({ ...prev, [layerName]: isVisible }));
     if (sceneManagerRef.current && sceneManagerRef.current.setBimLayer) {
       sceneManagerRef.current.setBimLayer(layerName, isVisible);
     }
-  };
+  }, []);
 
-  const handleToggleFullscreen = () => {
+  const handleToggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
     } else {
       document.exitFullscreen().catch(() => {});
     }
-  };
+  }, []);
 
   const handleSelectTab = (tab) => {
     if (tab === 'BUILDING_INFO') {
@@ -715,12 +736,16 @@ export function App() {
     setActiveTab(tab);
   };
 
+  const handleSwitchToLive = useCallback(() => {
+    handleSelectTab('LIVE_VIEW');
+  }, [handleSelectTab]);
+
   const hasAnyFire = rooms.some((r) => r.hasFire);
 
   return (
     <div
       className={`flex flex-col h-screen w-screen overflow-hidden font-sans select-none transition-colors duration-300 ${
-        theme === 'dark' ? 'bg-[#070d18] text-slate-100' : 'bg-[#f1f5f9] text-slate-900'
+        theme === 'dark' ? 'theme-dark bg-[#070d18] text-slate-100' : 'theme-light bg-[#f1f5f9] text-slate-900'
       }`}
     >
       {/* 1. TOP HEADER */}
@@ -803,7 +828,7 @@ export function App() {
               rooms={rooms}
               currentScenario={activeScenario}
               onApplyScenario={handleApplyScenario}
-              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+              onSwitchToLive={handleSwitchToLive}
             />
           )}
 
@@ -815,7 +840,7 @@ export function App() {
               rooms={rooms}
               exits={exits}
               onApplyStrategy={handleApplyStrategyToSimulation}
-              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+              onSwitchToLive={handleSwitchToLive}
             />
           )}
 
@@ -827,7 +852,7 @@ export function App() {
               onStartEvacuation={handleStartEvacuation}
               onOpenGis={() => setIsGisOpen(true)}
               onOpenCctv={() => setIsCctvOpen(true)}
-              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+              onSwitchToLive={handleSwitchToLive}
             />
           )}
 
@@ -838,7 +863,7 @@ export function App() {
               stats={stats}
               rooms={rooms}
               exits={exits}
-              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+              onSwitchToLive={handleSwitchToLive}
             />
           )}
 
@@ -848,7 +873,7 @@ export function App() {
               theme={theme}
               stats={stats}
               exits={exits}
-              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
+              onSwitchToLive={handleSwitchToLive}
             />
           )}
 
@@ -904,8 +929,8 @@ export function App() {
                 theme={theme}
                 rooms={rooms}
                 exits={exits}
-                onClose={() => handleSelectTab('LIVE_VIEW')}
-                onSwitchTo3D={() => handleSelectTab('LIVE_VIEW')}
+                onClose={handleSwitchToLive}
+                onSwitchTo3D={handleSwitchToLive}
                 onSelectFloor={(floorNum) => {
                   handleSetFloorView(floorNum);
                   handleSelectTab('LIVE_VIEW');
@@ -996,10 +1021,13 @@ export function App() {
 
       {/* MODAL 1: CCTV Multiviewer (100 Cams) */}
       {isCctvOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-150 select-none">
+          <div className={`border rounded-3xl w-full max-w-6xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] ${
+            theme === 'dark' ? 'bg-[#0c162d] border-sky-500/30 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
             <div className="flex-1 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
               <CCTVMultiviewer
+                theme={theme}
                 rooms={rooms}
                 onTriggerFire={handleTriggerFire}
                 onUpdateCrowd={handleUpdateCrowd}
@@ -1016,10 +1044,13 @@ export function App() {
 
       {/* MODAL 2: Evacuation Analytics & Stairwell Core Intel */}
       {isAnalyticsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 backdrop-blur-md p-4 animate-in fade-in duration-150 select-none">
+          <div className={`border rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+            theme === 'dark' ? 'bg-[#0c162d] border-sky-500/30 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
             <div className="flex-1 overflow-y-auto no-scrollbar" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
               <BottleneckAnalytics
+                theme={theme}
                 stats={stats}
                 exits={exits}
                 rooms={rooms}
@@ -1035,6 +1066,7 @@ export function App() {
       {/* MODAL 3: Live Incident Command Center */}
       {isIncidentsOpen && (
         <IncidentsModal
+          theme={theme}
           incidents={incidents}
           onClose={() => setIsIncidentsOpen(false)}
           onFocusRoom={(roomId) => {
@@ -1047,6 +1079,7 @@ export function App() {
       {/* MODAL 4: Safety Compliance Audit Report */}
       {isReportsOpen && (
         <ReportsModal
+          theme={theme}
           stats={stats}
           exits={exits}
           onClose={() => setIsReportsOpen(false)}
@@ -1056,6 +1089,7 @@ export function App() {
       {/* MODAL 5: Single-Click Room Inspection Modal */}
       {activeModalRoomId && (
         <RoomModal
+          theme={theme}
           room={rooms.find((r) => r.id === activeModalRoomId)}
           onClose={() => setActiveModalRoomId(null)}
           onTriggerFire={handleTriggerFire}
@@ -1065,52 +1099,51 @@ export function App() {
       )}
 
       {/* MODAL 7: Scenario Studio Modal (AI Engine) */}
-      {isScenarioModalOpen && (
-        <ScenarioConfigModal
-          isOpen={isScenarioModalOpen}
-          onClose={() => setIsScenarioModalOpen(false)}
-          currentScenario={activeScenario}
-          onApplyScenario={handleApplyScenario}
-          rooms={rooms}
-        />
-      )}
+      <ScenarioConfigModal
+        theme={theme}
+        isOpen={isScenarioModalOpen}
+        onClose={() => setIsScenarioModalOpen(false)}
+        currentScenario={activeScenario}
+        onApplyScenario={handleApplyScenario}
+        rooms={rooms}
+      />
 
       {/* MODAL 8: AI Evacuation Strategy Ranker (TOPSIS Engine) */}
-      {isStrategyModalOpen && (
-        <StrategyRankModal
-          isOpen={isStrategyModalOpen}
-          onClose={() => setIsStrategyModalOpen(false)}
-          scenario={activeScenario}
-          rooms={rooms}
-          exits={exits}
-          onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
-        />
-      )}
+      <StrategyRankModal
+        theme={theme}
+        isOpen={isStrategyModalOpen}
+        onClose={() => setIsStrategyModalOpen(false)}
+        scenario={activeScenario}
+        rooms={rooms}
+        exits={exits}
+        onApplyStrategyToSimulation={handleApplyStrategyToSimulation}
+      />
 
       {/* MODAL 9: Combined Profile & System Settings Modal */}
       {isSettingsOpen && (
         <SettingsModal
+          theme={theme}
           onClose={() => setIsSettingsOpen(false)}
           onOpenLogin={() => setIsLoginOpen(true)}
         />
       )}
 
-      {/* MODAL 9: Building Information Modeling & Architectural Specs */}
-      {isBuildingInfoOpen && (
-        <BuildingInfoModal
-          isOpen={isBuildingInfoOpen}
-          onClose={() => setIsBuildingInfoOpen(false)}
-          rooms={rooms}
-          exits={exits}
-          onSelectFloor={(floor) => {
-            handleSetFloorView(floor);
-            handleSetCameraPreset(`FLOOR_${floor}`);
-          }}
-        />
-      )}
+      {/* MODAL 10: Building Information Modeling & Architectural Specs */}
+      <BuildingInfoModal
+        theme={theme}
+        isOpen={isBuildingInfoOpen}
+        onClose={() => setIsBuildingInfoOpen(false)}
+        rooms={rooms}
+        exits={exits}
+        onSelectFloor={(floor) => {
+          handleSetFloorView(floor);
+          handleSetCameraPreset(`FLOOR_${floor}`);
+        }}
+      />
 
       {/* MODAL 10: Emergency Control & Rapid Intervention Dispatch */}
       <EmergencyControlModal
+        theme={theme}
         isOpen={isEmergencyControlOpen}
         onClose={() => setIsEmergencyControlOpen(false)}
         sceneManager={sceneManagerRef.current}
@@ -1121,6 +1154,7 @@ export function App() {
 
       {/* MODAL 11: Live Mobile Evacuee Companion QR Modal */}
       <EvacueeQrModal
+        theme={theme}
         isOpen={isEvacueeQrOpen}
         onClose={() => setIsEvacueeQrOpen(false)}
       />
@@ -1128,6 +1162,7 @@ export function App() {
       {/* REAL-TIME DISTRESS NOTIFICATION: Mobile Occupant Trapped SOS Modal */}
       {activeSosAlert && (
         <SosAlertModal
+          theme={theme}
           sosData={activeSosAlert}
           onClose={() => setActiveSosAlert(null)}
           onFocusFloor={(floor) => {
@@ -1139,6 +1174,7 @@ export function App() {
 
       {/* LOGIN & AUTHENTICATION PORTAL (Matching Image 1) */}
       <LoginModal
+        theme={theme}
         isOpen={isLoginOpen}
         onClose={() => setIsLoginOpen(false)}
         onLoginSuccess={() => setIsLoginOpen(false)}

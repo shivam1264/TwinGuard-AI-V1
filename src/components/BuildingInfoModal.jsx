@@ -35,13 +35,14 @@ import {
 import { FLOOR_THEMES, ROOM_TEMPLATES } from '../simulation/Doorways';
 
 export const BuildingInfoModal = ({
+  theme = 'dark',
   isOpen,
   onClose,
   rooms = [],
   exits = [],
   onSelectFloor
 }) => {
-  if (!isOpen) return null;
+  const isDark = theme === 'dark';
 
   const [activeTab, setActiveTab] = useState('DIRECTORY'); // 'DIRECTORY' | 'SPECS' | 'LIFE_SAFETY' | 'FACILITY_OPS'
   const [selectedFloor, setSelectedFloor] = useState(1);
@@ -113,14 +114,17 @@ export const BuildingInfoModal = ({
     setTimeout(() => setDownloadSuccess(false), 3000);
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 animate-in fade-in duration-150 select-none">
       <div
         className="w-full max-w-6xl overflow-hidden flex flex-col shadow-2xl"
         style={{
-          background: '#ffffff',
+          background: isDark ? '#0c162d' : '#ffffff',
           borderRadius: '20px',
-          border: '1px solid #e2e8f0',
+          border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #e2e8f0',
+          color: isDark ? '#f8fafc' : '#0f172a',
           boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
           fontFamily: "'Inter', system-ui, sans-serif",
           maxHeight: '94vh',
@@ -132,8 +136,8 @@ export const BuildingInfoModal = ({
           className="flex items-center justify-between shrink-0"
           style={{
             padding: '16px 24px 14px 24px',
-            borderBottom: '1px solid #f1f5f9',
-            background: '#ffffff'
+            borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.18)' : '1px solid #f1f5f9',
+            background: isDark ? '#0c162d' : '#ffffff'
           }}
         >
           <div className="flex items-center" style={{ gap: '14px' }}>
@@ -154,7 +158,7 @@ export const BuildingInfoModal = ({
 
             <div>
               <div className="flex items-center" style={{ gap: '10px' }}>
-                <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                   TwinGuard Horizon Tower
                 </h1>
                 <span
@@ -263,7 +267,7 @@ export const BuildingInfoModal = ({
               <Users style={{ width: '14px', height: '14px', color: '#2563eb' }} />
             </div>
             <div className="flex items-baseline" style={{ gap: '6px', marginTop: '4px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                 {totalOccupants}
               </span>
               <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>
@@ -295,7 +299,7 @@ export const BuildingInfoModal = ({
               <Layers style={{ width: '14px', height: '14px', color: '#059669' }} />
             </div>
             <div className="flex items-baseline" style={{ gap: '4px', marginTop: '4px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                 24,500
               </span>
               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>m²</span>
@@ -345,7 +349,7 @@ export const BuildingInfoModal = ({
               <Zap style={{ width: '14px', height: '14px', color: '#d97706' }} />
             </div>
             <div className="flex items-baseline" style={{ gap: '6px', marginTop: '4px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                 3 Units
               </span>
               <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
@@ -400,7 +404,7 @@ export const BuildingInfoModal = ({
               <Thermometer style={{ width: '14px', height: '14px', color: '#0284c7' }} />
             </div>
             <div className="flex items-baseline" style={{ gap: '4px', marginTop: '4px' }}>
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                 {avgTemp}°C
               </span>
               <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>
@@ -469,7 +473,7 @@ export const BuildingInfoModal = ({
           </div>
 
           <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: 600 }}>
-            Standard: <span style={{ color: '#0f172a', fontWeight: 700 }}>IBC / NFPA 101</span>
+            Standard: <span style={{ color: isDark ? '#ffffff' : '#0f172a', fontWeight: 700 }}>IBC / NFPA 101</span>
           </div>
         </div>
 
@@ -622,7 +626,7 @@ export const BuildingInfoModal = ({
                     </div>
                     <div>
                       <div className="flex items-center" style={{ gap: '8px' }}>
-                        <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                        <h2 style={{ fontSize: '16px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                           Level {selectedFloor}: {FLOOR_THEMES[selectedFloor]?.name}
                         </h2>
                         {floorHasFire && (
@@ -687,7 +691,7 @@ export const BuildingInfoModal = ({
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center" style={{ gap: '8px' }}>
                         <Compass style={{ width: '16px', height: '16px', color: '#2563eb' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                           North Wing (Rooms 1 - 5)
                         </span>
                       </div>
@@ -758,7 +762,7 @@ export const BuildingInfoModal = ({
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                       <div className="flex items-center" style={{ gap: '8px' }}>
                         <Compass style={{ width: '16px', height: '16px', color: '#059669' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                           South Wing (Rooms 6 - 10)
                         </span>
                       </div>
@@ -836,24 +840,24 @@ export const BuildingInfoModal = ({
                     </span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                    <div className="flex items-center p-2.5 rounded-xl bg-white border border-slate-200" style={{ gap: '10px' }}>
+                    <div className={`flex items-center p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`} style={{ gap: '10px' }}>
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
                       <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>Stairwell A (West Core)</div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>Stairwell A (West Core)</div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>Rated: 60 evacuees/min • Pressurized</div>
                       </div>
                     </div>
-                    <div className="flex items-center p-2.5 rounded-xl bg-white border border-slate-200" style={{ gap: '10px' }}>
+                    <div className={`flex items-center p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`} style={{ gap: '10px' }}>
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
                       <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>Stairwell B (East Core)</div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>Stairwell B (East Core)</div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>Rated: 60 evacuees/min • Smoke Hatch</div>
                       </div>
                     </div>
-                    <div className="flex items-center p-2.5 rounded-xl bg-white border border-slate-200" style={{ gap: '10px' }}>
+                    <div className={`flex items-center p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`} style={{ gap: '10px' }}>
                       <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
                       <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>Service Core C (Ground Egress)</div>
+                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: isDark ? '#ffffff' : '#0f172a' }}>Service Core C (Ground Egress)</div>
                         <div style={{ fontSize: '10px', color: '#64748b' }}>Direct outside assembly link</div>
                       </div>
                     </div>
@@ -883,7 +887,7 @@ export const BuildingInfoModal = ({
                       <Building2 style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                         Structural System
                       </h3>
                       <p style={{ fontSize: '11px', color: '#64748b' }}>Reinforced Concrete & Steel Core</p>
@@ -928,7 +932,7 @@ export const BuildingInfoModal = ({
                       <Wind style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                         Facade & Thermal Envelope
                       </h3>
                       <p style={{ fontSize: '11px', color: '#64748b' }}>Unitized Low-E Curtain Wall</p>
@@ -973,7 +977,7 @@ export const BuildingInfoModal = ({
                       <Zap style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                         Elevator Core System
                       </h3>
                       <p style={{ fontSize: '11px', color: '#64748b' }}>Otis SkyRise Regenerative Traction</p>
@@ -1016,37 +1020,37 @@ export const BuildingInfoModal = ({
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                       BIM Spatial Model & Dimensions
                     </h3>
                     <p style={{ fontSize: '12px', color: '#64748b' }}>
                       Coordinate system aligned with Digital Twin simulation engine (X: -30m to +30m, Z: -22m to +22m)
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 text-xs font-semibold">
+                  <span className={`px-3 py-1 rounded-lg border text-xs font-semibold ${isDark ? "bg-[#081020] border-sky-500/20 text-slate-200" : "bg-white border-slate-200 text-slate-700"}`}>
                     LOD 400 Construction BIM
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
                     <div className="text-xs text-slate-400 font-bold uppercase">Tower Footprint</div>
-                    <div className="text-base font-extrabold text-slate-800 mt-0.5">60.0m x 44.0m</div>
+                    <div className={`text-base font-extrabold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-800"}`}>60.0m x 44.0m</div>
                     <div className="text-[11px] text-slate-500">2,640 m² site coverage</div>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
                     <div className="text-xs text-slate-400 font-bold uppercase">Total Volume</div>
-                    <div className="text-base font-extrabold text-slate-800 mt-0.5">93,100 m³</div>
+                    <div className={`text-base font-extrabold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-800"}`}>93,100 m³</div>
                     <div className="text-[11px] text-slate-500">Conditioned indoor air</div>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
                     <div className="text-xs text-slate-400 font-bold uppercase">Foundation Type</div>
-                    <div className="text-base font-extrabold text-slate-800 mt-0.5">Cast-In-Place Mat</div>
+                    <div className={`text-base font-extrabold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-800"}`}>Cast-In-Place Mat</div>
                     <div className="text-[11px] text-slate-500">2.2m thickness on 64 piles</div>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                  <div className={`p-3 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
                     <div className="text-xs text-slate-400 font-bold uppercase">Seismic Zone</div>
-                    <div className="text-base font-extrabold text-slate-800 mt-0.5">Zone 4 (High)</div>
+                    <div className={`text-base font-extrabold mt-0.5 ${isDark ? "text-slate-100" : "text-slate-800"}`}>Zone 4 (High)</div>
                     <div className="text-[11px] text-slate-500">Ductility factor R = 6.5</div>
                   </div>
                 </div>
@@ -1176,7 +1180,7 @@ export const BuildingInfoModal = ({
                   background: '#ffffff'
                 }}
               >
-                <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>
+                <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a', marginBottom: '12px' }}>
                   NFPA 101 Egress Path & Life Safety Audit Matrix
                 </h3>
 
@@ -1260,7 +1264,7 @@ export const BuildingInfoModal = ({
                       <Cpu style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                         Critical MEP Infrastructure
                       </h3>
                       <p style={{ fontSize: '11px', color: '#64748b' }}>Electrical, HVAC & Water Redundancy</p>
@@ -1314,7 +1318,7 @@ export const BuildingInfoModal = ({
                       <Phone style={{ width: '20px', height: '20px' }} />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                         Emergency Incident Command Contacts
                       </h3>
                       <p style={{ fontSize: '11px', color: '#64748b' }}>24/7 Rapid Response Coordination</p>
@@ -1389,7 +1393,7 @@ export const BuildingInfoModal = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center" style={{ gap: '8px' }}>
                     <Award style={{ width: '18px', height: '18px', color: '#f59e0b' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: isDark ? '#ffffff' : '#0f172a' }}>
                       Official Safety Audits & Environmental Ratings
                     </span>
                   </div>
@@ -1399,23 +1403,23 @@ export const BuildingInfoModal = ({
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                    <div className="text-[11px] font-bold text-slate-800">NFPA 101 Standard</div>
+                  <div className={`p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
+                    <div className={`text-[11px] font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>NFPA 101 Standard</div>
                     <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">✓ 100% Compliant</div>
                     <div className="text-[9.5px] text-slate-400">Life Safety Code</div>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                    <div className="text-[11px] font-bold text-slate-800">LEED Platinum v4.1</div>
+                  <div className={`p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
+                    <div className={`text-[11px] font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>LEED Platinum v4.1</div>
                     <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">✓ 88 Points Scored</div>
                     <div className="text-[9.5px] text-slate-400">U.S. Green Building Council</div>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                    <div className="text-[11px] font-bold text-slate-800">Fire NOC Certificate</div>
+                  <div className={`p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
+                    <div className={`text-[11px] font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>Fire NOC Certificate</div>
                     <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">✓ Valid thru Dec 2026</div>
                     <div className="text-[9.5px] text-slate-400">Metro Fire Bureau</div>
                   </div>
-                  <div className="p-2.5 bg-white rounded-xl border border-slate-200">
-                    <div className="text-[11px] font-bold text-slate-800">ISO 45001 / 50001</div>
+                  <div className={`p-2.5 rounded-xl border ${isDark ? "bg-[#081020] border-sky-500/20" : "bg-white border-slate-200"}`}>
+                    <div className={`text-[11px] font-bold ${isDark ? "text-slate-100" : "text-slate-800"}`}>ISO 45001 / 50001</div>
                     <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">✓ Certified Management</div>
                     <div className="text-[9.5px] text-slate-400">Health, Safety & Energy</div>
                   </div>
