@@ -7,6 +7,7 @@ import {
   Maximize2
 } from 'lucide-react';
 
+
 export const ViewportOverlay = ({
   facadeMode = 'FULL',
   onSetFacadeMode,
@@ -17,7 +18,9 @@ export const ViewportOverlay = ({
   onZoomOut,
   onResetView,
   onToggleExploded,
-  rooms = []
+  rooms = [],
+  sceneManager = null,
+  onHazardEvent = null
 }) => {
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 

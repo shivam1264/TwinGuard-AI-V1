@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { SceneManager } from './three/SceneManager';
 import { TopHeader } from './components/TopHeader';
@@ -45,6 +45,7 @@ const generateInitialRooms = () => {
         center: { x: tmpl.centerX, y: floorBaseY, z: tmpl.centerZ },
         bounds: { minX: tmpl.minX, maxX: tmpl.maxX, minZ: tmpl.minZ, maxZ: tmpl.maxZ },
         peopleCount,
+        capacity: 50, // configured design capacity for this room
         hasFire: false,
         tempCelsius: 22
       });
@@ -145,6 +146,8 @@ export function App() {
   const [incidents, setIncidents] = useState(INITIAL_INCIDENTS);
   const [systemStatus, setSystemStatus] = useState('STANDBY');
   const [serverConnected, setServerConnected] = useState(false);
+  // Live SceneManager instance (state so overlays/mounts never see a stale ref)
+  const [sceneMgr, setSceneMgr] = useState(null);
 
   const [stats, setStats] = useState({
     total: calculateTotal(INITIAL_ROOMS),
@@ -184,6 +187,7 @@ export function App() {
     );
 
     sceneManagerRef.current = manager;
+    setSceneMgr(manager);
     window.__sceneManager = manager;
     window.__twinguardApp = {
       startEvacuation: handleStartEvacuation,
@@ -452,6 +456,12 @@ export function App() {
       sceneManagerRef.current.reset(freshRooms);
     }
 
+    // Multi-hazard reset: clear the centralized hazard store as well
+    // (the scene-side hazards are cleaned inside sceneManager.reset)
+    if (AIEngine && AIEngine.resetHazards) {
+      AIEngine.resetHazards();
+    }
+
     if (socketRef.current && socketRef.current.connected) {
       fetch('http://localhost:5000/api/reset', { method: 'POST' }).catch(() => {});
     }
@@ -476,6 +486,28 @@ export function App() {
       sceneManagerRef.current.setFloorMode(floorMode);
     }
   };
+
+  // Multi-hazard toggles → global incident feed (sidebar + command center)
+  const handleHazardEvent = useCallback((evt) => {
+    if (!evt) return;
+    const nowTime = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    setIncidents((prev) =>
+      [
+        {
+          id: evt.id || `hz_${Date.now()}`,
+          time: nowTime,
+          title: evt.message || 'Multi-hazard state change',
+          subtitle: `${evt.hazard} · ${evt.location || 'Building-wide'}`,
+          severity: evt.enabled ? 'High' : 'Low'
+        },
+        ...prev
+      ].slice(0, 40)
+    );
+  }, []);
 
   const handleSetFacadeMode = (mode) => {
     if (sceneManagerRef.current && sceneManagerRef.current.setFacadeModeDirect) {
@@ -607,6 +639,7 @@ export function App() {
               onToggleGis={() => setIsGisOpen(!isGisOpen)}
               isGisOpen={isGisOpen}
               rooms={rooms}
+              sceneManager={sceneMgr}
             />
           )}
 
@@ -639,7 +672,8 @@ export function App() {
               <EmergencyCommandCenterPage
                 threeCanvasRef={threeCanvasRef}
                 mainSlotRef={mainSlotRef}
-                sceneManager={sceneManagerRef.current}
+                sceneManager={sceneMgr}
+                onHazardEvent={handleHazardEvent}
                 rooms={rooms}
                 selected3DRoom={selected3DRoom}
                 onSelect3DRoom={(r) => setSelected3DRoom(r)}
@@ -649,14 +683,26 @@ export function App() {
                     sceneManagerRef.current.syncOccupants(updatedRooms);
                   }
                 }}
+                /* Strict per-room occupancy: updates ONLY that room, syncs the 3D
+                   occupancy indicator of that room and persists to the backend */
+                onUpdateOccupancy={handleUpdateCrowd}
+                onBlockStairwell={(coreName, floorNum) => {
+                  fetch('http://localhost:5000/api/block-stairwell', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ coreName, floorNum })
+                  }).catch(() => {});
+                }}
                 onUpdateExits={(updatedExits) => {
                   setExits(updatedExits);
                 }}
                 exits={exits}
                 isSimulating={isSimulating}
-                onStartSimulation={() => handleStartSimulation()}
-                onPauseSimulation={() => handlePauseSimulation()}
-                onResetSimulation={() => handleResetSimulation()}
+                systemStatus={systemStatus}
+                stats={stats}
+                onStartSimulation={handleStartEvacuation}
+                onPauseSimulation={handlePauseResume}
+                onResetSimulation={handleReset}
                 onTriggerFire={handleTriggerFire}
                 onExtinguishFire={(roomId) => {
                   setRooms(prev => prev.map(r => r.id === roomId ? { ...r, hasFire: false, tempCelsius: 22 } : r));

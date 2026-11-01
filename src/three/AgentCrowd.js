@@ -539,6 +539,27 @@ export class AgentCrowd {
         agent.path = newPath;
         agent.currentWaypointIdx = bestIdx;
         agent.assignedExitColor = assignment.exitColor;
+
+        // ── REROUTE VISUALIZATION: stop & turn toward the new route ──
+        // Detect a major direction reversal (e.g. West Core path invalidated
+        // by structural debris → the agent visibly turns around toward the
+        // alternative East Core B, then resumes — never teleported).
+        const turnTarget = newPath[bestIdx];
+        if (turnTarget && agent.mesh) {
+          const tdx = turnTarget.x - agent.x;
+          const tdz = turnTarget.z - agent.z;
+          if (tdx * tdx + tdz * tdz > 0.04) {
+            const desiredAngle = Math.atan2(tdx, tdz);
+            let angleDiff = desiredAngle - agent.mesh.rotation.y;
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+            if (Math.abs(angleDiff) > 1.9) {
+              agent.reroutePause = 0.7; // brief halt while turning in place
+              agent.rerouteTurnTarget = desiredAngle;
+              agent.rerouteCount = (agent.rerouteCount || 0) + 1;
+            }
+          }
+        }
       }
     });
   }
@@ -601,6 +622,27 @@ export class AgentCrowd {
         if (agent.state === 'EVACUATING' && agent.path.length > 0) {
           if (agent.isSeated) {
             this.standUpAgent(agent);
+          }
+
+          // Multi-hazard reroute: brief stop & turn-around in place (no teleport)
+          if (agent.reroutePause > 0) {
+            agent.reroutePause -= delta;
+            if (agent.mesh && agent.rerouteTurnTarget !== undefined) {
+              let turnDiff = agent.rerouteTurnTarget - agent.mesh.rotation.y;
+              while (turnDiff > Math.PI) turnDiff -= Math.PI * 2;
+              while (turnDiff < -Math.PI) turnDiff += Math.PI * 2;
+              agent.mesh.rotation.y += turnDiff * Math.min(1.0, delta * 5.5);
+            }
+            // Walk cycle eases to a standstill while turning
+            agent.leftLeg.rotation.x *= 0.8;
+            agent.rightLeg.rotation.x *= 0.8;
+            agent.leftKnee.rotation.x *= 0.8;
+            agent.rightKnee.rotation.x *= 0.8;
+            agent.leftArm.rotation.x *= 0.8;
+            agent.rightArm.rotation.x *= 0.8;
+            agent.torso.position.y += (0.86 - agent.torso.position.y) * 0.2;
+            agent.headGroup.position.y += (1.48 - agent.headGroup.position.y) * 0.2;
+            continue; // hold position while turning toward the new route
           }
 
           const targetWaypoint = agent.path[agent.currentWaypointIdx];

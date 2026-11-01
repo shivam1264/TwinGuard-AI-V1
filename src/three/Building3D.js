@@ -2771,4 +2771,61 @@ export class Building3D {
     mapMesh(buckets.wallTvScreensOrange, this.wallTvScreenGeo, this.screenDisplayOrangeMat);
     mapMesh(buckets.whiteboards, this.wallTvFrameGeo, this.whiteboardMat);
   }
+
+  setZonePowerOff(floorNum, bounds, isOff) {
+    if (!this.blackoutOverlays) this.blackoutOverlays = new Map();
+    const key = `${floorNum}_${bounds ? `${bounds.minX.toFixed(1)}_${bounds.maxX.toFixed(1)}_${bounds.minZ.toFixed(1)}_${bounds.maxZ.toFixed(1)}` : 'all'}`;
+
+    if (isOff) {
+      if (this.blackoutOverlays.has(key)) return;
+      const b = bounds || { minX: -28, maxX: 28, minZ: -22, maxZ: 22 };
+      const w = Math.max(2.0, b.maxX - b.minX);
+      const d = Math.max(2.0, b.maxZ - b.minZ);
+      const h = 3.35;
+      const baseY = (floorNum - 1) * this.floorHeight;
+
+      const group = new THREE.Group();
+      group.name = `BlackoutOverlay_${key}`;
+
+      const darkMat = new THREE.MeshBasicMaterial({
+        color: 0x050811,
+        transparent: true,
+        opacity: 0.86,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), darkMat);
+      boxMesh.position.set((b.minX + b.maxX) / 2, baseY + 0.18 + h / 2, (b.minZ + b.maxZ) / 2);
+      group.add(boxMesh);
+
+      const ledGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.06, 12);
+      const ledMat = new THREE.MeshBasicMaterial({ color: 0xff1e1e });
+      const ledMesh = new THREE.Mesh(ledGeo, ledMat);
+      ledMesh.position.set((b.minX + b.maxX) / 2, baseY + 3.45, (b.minZ + b.maxZ) / 2);
+      group.add(ledMesh);
+
+      const light = new THREE.PointLight(0xff1e1e, 1.4, Math.max(6.0, Math.max(w, d) * 0.9), 2.0);
+      light.position.set((b.minX + b.maxX) / 2, baseY + 3.25, (b.minZ + b.maxZ) / 2);
+      group.add(light);
+      group.userData.pulseLight = light;
+
+      this.scene.add(group);
+      this.blackoutOverlays.set(key, group);
+    } else {
+      const g = this.blackoutOverlays.get(key);
+      if (g) {
+        if (g.parent) g.parent.remove(g);
+        this.blackoutOverlays.delete(key);
+      }
+    }
+  }
+
+  updateZonePowerAnimations(time) {
+    if (!this.blackoutOverlays || this.blackoutOverlays.size === 0) return;
+    this.blackoutOverlays.forEach((group) => {
+      if (group.userData && group.userData.pulseLight) {
+        group.userData.pulseLight.intensity = 1.2 + 0.6 * Math.sin(time * 3.2);
+      }
+    });
+  }
 }

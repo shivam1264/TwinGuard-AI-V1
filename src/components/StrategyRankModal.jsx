@@ -6,7 +6,6 @@ import {
   Layers,
   Sparkles,
   ShieldCheck,
-  BarChart3,
   BarChart2,
   Target,
   Scale,
@@ -17,9 +16,7 @@ import {
   CheckCircle2,
   Play,
   ArrowRight,
-  GitBranch,
   Database,
-  FileText,
   Radar,
   Send,
   Trophy
@@ -184,9 +181,7 @@ export const StrategyRankModal = ({
       iconBg: '#dcfce7',
       iconColor: '#059669',
       title: 'Nearest Core',
-      tag: 'Baseline Reactive',
-      tagStyle: { background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' },
-      description: 'Occupants head strictly to the closest stairwell core without load balancing or traffic regulation.',
+      description: 'Everyone uses the nearest stairwell core — no load balancing.',
       clearanceTime: `${stratA.time}s`,
       peakDensity: `${stratA.density} p/m²`,
       toxicExposure: `${stratA.exposure} pts`,
@@ -194,12 +189,10 @@ export const StrategyRankModal = ({
       coreA: stratA.coreA,
       coreB: stratA.coreB,
       bullets: [
-        { type: 'check', text: 'Requires zero emergency infrastructure or communication' },
-        { type: 'warning', text: 'Severe stairwell core overcrowding and stampede hazard' },
-        { type: 'warning', text: 'Elevated toxic exposure during stairwell queueing' },
-        { type: 'warning', text: 'Massive bottleneck at West Exit while East Core sits underutilized' }
+        { type: 'check', text: 'No infrastructure or comms required' },
+        { type: 'warning', text: 'Heavy overcrowding & stampede risk at West core' }
       ],
-      buttonText: 'ACTIVATE STRATEGY ON 3D TWIN',
+      buttonText: 'ACTIVATE ON 3D TWIN',
       cardTheme: {
         border: '1.5px solid #a7f3d0',
         headerBg: '#ecfdf5',
@@ -220,9 +213,7 @@ export const StrategyRankModal = ({
       iconBg: '#dbeafe',
       iconColor: '#2563eb',
       title: 'Dynamic Core Balancing',
-      tag: 'IoT & Smart Guidance',
-      tagStyle: { background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' },
-      description: 'Dynamic digital signage diverts floor occupants evenly between West Core A and East Core B to prevent stampedes.',
+      description: 'Digital signage splits occupants evenly across both cores.',
       clearanceTime: `${stratB.time}s`,
       peakDensity: `${stratB.density} p/m²`,
       toxicExposure: `${stratB.exposure} pts`,
@@ -230,12 +221,10 @@ export const StrategyRankModal = ({
       coreA: stratB.coreA,
       coreB: stratB.coreB,
       bullets: [
-        { type: 'check', text: 'Optimal dual-core stairwell utilization (50/50 balance)' },
-        { type: 'check', text: 'Lowest overall building clearance duration' },
-        { type: 'check', text: 'Cuts clearance time by ~34% with zero stampede choke' },
-        { type: 'warning', text: 'Requires functional IoT dynamic signage or marshals' }
+        { type: 'check', text: 'Best clearance time with balanced 50/50 load' },
+        { type: 'warning', text: 'Needs working IoT signage or floor marshals' }
       ],
-      buttonText: 'TEST THIS STRATEGY',
+      buttonText: 'TEST STRATEGY',
       cardTheme: {
         border: '1.5px solid #bfdbfe',
         headerBg: '#eff6ff',
@@ -256,9 +245,7 @@ export const StrategyRankModal = ({
       iconBg: '#fee2e2',
       iconColor: '#dc2626',
       title: 'Phased Zone Evacuation',
-      tag: 'NFPA Life Safety Standard',
-      tagStyle: { background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' },
-      description: 'Immediate evacuation of fire floor and adjacent levels; other floors sheltered in place for 45s to clear stair capacity.',
+      description: 'Fire floor clears first; other floors wait 45s for stair capacity.',
       clearanceTime: `${stratC.time}s`,
       peakDensity: `${stratC.density} p/m²`,
       toxicExposure: `${stratC.exposure} pts`,
@@ -266,12 +253,10 @@ export const StrategyRankModal = ({
       coreA: stratC.coreA,
       coreB: stratC.coreB,
       bullets: [
-        { type: 'check', text: 'Zero stairwell crush / stampede hazard (Lowest peak density)' },
-        { type: 'check', text: 'Immediate priority clearance for fire floor occupants' },
-        { type: 'check', text: 'Lowest direct casualty & toxic smoke risk' },
-        { type: 'warning', text: 'Extended overall clearance time for upper floor evacuees' }
+        { type: 'check', text: 'Lowest peak density and toxic smoke exposure' },
+        { type: 'warning', text: 'Slower clearance for upper-floor occupants' }
       ],
-      buttonText: 'TEST THIS STRATEGY',
+      buttonText: 'TEST STRATEGY',
       cardTheme: {
         border: '1.5px solid #fecaca',
         headerBg: '#fef2f2',
@@ -324,48 +309,16 @@ export const StrategyRankModal = ({
             </div>
 
             <div>
-              <div className="flex items-center" style={{ gap: '8px' }}>
-                <h1 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                  AI Multi-Strategy Simulation & Decision Matrix
-                </h1>
-                <span
-                  style={{
-                    background: '#ede9fe',
-                    color: '#6366f1',
-                    border: '1px solid #ddd6fe',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    fontSize: '9.5px',
-                    fontWeight: 800,
-                    letterSpacing: '0.04em',
-                    textTransform: 'uppercase'
-                  }}
-                >
-                  TOPSIS + RADAR XAI
-                </span>
-              </div>
+              <h1 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                AI Strategy Decision Matrix
+              </h1>
 
-              {/* Subtitle breadcrumb line with icons */}
-              <div className="flex items-center flex-wrap" style={{ gap: '10px', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-                <div className="flex items-center" style={{ gap: '4px' }}>
-                  <Flame style={{ width: '12px', height: '12px', color: '#ea580c' }} />
-                  <span>Scenario: <b style={{ color: '#0f172a' }}>{scenario?.name || 'Standard Office Fire (Level 4)'}</b></span>
-                </div>
-                <span style={{ color: '#cbd5e1' }}>|</span>
-                <div className="flex items-center" style={{ gap: '4px' }}>
-                  <GitBranch style={{ width: '12px', height: '12px', color: '#64748b' }} />
-                  <span>Fast-forward Rollouts</span>
-                </div>
-                <span style={{ color: '#cbd5e1' }}>|</span>
-                <div className="flex items-center" style={{ gap: '4px' }}>
-                  <Radar style={{ width: '12px', height: '12px', color: '#64748b' }} />
-                  <span>5-Axis Spider Chart</span>
-                </div>
-                <span style={{ color: '#cbd5e1' }}>|</span>
-                <div className="flex items-center" style={{ gap: '4px' }}>
-                  <FileText style={{ width: '12px', height: '12px', color: '#64748b' }} />
-                  <span>Explainable Diagnostics</span>
-                </div>
+              {/* Subtitle: active scenario only */}
+              <div className="flex items-center" style={{ gap: '4px', marginTop: '3px', fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                <Flame style={{ width: '12px', height: '12px', color: '#ea580c', flexShrink: 0 }} />
+                <span className="truncate">
+                  Scenario: <b style={{ color: '#0f172a' }}>{scenario?.name || 'Standard Office Fire (Level 4)'}</b>
+                </span>
               </div>
             </div>
           </div>
@@ -439,7 +392,7 @@ export const StrategyRankModal = ({
               }}
             >
               <Layers style={{ width: '14px', height: '14px' }} />
-              <span>Strategy Cards</span>
+              <span>Strategies</span>
             </button>
 
             <button
@@ -457,7 +410,7 @@ export const StrategyRankModal = ({
               }}
             >
               <Radar style={{ width: '14px', height: '14px' }} />
-              <span>Radar Scorecard & XAI</span>
+              <span>Radar & XAI</span>
             </button>
 
             <button
@@ -475,7 +428,7 @@ export const StrategyRankModal = ({
               }}
             >
               <Sparkles style={{ width: '14px', height: '14px' }} />
-              <span>AI Commander Briefing</span>
+              <span>AI Briefing</span>
             </button>
 
             <button
@@ -493,11 +446,11 @@ export const StrategyRankModal = ({
               }}
             >
               <ShieldCheck style={{ width: '14px', height: '14px' }} />
-              <span>NFPA 101 Compliance</span>
+              <span>NFPA 101</span>
             </button>
           </div>
 
-          {/* Right: Weights & Shortcut */}
+          {/* Right: Sensitivity Weights */}
           <div className="flex items-center" style={{ gap: '14px' }}>
             <div className="flex items-center" style={{ gap: '6px', fontSize: '11px', color: '#64748b' }}>
               <span style={{ fontWeight: 600 }}>Weights:</span>
@@ -514,34 +467,12 @@ export const StrategyRankModal = ({
                 </span>
               </div>
               <div className="flex items-center" style={{ gap: '3px' }}>
-                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
                 <span style={{ color: '#475569' }}>Exposure</span>
                 <span style={{ background: '#ffedd5', color: '#c2410c', padding: '1px 6px', borderRadius: '5px', fontSize: '10.5px', fontWeight: 700 }}>
                   {weights.exposure}%
                 </span>
               </div>
             </div>
-
-            <span style={{ width: '1px', height: '16px', background: '#e2e8f0' }} />
-
-            <button
-              onClick={() => setActiveTab('RADAR_XAI')}
-              className="flex items-center cursor-pointer transition-all"
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '4px 10px',
-                color: '#2563eb',
-                fontSize: '11px',
-                fontWeight: 700,
-                gap: '6px'
-              }}
-            >
-              <BarChart3 style={{ width: '13px', height: '13px' }} />
-              <span>View Radar & XAI</span>
-              <ArrowRight style={{ width: '12px', height: '12px' }} />
-            </button>
           </div>
         </div>
 
@@ -627,23 +558,9 @@ export const StrategyRankModal = ({
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between" style={{ gap: '4px' }}>
-                            <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-                              {strat.title}
-                            </h3>
-                            <span
-                              style={{
-                                ...strat.tagStyle,
-                                padding: '1px 6px',
-                                borderRadius: '5px',
-                                fontSize: '9px',
-                                fontWeight: 700,
-                                whiteSpace: 'nowrap'
-                              }}
-                            >
-                              {strat.tag}
-                            </span>
-                          </div>
+                          <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                            {strat.title}
+                          </h3>
 
                           <p style={{ fontSize: '10.5px', color: '#64748b', lineHeight: 1.3, marginTop: '3px' }}>
                             {strat.description}
@@ -828,10 +745,10 @@ export const StrategyRankModal = ({
                 <div>
                   <div className="flex items-center" style={{ gap: '6px', color: '#2563eb', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase' }}>
                     <Radar style={{ width: '13px', height: '13px' }} />
-                    <span>Pareto-Optimized Multi-Objective Trade-Off Decision Matrix</span>
+                    <span>Multi-Objective Trade-Off</span>
                   </div>
                   <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
-                    5-Axis Multi-Criteria Spider Scorecard & Microscopic XAI Diagnostics
+                    5-Axis Decision Radar & XAI
                   </h2>
                 </div>
               </div>
@@ -1006,10 +923,10 @@ export const StrategyRankModal = ({
                   }}
                 >
                   <h3 style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
-                    TOPSIS Decision Matrix Diagnostics
+                    TOPSIS Decision Matrix
                   </h3>
                   <p style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-                    Multi-criteria ranking measures proximity to the ideal point across clearance speed, crush risk suppression, and toxic smoke exposure.
+                    Ranks each strategy by distance from the ideal point across speed, crush risk and smoke exposure.
                   </p>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -1049,10 +966,10 @@ export const StrategyRankModal = ({
               >
                 <div className="flex items-center" style={{ gap: '6px', color: '#7c3aed', fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase' }}>
                   <Sparkles style={{ width: '13px', height: '13px' }} />
-                  <span>AI Tactical Incident Commander & Safety Briefing</span>
+                  <span>AI Incident Commander</span>
                 </div>
                 <h2 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '3px' }}>
-                  Automated Incident Assessment & Strategic Action Plan
+                  Automated Assessment & Action Plan
                 </h2>
 
                 <div style={{ marginTop: '12px', padding: '12px', borderRadius: '10px', background: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '11.5px', color: '#334155', lineHeight: 1.5 }}>
@@ -1061,12 +978,12 @@ export const StrategyRankModal = ({
 
                 <div style={{ marginTop: '14px' }}>
                   <label style={{ fontSize: '10.5px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>
-                    Ask AI Incident Commander / Safety Analyst
+                    Ask AI Analyst
                   </label>
                   <div className="flex items-center" style={{ gap: '8px' }}>
                     <input
                       type="text"
-                      placeholder="e.g. Why did Strategy B achieve #1 Pareto rank over Nearest Core?"
+                      placeholder="e.g. Why is Strategy B ranked #1?"
                       value={userQuery}
                       onChange={(e) => setUserQuery(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleAskQuestion(); }}
@@ -1126,10 +1043,10 @@ export const StrategyRankModal = ({
                 <div className="flex items-center justify-between" style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '10px', marginBottom: '12px' }}>
                   <div>
                     <h3 style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                      NFPA 101 Life Safety Code Statutory Audit
+                      NFPA 101 Compliance Audit
                     </h3>
                     <p style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                      Assessment of exit capacity, travel distance, and stairwell pressurization
+                      Exit capacity, travel distance & stairwell pressurization
                     </p>
                   </div>
                   <span style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '3px 10px', borderRadius: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>
@@ -1218,24 +1135,15 @@ export const StrategyRankModal = ({
                 }}
               />
               <span style={{ fontSize: '11px', color: '#475569' }}>
-                Digital Twin Simulation State: <b style={{ color: '#0f172a' }}>100% Synchronized</b>
+                Digital Twin: <b style={{ color: '#0f172a' }}>100% Synchronized</b>
               </span>
             </div>
           </div>
 
-          {/* Right: Scenario Time & Occupants */}
-          <div className="flex items-center" style={{ gap: '14px' }}>
-            <span style={{ color: '#cbd5e1' }}>|</span>
-
-            <div className="flex items-center" style={{ gap: '5px', fontSize: '11px', color: '#64748b' }}>
-              <Clock style={{ width: '13px', height: '13px', color: '#475569' }} />
-              <span>Scenario Time: <b style={{ color: '#0f172a', fontFamily: 'monospace' }}>00:00:00</b></span>
-            </div>
-
-            <div className="flex items-center" style={{ gap: '5px', fontSize: '11px', color: '#64748b' }}>
-              <Users style={{ width: '13px', height: '13px', color: '#475569' }} />
-              <span>Occupant Count: <b style={{ color: '#0f172a' }}>{totalOccupants}</b></span>
-            </div>
+          {/* Right: Occupant Count */}
+          <div className="flex items-center" style={{ gap: '5px', fontSize: '11px', color: '#64748b' }}>
+            <Users style={{ width: '13px', height: '13px', color: '#475569' }} />
+            <span>Occupant Count: <b style={{ color: '#0f172a' }}>{totalOccupants}</b></span>
           </div>
         </div>
       </div>
