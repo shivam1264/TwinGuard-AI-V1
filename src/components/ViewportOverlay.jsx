@@ -16,6 +16,7 @@ import {
 
 
 export const ViewportOverlay = ({
+  theme = 'dark',
   facadeMode = 'FULL',
   onSetFacadeMode,
   activeFloorView = 'ALL',
@@ -35,6 +36,7 @@ export const ViewportOverlay = ({
   sceneManager = null,
   onHazardEvent = null
 }) => {
+  const isDark = theme === 'dark';
   // L1 to L10 in ascending natural sequence for horizontal layout (or reverse if desired)
   const floorsList = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
@@ -52,11 +54,11 @@ export const ViewportOverlay = ({
       <div className="absolute top-4 left-4 flex flex-col pointer-events-auto gap-3">
         {/* Pills: [Exterior] [Interior] [Top View] [Exploded] */}
         <div
-          className="flex items-center backdrop-blur-md p-1 rounded-xl gap-1"
+          className="flex items-center backdrop-blur-md p-1 rounded-xl gap-1 transition-colors"
           style={{
-            background: 'rgba(11, 22, 44, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)'
+            background: isDark ? 'rgba(11, 22, 44, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            boxShadow: isDark ? '0 4px 16px rgba(0, 0, 0, 0.5)' : '0 4px 16px rgba(0, 0, 0, 0.08)'
           }}
         >
           {/* 1. Exterior Mode */}
@@ -75,7 +77,7 @@ export const ViewportOverlay = ({
                 : 'transparent',
               color: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
                 ? '#ffffff'
-                : '#94a3b8',
+                : (isDark ? '#94a3b8' : '#475569'),
               boxShadow: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
                 ? '0 0 10px rgba(37, 99, 235, 0.6)'
                 : 'none'
@@ -100,7 +102,7 @@ export const ViewportOverlay = ({
                 : 'transparent',
               color: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
                 ? '#ffffff'
-                : '#94a3b8',
+                : (isDark ? '#94a3b8' : '#475569'),
               boxShadow: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
                 ? '0 0 10px rgba(37, 99, 235, 0.6)'
                 : 'none'
@@ -115,10 +117,10 @@ export const ViewportOverlay = ({
               onSetFacadeMode('CUTAWAY');
               onResetView('TOP_DOWN');
             }}
-            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white"
+            className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
               background: 'transparent',
-              color: '#94a3b8'
+              color: isDark ? '#94a3b8' : '#475569'
             }}
           >
             Top View
@@ -133,13 +135,13 @@ export const ViewportOverlay = ({
             className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
               background: activeFloorView === 'EXPLODED'
-                ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                ? 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)'
                 : 'transparent',
               color: activeFloorView === 'EXPLODED'
                 ? '#ffffff'
-                : '#94a3b8',
+                : (isDark ? '#94a3b8' : '#475569'),
               boxShadow: activeFloorView === 'EXPLODED'
-                ? '0 0 10px rgba(37, 99, 235, 0.6)'
+                ? '0 0 10px rgba(20, 184, 166, 0.6)'
                 : 'none'
             }}
           >
@@ -243,15 +245,17 @@ export const ViewportOverlay = ({
       </div>
 
       {/* ── Left-Side: Vertical Floor Stack Selector [Exploded] [L10..L1] [ALL] (Transferred to Left) ── */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto z-10 gap-1 backdrop-blur-md px-1.5 py-2 rounded-2xl border border-sky-500/25 bg-slate-950/85 shadow-2xl">
+      <div className={`absolute left-4 top-1/2 -translate-y-1/2 flex flex-col items-center pointer-events-auto z-10 gap-1 backdrop-blur-md px-1.5 py-2 rounded-2xl border shadow-2xl transition-colors ${
+        isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
+      }`}>
         {/* Exploded BIM Stack Pill at top */}
         <button
           onClick={onToggleExploded}
           className="flex items-center justify-center cursor-pointer transition-all shadow-sm w-7 h-7 rounded-lg mb-1"
           style={{
-            background: activeFloorView === 'EXPLODED' ? '#2563eb' : 'rgba(15, 23, 42, 0.8)',
-            color: activeFloorView === 'EXPLODED' ? '#ffffff' : '#38bdf8',
-            border: '1px solid rgba(56, 189, 248, 0.3)'
+            background: activeFloorView === 'EXPLODED' ? '#2563eb' : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9'),
+            color: activeFloorView === 'EXPLODED' ? '#ffffff' : (isDark ? '#38bdf8' : '#0284c7'),
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid #cbd5e1'
           }}
           title="Toggle Exploded BIM Stack"
         >
@@ -281,7 +285,7 @@ export const ViewportOverlay = ({
                   ? '#ffffff'
                   : isFire
                   ? '#ef4444'
-                  : '#94a3b8',
+                  : (isDark ? '#94a3b8' : '#475569'),
                 border: isSelected
                   ? '1px solid #60a5fa'
                   : isFire
@@ -304,9 +308,15 @@ export const ViewportOverlay = ({
           onClick={() => onSelectFloor('ALL')}
           className="flex items-center justify-center cursor-pointer transition-all w-7 h-6 rounded-md text-[9px] font-black tracking-wider mt-1"
           style={{
-            background: activeFloorView === 'ALL' ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)' : 'rgba(15, 23, 42, 0.8)',
-            color: activeFloorView === 'ALL' ? '#ffffff' : '#94a3b8',
-            border: activeFloorView === 'ALL' ? '1px solid #60a5fa' : '1px solid rgba(56, 189, 248, 0.25)',
+            background: activeFloorView === 'ALL'
+              ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+              : (isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9'),
+            color: activeFloorView === 'ALL'
+              ? '#ffffff'
+              : (isDark ? '#94a3b8' : '#475569'),
+            border: activeFloorView === 'ALL'
+              ? '1px solid #60a5fa'
+              : (isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1'),
             boxShadow: activeFloorView === 'ALL' ? '0 0 10px rgba(37, 99, 235, 0.6)' : 'none'
           }}
           title="View All Floors (Full Building)"
@@ -316,31 +326,39 @@ export const ViewportOverlay = ({
       </div>
 
       {/* ── Bottom-Right: Viewport Navigation [Zoom In, Zoom Out, Left, Right, Forward, Back] ── */}
-      <div className="absolute bottom-4 right-4 flex items-center pointer-events-auto gap-1 backdrop-blur-md p-1.5 rounded-2xl border border-sky-500/25 bg-slate-950/85 shadow-2xl">
+      <div className={`absolute bottom-4 right-4 flex items-center pointer-events-auto gap-1 backdrop-blur-md p-1.5 rounded-2xl border shadow-2xl transition-colors ${
+        isDark ? 'border-sky-500/25 bg-slate-950/85 text-slate-300' : 'border-slate-300 bg-white/95 text-slate-700'
+      }`}>
         {/* Zoom In */}
         <button
           onClick={onZoomIn}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Zoom In"
         >
-          <ZoomIn className="w-4 h-4 text-sky-400" />
+          <ZoomIn className={`w-4 h-4 ${isDark ? 'text-sky-400' : 'text-blue-600'}`} />
         </button>
 
         {/* Zoom Out */}
         <button
           onClick={onZoomOut}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Zoom Out"
         >
-          <ZoomOut className="w-4 h-4 text-sky-400" />
+          <ZoomOut className={`w-4 h-4 ${isDark ? 'text-sky-400' : 'text-blue-600'}`} />
         </button>
 
-        <div className="w-px h-5 bg-sky-500/20 mx-1" />
+        <div className={`w-px h-5 mx-1 ${isDark ? 'bg-sky-500/20' : 'bg-slate-200'}`} />
 
         {/* Left */}
         <button
           onClick={onPanLeft}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Move Left"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -349,7 +367,9 @@ export const ViewportOverlay = ({
         {/* Right */}
         <button
           onClick={onPanRight}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Move Right"
         >
           <ArrowRight className="w-4 h-4" />
@@ -358,7 +378,9 @@ export const ViewportOverlay = ({
         {/* Forward */}
         <button
           onClick={onMoveForward}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Move Forward"
         >
           <ArrowUp className="w-4 h-4" />
@@ -367,7 +389,9 @@ export const ViewportOverlay = ({
         {/* Back / Backward */}
         <button
           onClick={onMoveBackward}
-          className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-300 hover:text-white hover:bg-sky-500/15 transition-all cursor-pointer"
+          className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+            isDark ? 'text-slate-300 hover:text-white hover:bg-sky-500/15' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+          }`}
           title="Move Back"
         >
           <ArrowDown className="w-4 h-4" />

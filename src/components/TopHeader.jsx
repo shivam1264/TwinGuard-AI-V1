@@ -3,6 +3,7 @@ import {
   Box,
   Building2,
   Calendar,
+  Clock,
   Compass,
   AlertTriangle,
   FileText,
@@ -61,57 +62,19 @@ export const TopHeader = ({
     });
   };
 
-  const navItems = [
-    {
-      id: 'LIVE_VIEW',
-      label: '3D Digital Twin',
-      icon: Box,
-      onClick: () => onSelectTab('LIVE_VIEW')
-    },
-    {
-      id: 'COMMAND_CENTER',
-      label: 'Command Center',
-      icon: LayoutDashboard,
-      onClick: () => onSelectTab('COMMAND_CENTER')
-    },
-    {
-      id: 'BUILDING_INFO',
-      label: 'Building Info',
-      icon: Building2,
-      onClick: () => onSelectTab('BUILDING_INFO')
-    },
-    {
-      id: 'SCENARIOS',
-      label: 'AI Scenarios',
-      icon: Sparkles,
-      onClick: () => onSelectTab('SCENARIOS')
-    },
-    {
-      id: 'STRATEGY_RANKER',
-      label: 'Strategy Ranker',
-      icon: Trophy,
-      onClick: () => onSelectTab('STRATEGY_RANKER')
-    },
-    {
-      id: 'INCIDENTS',
-      label: 'Incidents',
-      icon: AlertTriangle,
-      badge: incidentCount > 0 ? incidentCount : null,
-      onClick: () => onSelectTab('INCIDENTS')
-    },
-    {
-      id: 'ANALYTICS',
-      label: 'Analytics',
-      icon: LineChart,
-      onClick: () => onSelectTab('ANALYTICS')
-    },
-    {
-      id: 'REPORTS',
-      label: 'Reports',
-      icon: FileText,
-      onClick: () => onSelectTab('REPORTS')
-    }
-  ];
+  const navItemLookup = {
+    LIVE_VIEW: { label: '3D Digital Twin', icon: Box },
+    COMMAND_CENTER: { label: 'Command Center', icon: LayoutDashboard },
+    BUILDING_INFO: { label: 'Building Info', icon: Building2 },
+    SCENARIOS: { label: 'AI Scenarios', icon: Sparkles },
+    STRATEGY_RANKER: { label: 'Strategy Ranker', icon: Trophy },
+    INCIDENTS: { label: 'Incidents', icon: AlertTriangle },
+    ANALYTICS: { label: 'Analytics', icon: LineChart },
+    REPORTS: { label: 'Reports', icon: FileText }
+  };
+
+  const activeItem = navItemLookup[activeTab] || navItemLookup.LIVE_VIEW;
+  const ActiveIcon = activeItem.icon;
 
   return (
     <header
@@ -129,7 +92,7 @@ export const TopHeader = ({
       <div className="flex items-center gap-3">
         <div
           className="flex items-center justify-center shrink-0 cursor-pointer transition-transform hover:scale-105"
-          onClick={() => onSelectTab('LIVE_VIEW')}
+          onClick={() => onSelectTab && onSelectTab('LIVE_VIEW')}
           style={{
             width: '40px',
             height: '40px',
@@ -138,6 +101,7 @@ export const TopHeader = ({
             border: '1px solid rgba(56, 189, 248, 0.35)',
             boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)'
           }}
+          title="Return to 3D Digital Twin"
         >
           {/* Cyan Glowing 3-Bar Tower Icon */}
           <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6">
@@ -179,116 +143,56 @@ export const TopHeader = ({
         </div>
       </div>
 
-      {/* ── Center: Main Navigation Tabs ── */}
-      <nav
-        className="hidden xl:flex items-center"
-        style={{
-          background: 'rgba(11, 22, 44, 0.75)',
-          padding: '4px',
-          borderRadius: '14px',
-          gap: '3px',
-          border: '1px solid rgba(56, 189, 248, 0.18)',
-          boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.4)'
-        }}
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-
-          if (isActive) {
-            return (
-              <button
-                key={item.id}
-                onClick={item.onClick}
-                className="flex items-center cursor-pointer transition-all focus:outline-none"
-                style={{
-                  height: '36px',
-                  padding: '0 16px',
-                  borderRadius: '11px',
-                  background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)',
-                  boxShadow: '0 2px 10px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  gap: '8px',
-                  border: '1px solid rgba(96, 165, 250, 0.4)'
-                }}
-              >
-                <Icon style={{ width: '15px', height: '15px' }} />
-                <span style={{ fontSize: '12px', fontWeight: 700 }}>{item.label}</span>
-                {item.badge && item.badge > 0 && (
-                  <span
-                    style={{
-                      fontSize: '9.5px',
-                      fontWeight: 900,
-                      background: '#ef4444',
-                      color: '#ffffff',
-                      borderRadius: '50%',
-                      width: '17px',
-                      height: '17px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginLeft: '2px',
-                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.8)'
-                    }}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          }
-
-          return (
-            <button
-              key={item.id}
-              onClick={item.onClick}
-              className="flex items-center cursor-pointer transition-all focus:outline-none relative"
-              style={{
-                height: '36px',
-                padding: '0 13px',
-                borderRadius: '11px',
-                background: 'transparent',
-                color: theme === 'dark' ? '#94a3b8' : '#475569',
-                gap: '7px',
-                border: 'none'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = theme === 'dark' ? 'rgba(56, 189, 248, 0.08)' : 'rgba(37, 99, 235, 0.08)';
-                e.currentTarget.style.color = theme === 'dark' ? '#f8fafc' : '#0f172a';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = theme === 'dark' ? '#94a3b8' : '#475569';
-              }}
+      {/* ── Center: Active Module Breadcrumb & Live Facility Telemetry ── */}
+      <div className="hidden lg:flex items-center gap-3">
+        <div
+          className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl border backdrop-blur-md"
+          style={{
+            background: theme === 'dark' ? 'rgba(11, 22, 44, 0.75)' : '#f8fafc',
+            borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.2)' : '#e2e8f0',
+            boxShadow: theme === 'dark' ? 'inset 0 1px 2px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34d399]" />
+            <span
+              className="text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: theme === 'dark' ? '#38bdf8' : '#0284c7' }}
             >
-              <Icon style={{ width: '15px', height: '15px' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600 }}>{item.label}</span>
-              {item.badge && item.badge > 0 && (
-                <span
-                  style={{
-                    fontSize: '9.5px',
-                    fontWeight: 900,
-                    background: '#ef4444',
-                    color: '#ffffff',
-                    borderRadius: '50%',
-                    width: '16px',
-                    height: '16px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginLeft: '2px',
-                    boxShadow: '0 0 6px rgba(239, 68, 68, 0.6)'
-                  }}
-                >
-                  {item.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
+              HORIZON TOWER (10 LEVELS)
+            </span>
+          </div>
 
-      {/* ── Right: Theme Toggle, Mobile Evacuee, Clock, & Profile/Settings ── */}
+          <span style={{ color: theme === 'dark' ? 'rgba(148, 163, 184, 0.4)' : '#cbd5e1' }}>•</span>
+
+          <div className="flex items-center gap-1.5">
+            <ActiveIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span
+              className="text-[11px] font-semibold"
+              style={{ color: theme === 'dark' ? '#f8fafc' : '#0f172a' }}
+            >
+              {activeItem.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Live Clock & Date */}
+        <div
+          className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-medium"
+          style={{
+            background: theme === 'dark' ? 'rgba(11, 22, 44, 0.5)' : '#ffffff',
+            borderColor: theme === 'dark' ? 'rgba(56, 189, 248, 0.15)' : '#e2e8f0',
+            color: theme === 'dark' ? '#94a3b8' : '#64748b'
+          }}
+        >
+          <Clock className="w-3.5 h-3.5 text-sky-400" />
+          <span>{formatDate(currentTime)}</span>
+          <span className="opacity-40">•</span>
+          <span className="font-bold text-sky-400">{formatTime(currentTime)}</span>
+        </div>
+      </div>
+
+      {/* ── Right: Theme Toggle, Mobile Evacuee, & Profile/Settings ── */}
       <div className="flex items-center gap-2.5">
         {/* Dark / Light Mode Toggle Button */}
         {onToggleTheme && (

@@ -74,6 +74,7 @@ const TelemetryRow = ({ label, value, bad = false, warn = false, neutral = false
 );
 
 export function EmergencyCommandCenterPage({
+  theme = 'dark',
   threeCanvasRef,
   mainSlotRef,
   sceneManager,
@@ -1593,9 +1594,13 @@ export function EmergencyCommandCenterPage({
     showToast(`Selected: ${h.locationName}`);
   };
 
+  const isDark = theme === 'dark';
+
   return (
     <div
-      className="w-full h-full bg-[#f4f6fa] text-slate-800 p-3 md:p-4 font-sans select-none overflow-y-auto overflow-x-hidden relative flex flex-col"
+      className={`w-full h-full p-3 md:p-4 font-sans select-none overflow-y-auto overflow-x-hidden relative flex flex-col transition-colors duration-300 ${
+        isDark ? 'theme-dark bg-[#070e1b] text-slate-100' : 'theme-light bg-[#f4f6fa] text-slate-800'
+      }`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
       {/* Toast Notification */}

@@ -74,10 +74,10 @@ export class SceneManager {
 
   initScene() {
     this.scene = new THREE.Scene();
-    // Atmospheric sky & daylight color matching WorldEnvironmentManager sky dome horizon
-    this.scene.background = new THREE.Color(0xeaf0f8);
-    // Soft atmospheric distance haze (keeps world visible across 2.4km without abrupt edge)
-    this.scene.fog = new THREE.FogExp2(0xeaf0f8, 0.00032);
+    const initialTheme = (typeof window !== 'undefined' && localStorage.getItem('twinguard_theme')) || 'dark';
+    const initialSky = initialTheme === 'dark' ? 0x081020 : 0xeaf0f8;
+    this.scene.background = new THREE.Color(initialSky);
+    this.scene.fog = new THREE.FogExp2(initialSky, 0.00032);
 
     const width = this.container.clientWidth || window.innerWidth || 1200;
     const height = this.container.clientHeight || (window.innerHeight - 56) || 800;
@@ -877,6 +877,16 @@ export class SceneManager {
       if (this.agentCrowd && this.agentCrowd.group) {
         this.agentCrowd.group.visible = isVisible;
       }
+    }
+  }
+
+  setTheme(theme) {
+    this.currentTheme = theme;
+    const isDark = theme === 'dark';
+    const skyColor = isDark ? 0x081020 : 0xeaf0f8;
+    if (this.scene) {
+      this.scene.background = new THREE.Color(skyColor);
+      this.scene.fog = new THREE.FogExp2(skyColor, 0.00032);
     }
   }
 

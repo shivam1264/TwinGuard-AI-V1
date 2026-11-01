@@ -52,16 +52,14 @@ body {
 }
 
 /* Backgrounds in Light Mode */
-.theme-light div[style*="linear-gradient(180deg, #070d18"],
-.theme-light div[style*="linear-gradient(180deg, #0c162d"],
-.theme-light div[style*="linear-gradient(180deg, #081020"],
-.theme-light div[style*="linear-gradient(180deg, rgba(8, 16, 32"],
-.theme-light div[style*="background: linear-gradient(180deg, #070d18"],
-.theme-light div[style*="background: linear-gradient(180deg, #0c162d"],
 .theme-light [class*="bg-[#070d18]"],
 .theme-light [class*="bg-[#0c162d]"],
 .theme-light [class*="bg-[#081020]"],
-.theme-light [class*="bg-[#0b1528]"] {
+.theme-light [class*="bg-[#0b1528]"],
+.theme-light [class*="bg-[#070e1b]"],
+.theme-light [class*="bg-[#080f1d]"],
+.theme-light div[style*="linear-gradient(180deg, #070d18"],
+.theme-light div[style*="linear-gradient(180deg, #0c162d"] {
   background: #f1f5f9 !important;
   background-color: #f1f5f9 !important;
   color: #0f172a !important;
@@ -69,22 +67,20 @@ body {
 
 /* Cards & Surface Containers in Light Mode */
 .theme-light .glass-panel,
-.theme-light aside,
 .theme-light div[style*="background: rgba(11, 22, 44"],
 .theme-light div[style*="background: rgba(15, 23, 42"],
 .theme-light div[style*="background: rgba(7, 13, 24"],
-.theme-light div[style*="background: rgba(8, 16, 32"],
-.theme-light [class*="bg-slate-900"],
-.theme-light [class*="bg-slate-950"] {
+.theme-light [class*="bg-slate-900"]:not(button):not([class*="bg-red"]):not([class*="bg-blue"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-emerald"]),
+.theme-light [class*="bg-slate-950"]:not(button):not([class*="bg-red"]):not([class*="bg-blue"]):not([class*="bg-orange"]):not([class*="bg-amber"]):not([class*="bg-emerald"]) {
   background: #ffffff !important;
   background-color: #ffffff !important;
   color: #0f172a !important;
   border-color: #e2e8f0 !important;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05) !important;
 }
 
 /* Secondary Cards & Inputs in Light Mode */
-.theme-light [class*="bg-slate-800"],
+.theme-light [class*="bg-slate-800"]:not(button),
 .theme-light select,
 .theme-light input {
   background-color: #f8fafc !important;
@@ -92,48 +88,56 @@ body {
   border-color: #cbd5e1 !important;
 }
 
-/* Text Overrides in Light Mode */
-.theme-light [class*="text-white"],
-.theme-light div[style*="color: #ffffff"],
-.theme-light span[style*="color: #ffffff"],
-.theme-light h1[class*="text-white"],
-.theme-light h2[class*="text-white"],
-.theme-light h3[class*="text-white"] {
+/* Headings in Light Mode */
+.theme-light h1,
+.theme-light h2,
+.theme-light h3,
+.theme-light h4 {
   color: #0f172a !important;
 }
 
-.theme-light [class*="text-slate-100"],
-.theme-light [class*="text-slate-200"],
-.theme-light [class*="text-slate-300"],
-.theme-light div[style*="color: #cbd5e1"],
-.theme-light div[style*="color: #f8fafc"] {
-  color: #1e293b !important;
-}
-
-.theme-light [class*="text-slate-400"],
-.theme-light div[style*="color: #94a3b8"],
-.theme-light div[style*="color: #64748b"] {
+/* Text in Light Mode (Only for non-button, non-badge elements) */
+.theme-light p {
   color: #475569 !important;
 }
 
-/* Preserving Action Buttons (Blue/Red/Green) */
-.theme-light button[style*="linear-gradient(135deg, #1d4ed8"],
-.theme-light button[style*="linear-gradient(135deg, #2563eb"],
-.theme-light button[style*="linear-gradient(135deg, #0d7a5f"],
-.theme-light button[class*="bg-blue-600"],
-.theme-light button[class*="bg-sky-600"],
-.theme-light button[class*="bg-red-600"],
-.theme-light button[class*="bg-emerald-600"] {
+.theme-light .text-slate-100,
+.theme-light .text-slate-200,
+.theme-light .text-slate-300 {
+  color: #1e293b !important;
+}
+
+.theme-light .text-slate-400,
+.theme-light .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Always preserve white text in buttons, badges, and alerts */
+.theme-light button[class*="bg-red-"],
+.theme-light button[class*="bg-blue-"],
+.theme-light button[class*="bg-sky-"],
+.theme-light button[class*="bg-emerald-"],
+.theme-light button[class*="bg-orange-"],
+.theme-light button[class*="bg-gradient-"],
+.theme-light span[class*="bg-red-"],
+.theme-light span[class*="bg-blue-"],
+.theme-light span[class*="bg-sky-"],
+.theme-light span[class*="bg-emerald-"],
+.theme-light span[class*="bg-orange-"] {
   color: #ffffff !important;
 }
 
-.theme-light button[class*="bg-blue-600"] *,
-.theme-light button[class*="bg-sky-600"] *,
-.theme-light button[class*="bg-red-600"] * {
+.theme-light button[class*="bg-red-"] *,
+.theme-light button[class*="bg-blue-"] *,
+.theme-light button[class*="bg-sky-"] *,
+.theme-light button[class*="bg-emerald-"] *,
+.theme-light button[class*="bg-orange-"] *,
+.theme-light button[class*="bg-gradient-"] *,
+.theme-light span[class*="bg-red-"] * {
   color: #ffffff !important;
 }
 
-/* Inactive button text */
+/* Inactive button text in Light Mode */
 .theme-light button[style*="background: transparent"] {
   color: #475569 !important;
 }
@@ -155,6 +159,62 @@ body {
 }
 .theme-light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8 !important;
+}
+
+/* ========================================================================= */
+/* UNIVERSAL DARK THEME CASCADE (Ensures Command Center & Building Info adapt)*/
+/* ========================================================================= */
+.theme-dark [class*="bg-[#f4f6fa]"],
+.theme-dark [class*="bg-[#f8fafc]"],
+.theme-dark [class*="bg-[#f1f5f9]"] {
+  background: #070e1b !important;
+  background-color: #070e1b !important;
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .bg-white:not(button):not([class*="bg-red"]):not([class*="bg-blue"]):not([class*="bg-amber"]):not([class*="bg-emerald"]):not([class*="bg-orange"]):not([class*="bg-gradient"]) {
+  background-color: #0c162d !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(56, 189, 248, 0.2) !important;
+}
+
+.theme-dark .bg-slate-50,
+.theme-dark .bg-slate-100 {
+  background-color: rgba(15, 23, 42, 0.75) !important;
+  color: #cbd5e1 !important;
+  border-color: rgba(56, 189, 248, 0.15) !important;
+}
+
+.theme-dark .bg-slate-200 {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+  color: #e2e8f0 !important;
+}
+
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+.theme-dark .text-slate-700,
+.theme-dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.theme-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .border-slate-200,
+.theme-dark .border-slate-300,
+.theme-dark .border-slate-100 {
+  border-color: rgba(56, 189, 248, 0.2) !important;
+}
+
+.theme-dark select,
+.theme-dark input {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
 }
 
 /* HUD Typography */

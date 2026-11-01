@@ -23,11 +23,13 @@ import {
 } from 'lucide-react';
 
 export const AnalyticsView = ({
+  theme = 'dark',
   stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
   rooms = [],
   exits = [],
   onSwitchToLive
 }) => {
+  const isDark = theme === 'dark';
   const [activeModule, setActiveModule] = useState('OVERVIEW');
   const [mapMode, setMapMode] = useState('3D View'); // '3D View' | '2D Plan' | 'Flow Only'
 
@@ -47,14 +49,20 @@ export const AnalyticsView = ({
 
   return (
     <div
-      className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#070d18] text-slate-100 overflow-y-auto no-scrollbar select-none"
+      className={`flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto no-scrollbar select-none transition-colors duration-300 ${
+        isDark ? 'bg-[#070d18] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
+      }`}
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
       {/* ── 1. Page Title Header Strip (Matching Reference Image) ── */}
       <div
-        className="px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-sky-500/20"
+        className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-b transition-colors ${
+          isDark ? 'border-sky-500/20' : 'border-slate-200'
+        }`}
         style={{
-          background: 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(7, 13, 24, 0.9) 100%)'
+          background: isDark
+            ? 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(7, 13, 24, 0.9) 100%)'
+            : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'
         }}
       >
         <div className="flex items-center gap-3.5">

@@ -16,12 +16,14 @@ import {
 } from 'lucide-react';
 
 export const StrategyRankerView = ({
+  theme = 'dark',
   scenario,
   rooms = [],
   exits = [],
   onApplyStrategy,
   onSwitchToLive
 }) => {
+  const isDark = theme === 'dark';
   const [selectedStrategy, setSelectedStrategy] = useState('NEAREST');
   const [weights, setWeights] = useState({
     time: 35,
@@ -94,14 +96,20 @@ export const StrategyRankerView = ({
 
   return (
     <div
-      className="flex-1 flex flex-col overflow-y-auto no-scrollbar p-4 sm:p-6 gap-4 select-none"
+      className={`flex-1 flex flex-col overflow-y-auto no-scrollbar p-4 sm:p-6 gap-4 select-none transition-colors duration-300 ${
+        isDark ? 'text-slate-100' : 'text-slate-900'
+      }`}
       style={{
-        background: 'linear-gradient(180deg, #070d18 0%, #0c162d 100%)',
+        background: isDark
+          ? 'linear-gradient(180deg, #070d18 0%, #0c162d 100%)'
+          : 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
         fontFamily: "'Inter', system-ui, sans-serif"
       }}
     >
       {/* ── Top Header Banner (Matching Reference Image 4) ── */}
-      <div className="flex items-center justify-between pb-3 border-b border-sky-500/20">
+      <div className={`flex items-center justify-between pb-3 border-b ${
+        isDark ? 'border-sky-500/20' : 'border-slate-200'
+      }`}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 flex items-center justify-center text-sky-400">
             <Trophy className="w-5 h-5 text-amber-400" />

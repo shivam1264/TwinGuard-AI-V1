@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 
 export const ReportsView = ({
+  theme = 'dark',
   stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
   exits = [],
   onSwitchToLive
 }) => {
+  const isDark = theme === 'dark';
   const total = stats.total || 190;
   const evacuated = stats.evacuated || 0;
   const elapsed = stats.elapsedSeconds || 0;
@@ -57,14 +59,20 @@ export const ReportsView = ({
 
   return (
     <div
-      className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#070d18] text-slate-100 overflow-y-auto no-scrollbar select-none p-6 gap-6"
+      className={`flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto no-scrollbar select-none p-6 gap-6 transition-colors duration-300 ${
+        isDark ? 'bg-[#070d18] text-slate-100' : 'bg-[#f8fafc] text-slate-900'
+      }`}
       style={{ fontFamily: "'Inter', system-ui, sans-serif" }}
     >
       {/* ── Title & Export Bar ── */}
       <div
-        className="p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 border border-sky-500/20"
+        className={`p-5 rounded-2xl flex flex-wrap items-center justify-between gap-4 border transition-colors ${
+          isDark ? 'border-sky-500/20' : 'border-slate-200'
+        }`}
         style={{
-          background: 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(7, 13, 24, 0.9) 100%)'
+          background: isDark
+            ? 'linear-gradient(180deg, rgba(11, 22, 44, 0.95) 0%, rgba(7, 13, 24, 0.9) 100%)'
+            : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'
         }}
       >
         <div className="flex items-center gap-3.5">

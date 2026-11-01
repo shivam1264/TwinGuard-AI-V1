@@ -132,20 +132,20 @@ export function App() {
     setTheme(prev => {
       const next = prev === 'dark' ? 'light' : 'dark';
       localStorage.setItem('twinguard_theme', next);
-      if (next === 'light') {
-        document.documentElement.classList.add('theme-light');
-      } else {
-        document.documentElement.classList.remove('theme-light');
-      }
       return next;
     });
   };
 
   useEffect(() => {
     if (theme === 'light') {
-      document.documentElement.classList.add('theme-light');
+      document.documentElement.classList.add('theme-light', 'light');
+      document.documentElement.classList.remove('theme-dark', 'dark');
     } else {
-      document.documentElement.classList.remove('theme-light');
+      document.documentElement.classList.add('theme-dark', 'dark');
+      document.documentElement.classList.remove('theme-light', 'light');
+    }
+    if (sceneManagerRef.current && sceneManagerRef.current.setTheme) {
+      sceneManagerRef.current.setTheme(theme);
     }
   }, [theme]);
 
@@ -616,6 +616,35 @@ export function App() {
     }
   };
 
+  const handleSelectTab = (tab) => {
+    if (tab === 'BUILDING_INFO') {
+      setActiveSidebarMode('INFO');
+      setActiveTab('BUILDING_INFO');
+      return;
+    }
+    if (tab === 'COMMAND_CENTER') {
+      setActiveSidebarMode('COMMAND_CENTER');
+      setActiveTab('COMMAND_CENTER');
+      return;
+    }
+    if (tab === 'LIVE_VIEW') {
+      setActiveSidebarMode('3D_VIEW');
+      setActiveTab('LIVE_VIEW');
+      handleSetCameraPreset('HERO_VIEW');
+      setIsCctvOpen(false);
+      setIsAnalyticsOpen(false);
+      setIsIncidentsOpen(false);
+      setIsReportsOpen(false);
+      return;
+    }
+    if (tab === 'SETTINGS') {
+      setIsSettingsOpen(true);
+      return;
+    }
+    setActiveSidebarMode('3D_VIEW');
+    setActiveTab(tab);
+  };
+
   const hasAnyFire = rooms.some((r) => r.hasFire);
 
   return (
@@ -624,42 +653,12 @@ export function App() {
         theme === 'dark' ? 'bg-[#070d18] text-slate-100' : 'bg-[#f1f5f9] text-slate-900'
       }`}
     >
-      {/* 1. TOP HEADER (Matching Image 1) */}
+      {/* 1. TOP HEADER */}
       <TopHeader
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        activeTab={
-          activeSidebarMode === 'INFO'
-            ? 'BUILDING_INFO'
-            : activeSidebarMode === 'COMMAND_CENTER'
-            ? 'COMMAND_CENTER'
-            : activeTab
-        }
-        onSelectTab={(tab) => {
-          if (tab === 'BUILDING_INFO') {
-            setActiveSidebarMode('INFO');
-            setActiveTab('LIVE_VIEW');
-            return;
-          }
-          if (tab === 'COMMAND_CENTER') {
-            setActiveSidebarMode('COMMAND_CENTER');
-            setActiveTab('COMMAND_CENTER');
-            return;
-          }
-          if (activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER') {
-            setActiveSidebarMode('3D_VIEW');
-          }
-          setActiveTab(tab);
-          if (tab === 'LIVE_VIEW') {
-            setActiveSidebarMode('3D_VIEW');
-            setIsCctvOpen(false);
-            setIsAnalyticsOpen(false);
-            setIsIncidentsOpen(false);
-            setIsReportsOpen(false);
-          } else if (tab === 'SETTINGS') {
-            setIsSettingsOpen(true);
-          }
-        }}
+        activeTab={activeTab}
+        onSelectTab={handleSelectTab}
         incidentCount={incidents.length}
         onOpenCctv={() => setIsCctvOpen(true)}
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
@@ -668,7 +667,7 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
         onOpenStrategyRanker={() => setIsStrategyModalOpen(true)}
-        onOpenBuildingInfo={() => setActiveSidebarMode('INFO')}
+        onOpenBuildingInfo={() => handleSelectTab('BUILDING_INFO')}
         onOpenEvacueeQr={() => setIsEvacueeQrOpen(true)}
         onOpenGis={() => setIsGisOpen(!isGisOpen)}
         isGisOpen={isGisOpen}
@@ -676,115 +675,121 @@ export function App() {
         onOpenLogin={() => setIsLoginOpen(true)}
       />
 
-      {/* 2. MAIN WORKSPACE (Collapsible Left Sidebar only on 3D Live View + Center 3D Digital Twin Viewport) */}
+      {/* 2. MAIN WORKSPACE (Persistent Left Sidebar + Center 3D & Modules Dynamic Viewport) */}
       <div className="flex-1 flex overflow-hidden w-full relative">
-        {/* Dynamic Contextual Left Sidebar (Only visible on 3D Live View / LIVE_VIEW) */}
-        {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
-          <DynamicLeftSidebar
-            isCollapsed={isLeftCollapsed}
-            onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
-            activeTab={activeSidebarMode === 'INFO' ? 'BUILDING_INFO' : (activeSidebarMode === 'COMMAND_CENTER' ? 'COMMAND_CENTER' : activeTab)}
-            onSelectTab={setActiveTab}
-            activeMode={activeSidebarMode}
-            onSelectMode={(mode) => {
-              setActiveSidebarMode(mode);
-              if (mode === '3D_VIEW') {
-                handleSetCameraPreset('HERO_VIEW');
-                handleSetFloorView('ALL');
-              } else if (mode === 'STAIRS_FOCUS') {
-                handleSetCameraPreset('STAIRS_FOCUS');
-                handleSetFacadeMode('CUTAWAY');
-              } else if (mode === 'CCTV') {
-                setIsCctvOpen(true);
-              } else if (mode === 'SYSTEMS') {
-                setIsAnalyticsOpen(true);
-              } else if (mode === 'EMERGENCY') {
-                setIsEmergencyControlOpen(true);
-              }
-            }}
-            activeFloorView={activeFloorView}
-            onSelectFloor={handleSetFloorView}
-            isSimulating={isSimulating}
-            simSpeed={simSpeed}
-            onStartEvacuation={handleStartEvacuation}
-            onPauseResume={handlePauseResume}
-            onReset={handleReset}
-            onSetSpeed={handleSetSpeed}
-            elapsedSeconds={stats.elapsedSeconds}
-            onOpenCctv={() => setIsCctvOpen(true)}
-            onOpenSystems={() => setIsAnalyticsOpen(true)}
-            onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
-            rooms={rooms}
-            exits={exits}
-            incidents={incidents}
-          />
-        )}
+        {/* Dynamic Contextual Left Sidebar (Persistent across all 8 modules) */}
+        <DynamicLeftSidebar
+          theme={theme}
+          onToggleTheme={handleToggleTheme}
+          isCollapsed={isLeftCollapsed}
+          onToggleCollapse={() => setIsLeftCollapsed(!isLeftCollapsed)}
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          activeMode={activeSidebarMode}
+          onSelectMode={(mode) => {
+            setActiveSidebarMode(mode);
+            if (mode === '3D_VIEW') {
+              handleSetCameraPreset('HERO_VIEW');
+              handleSetFloorView('ALL');
+            } else if (mode === 'STAIRS_FOCUS') {
+              handleSetCameraPreset('STAIRS_FOCUS');
+              handleSetFacadeMode('CUTAWAY');
+            } else if (mode === 'CCTV') {
+              setIsCctvOpen(true);
+            } else if (mode === 'SYSTEMS') {
+              setIsAnalyticsOpen(true);
+            } else if (mode === 'EMERGENCY') {
+              setIsEmergencyControlOpen(true);
+            }
+          }}
+          activeFloorView={activeFloorView}
+          onSelectFloor={handleSetFloorView}
+          isSimulating={isSimulating}
+          simSpeed={simSpeed}
+          onStartEvacuation={handleStartEvacuation}
+          onPauseResume={handlePauseResume}
+          onReset={handleReset}
+          onSetSpeed={handleSetSpeed}
+          elapsedSeconds={stats.elapsedSeconds}
+          onOpenCctv={() => setIsCctvOpen(true)}
+          onOpenSystems={() => setIsAnalyticsOpen(true)}
+          onOpenEmergencyControl={() => setIsEmergencyControlOpen(true)}
+          onOpenGis={() => setIsGisOpen(!isGisOpen)}
+          rooms={rooms}
+          exits={exits}
+          incidents={incidents}
+        />
 
-        {/* Central Dynamic Workspace (Switches between 3D Command Center, AI Scenarios Studio, Strategy Ranker, and Incidents View) */}
+        {/* Central Dynamic Workspace (Displays 3D Digital Twin, Command Center, Building Info, AI Scenarios, Strategy Ranker, Incidents, Analytics, or Reports) */}
         <div
           className={`flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden transition-colors duration-300 ${
             theme === 'dark' ? 'bg-[#070d18]' : 'bg-[#f1f5f9]'
           }`}
         >
-          {/* 1. AI SCENARIOS VIEW (Matching Reference Image 3) */}
+          {/* 1. AI SCENARIOS VIEW */}
           {activeTab === 'SCENARIOS' && (
             <ScenariosView
+              theme={theme}
               rooms={rooms}
               currentScenario={activeScenario}
               onApplyScenario={handleApplyScenario}
-              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
             />
           )}
 
-          {/* 2. STRATEGY RANKER VIEW (Matching Reference Image 4) */}
+          {/* 2. STRATEGY RANKER VIEW */}
           {activeTab === 'STRATEGY_RANKER' && (
             <StrategyRankerView
+              theme={theme}
               scenario={activeScenario}
               rooms={rooms}
               exits={exits}
               onApplyStrategy={handleApplyStrategyToSimulation}
-              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
             />
           )}
 
-          {/* 3. INCIDENTS COMMAND CENTER VIEW (Matching Reference Image 5) */}
+          {/* 3. INCIDENTS COMMAND CENTER VIEW */}
           {activeTab === 'INCIDENTS' && (
             <IncidentsView
+              theme={theme}
               incidents={incidents}
               onStartEvacuation={handleStartEvacuation}
               onOpenGis={() => setIsGisOpen(true)}
               onOpenCctv={() => setIsCctvOpen(true)}
-              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
             />
           )}
 
-          {/* 4. PREDICTIVE ANALYTICS & FLOW INTELLIGENCE VIEW (Matching User Reference Image) */}
+          {/* 4. PREDICTIVE ANALYTICS VIEW */}
           {activeTab === 'ANALYTICS' && (
             <AnalyticsView
+              theme={theme}
               stats={stats}
               rooms={rooms}
               exits={exits}
-              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
             />
           )}
 
           {/* 5. LIFE SAFETY AUDIT & COMPLIANCE REPORTS VIEW */}
           {activeTab === 'REPORTS' && (
             <ReportsView
+              theme={theme}
               stats={stats}
               exits={exits}
-              onSwitchToLive={() => setActiveTab('LIVE_VIEW')}
+              onSwitchToLive={() => handleSelectTab('LIVE_VIEW')}
             />
           )}
 
-          {/* Main Three.js 3D Viewport Slot (Preserved completely intact; hidden when in 2D views) */}
+          {/* 6. Main Three.js 3D Viewport Slot (Preserved completely intact; hidden when in 2D views or Command Center) */}
           <div
             ref={mainSlotRef}
             className="w-full h-full relative overflow-hidden"
             style={{
-              display: (activeTab === 'SCENARIOS' || activeTab === 'STRATEGY_RANKER' || activeTab === 'INCIDENTS' || activeTab === 'ANALYTICS' || activeTab === 'REPORTS' || activeSidebarMode === 'INFO' || activeSidebarMode === 'COMMAND_CENTER' || activeTab === 'COMMAND_CENTER')
-                ? 'none'
-                : 'block'
+              display: activeTab === 'LIVE_VIEW'
+                ? 'block'
+                : 'none'
             }}
           >
             <div
@@ -794,8 +799,9 @@ export function App() {
           </div>
 
           {/* Viewport Floating Controls: [Exterior/Interior/Top View], Compass Rose, Vertical Floor Badges [L10..L1], Zoom Tools */}
-          {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
+          {activeTab === 'LIVE_VIEW' && (
             <ViewportOverlay
+              theme={theme}
               facadeMode={facadeMode}
               onSetFacadeMode={handleSetFacadeMode}
               activeFloorView={activeFloorView}
@@ -819,33 +825,33 @@ export function App() {
             />
           )}
 
-          {/* EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
-          {activeSidebarMode === 'INFO' && (
-            <div className="absolute inset-0 z-10 overflow-hidden bg-[#f8fafc]">
+          {/* 7. EXACT BUILDING INFO PAGE IN 3D VIEWPORT AREA */}
+          {activeTab === 'BUILDING_INFO' && (
+            <div className={`absolute inset-0 z-10 overflow-hidden transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-[#070e1b]' : 'bg-[#f8fafc]'
+            }`}>
               <BuildingInfoPage
+                theme={theme}
                 rooms={rooms}
                 exits={exits}
-                onClose={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
-                onSwitchTo3D={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
+                onClose={() => handleSelectTab('LIVE_VIEW')}
+                onSwitchTo3D={() => handleSelectTab('LIVE_VIEW')}
                 onSelectFloor={(floorNum) => {
                   handleSetFloorView(floorNum);
-                  setActiveSidebarMode('FLOOR_VIEW');
+                  handleSelectTab('LIVE_VIEW');
                   handleSetCameraPreset(`FLOOR_${floorNum}`);
                 }}
               />
             </div>
           )}
 
-          {/* EMERGENCY COMMAND CENTER DASHBOARD (Rendered inline inside workspace, maintaining top header and overall layout) */}
-          {activeSidebarMode === 'COMMAND_CENTER' && (
-            <div className="absolute inset-0 z-20 overflow-hidden bg-[#f4f6fa] flex flex-col">
+          {/* 8. EMERGENCY COMMAND CENTER DASHBOARD (Rendered in central workspace area) */}
+          {activeTab === 'COMMAND_CENTER' && (
+            <div className={`absolute inset-0 z-20 overflow-hidden flex flex-col transition-colors duration-300 ${
+              theme === 'dark' ? 'bg-[#070e1b]' : 'bg-[#f4f6fa]'
+            }`}>
               <EmergencyCommandCenterPage
+                theme={theme}
                 threeCanvasRef={threeCanvasRef}
                 mainSlotRef={mainSlotRef}
                 sceneManager={sceneMgr}
@@ -895,16 +901,8 @@ export function App() {
                 onUpdateCrowd={(roomId, newCount) => {
                   setRooms(prev => prev.map(r => r.id === roomId ? { ...r, peopleCount: newCount } : r));
                 }}
-                onSwitchTo3D={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  setActiveTab('LIVE_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
-                onClose={() => {
-                  setActiveSidebarMode('3D_VIEW');
-                  setActiveTab('LIVE_VIEW');
-                  handleSetCameraPreset('HERO_VIEW');
-                }}
+                onSwitchTo3D={() => handleSelectTab('LIVE_VIEW')}
+                onClose={() => handleSelectTab('LIVE_VIEW')}
               />
             </div>
           )}
@@ -1057,7 +1055,7 @@ export function App() {
       />
 
       {/* KILLER FEATURE 1: Live Interactive Satellite GIS Mini-Map (Free Fire style Top-Right Radar HUD) */}
-      {activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO' && activeSidebarMode !== 'COMMAND_CENTER' && (
+      {activeTab === 'LIVE_VIEW' && (
         <GisMapDrawer
           isOpen={isGisOpen}
           onClose={() => setIsGisOpen(false)}
