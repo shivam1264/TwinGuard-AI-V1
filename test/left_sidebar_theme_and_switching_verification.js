@@ -38,7 +38,7 @@ requiredSections.forEach(title => {
 console.log('✅ PASS: All 8 modules have dedicated contextual tools & shortcuts in the Left Sidebar');
 
 // 3. App.jsx Unified Switching Verification
-const appCode = fs.readFileSync('src/App.jsx', 'utf8');
+const appCode = fs.readFileSync('src/App.jsx', 'utf8').replace(/\r\n/g, '\n');
 
 // App.jsx must pass onToggleTheme to DynamicLeftSidebar
 assert(appCode.includes('<DynamicLeftSidebar\n          theme={theme}\n          onToggleTheme={handleToggleTheme}'), 

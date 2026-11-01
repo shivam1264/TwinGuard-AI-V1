@@ -195,7 +195,7 @@ export function EmergencyCommandCenterPage({
     return [
       { num: 'ALL', label: 'All' },
       { num: 'ROOF', label: 'Roof' },
-      ...nums.map((n) => ({ num: Number(n), label: `Floor ${n}` })),
+      ...nums.map((n) => ({ num: Number(n), label: `L${n}` })),
       { num: 'GROUND', label: 'Ground' }
     ];
   }, [rooms]);
@@ -534,7 +534,7 @@ export function EmergencyCommandCenterPage({
       const total = flRooms.reduce((s, r) => s + (r.peopleCount || 0), 0);
       const max = flRooms.reduce((s, r) => s + (r.capacity ?? 50), 0) || 100;
       const pct = Math.min(100, Math.round((total / max) * 100));
-      return { floorName: `Floor ${fl}`, total, max, pct, isRed: pct >= 85 };
+      return { floorName: `L${fl}`, total, max, pct, isRed: pct >= 85 };
     });
   }, [rooms]);
 
@@ -564,6 +564,30 @@ export function EmergencyCommandCenterPage({
 
   const roomFloorTotal = roomOccupancyList.reduce((s, r) => s + r.people, 0);
   const roomCapacityTotal = roomOccupancyList.reduce((s, r) => s + r.capacity, 0);
+
+  // Dynamic AI Suggestion text based on active building conditions
+  const aiSuggestionText = useMemo(() => {
+    const blockedExits = exitData.filter((e) => e.isBlocked);
+    const activeFire = hazards.find((h) => h.type === 'FIRE');
+    const activeSmoke = hazards.find((h) => h.type === 'SMOKE');
+    const blockedStair = hazards.find((h) => h.type === 'BLOCK_STAIR');
+
+    if (blockedExits.length > 0) {
+      const names = blockedExits.map((e) => e.name).join(', ');
+      const openExits = exitData.filter((e) => !e.isBlocked).map((e) => e.name).join(' & ');
+      return `${names} is blocked. People are automatically distributed to ${openExits || 'available exits'} to avoid congestion.`;
+    }
+    if (blockedStair) {
+      return `${blockedStair.locationName} is compromised. Evacuees are diverted via corridor links to the alternate stair core.`;
+    }
+    if (activeFire) {
+      return `Fire active in ${activeFire.locationName}. Dynamic AI routing is diverting all egress paths safely away from the incident.`;
+    }
+    if (activeSmoke) {
+      return `Smoke detected in ${activeSmoke.locationName}. Stairwell positive-pressure air barriers activated.`;
+    }
+    return 'All 3 egress portals and dual stair cores operational. AI dynamic load balancing is active.';
+  }, [exitData, hazards]);
 
   // Click a room row in the analytics → select it everywhere (dropdown + 3D)
   const selectRoomFromAnalytics = (roomId) => {
@@ -1598,7 +1622,7 @@ export function EmergencyCommandCenterPage({
 
   return (
     <div
-      className={`w-full h-full p-3 md:p-4 font-sans select-none overflow-y-auto overflow-x-hidden relative flex flex-col transition-colors duration-300 ${
+      className={`w-full h-full p-2.5 md:p-3.5 font-sans select-none overflow-y-auto lg:overflow-hidden overflow-x-hidden relative flex flex-col transition-colors duration-300 ${
         isDark ? 'theme-dark bg-[#070e1b] text-slate-100' : 'theme-light bg-[#f4f6fa] text-slate-800'
       }`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
@@ -1614,104 +1638,33 @@ export function EmergencyCommandCenterPage({
       {/* ========================================================================= */}
       {/* TOP HEADER                                                                */}
       {/* ========================================================================= */}
-      <header className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-200/80 gap-x-3 gap-y-2.5 shrink-0">
+      <header className={`flex flex-wrap items-center justify-between pb-3 border-b gap-x-3 gap-y-2.5 shrink-0 ${isDark ? 'border-slate-800' : 'border-slate-200/80'}`}>
         {/* Left: Siren + Title + Subtitle */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-white border border-red-100 flex items-center justify-center text-red-500 shadow-sm shrink-0">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-red-500 shadow-sm shrink-0 ${isDark ? 'bg-slate-900 border border-red-900/50' : 'bg-white border border-red-100'}`}>
             <Siren className="w-5 h-5 animate-pulse" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight leading-tight whitespace-nowrap">
+            <h1 className={`text-xl md:text-2xl font-black tracking-tight leading-tight whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'}`}>
               Emergency Command Center
             </h1>
-            <p className="text-[11px] md:text-xs text-slate-500 font-medium truncate max-w-[260px] sm:max-w-sm md:max-w-md">
+            <p className={`text-[11px] md:text-xs font-medium truncate max-w-[260px] sm:max-w-sm md:max-w-md ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
               Monitor incidents, manage emergency scenarios and coordinate intelligent building evacuation in real time.
             </p>
           </div>
         </div>
 
-        {/* Right: Evacuation Hero CTA & Actions */}
+        {/* Right: Actions */}
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {/* 🚨 HERO START / PAUSE EVACUATION BUTTON */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={handleToggleEvacuation}
-              className={`relative group overflow-hidden px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md ${
-                isSimulating
-                  ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-500 hover:to-orange-500 text-white shadow-amber-500/35 ring-2 ring-amber-400/40'
-                  : isCompleted
-                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/35 ring-2 ring-emerald-400/40'
-                    : 'bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white shadow-red-500/35 ring-2 ring-red-400/40 animate-pulse'
-              }`}
-              title={isSimulating ? 'Pause Evacuation Simulation' : 'Start Intelligent Building Evacuation Protocol'}
-            >
-              {isSimulating ? (
-                <>
-                  <Pause className="w-3.5 h-3.5 fill-current text-white shrink-0" />
-                  <span className="font-extrabold tracking-wide">PAUSE EVACUATION</span>
-                  {liveStats && (
-                    <span className="ml-1 px-1.5 py-0.5 rounded-md bg-black/25 text-[10px] font-mono font-bold">
-                      {liveStats.evacuated} / {totalOccupants}
-                    </span>
-                  )}
-                </>
-              ) : isCompleted ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-200 shrink-0" />
-                  <span className="font-extrabold tracking-wide">EVACUATION COMPLETE</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current text-white shrink-0 animate-bounce" />
-                  <span className="font-extrabold tracking-wide">START EVACUATION</span>
-                </>
-              )}
-            </button>
-
-            {/* RESET BUTTON */}
-            {(isSimulating || isCompleted) && (
-              <button
-                onClick={handleResetEvacuation}
-                className="px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 shrink-0"
-                title="Reset simulation and return all occupants to baseline"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
-                <span>Reset</span>
-              </button>
-            )}
-          </div>
-
           <button
-            onClick={() => {
-              setMode((m) => (m === 'simulation' ? 'live' : 'simulation'));
-              showToast(mode === 'simulation' ? 'Switched to Live IoT Sensor Stream' : 'Simulation Mode Active');
-            }}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
-              mode === 'simulation'
-                ? 'bg-blue-50 border-blue-200 text-blue-700'
+            onClick={handleSaveScenario}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
+              isDark
+                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200'
                 : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
             }`}
           >
-            <FlaskConical className="w-3.5 h-3.5 text-blue-600" />
-            <span>{mode === 'simulation' ? 'Sim Mode' : 'Live Mode'}</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setMode('live');
-              showToast('Switched to Live IoT Sensor Stream');
-            }}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shrink-0"
-          >
-            <Radio className="w-3.5 h-3.5 text-slate-600" />
-            <span>Live Mode</span>
-          </button>
-
-          <button
-            onClick={handleSaveScenario}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shrink-0"
-          >
-            <Save className="w-3.5 h-3.5 text-slate-500" />
+            <Save className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
             <span>Save Scenario</span>
           </button>
 
@@ -1726,7 +1679,9 @@ export function EmergencyCommandCenterPage({
           {(onSwitchTo3D || onClose) && (
             <button
               onClick={onSwitchTo3D || onClose}
-              className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm bg-slate-900 hover:bg-slate-800 text-white shrink-0 ml-1"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm text-white shrink-0 ml-1 ${
+                isDark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-900 hover:bg-slate-800'
+              }`}
               title="Return to Main 3D View"
             >
               <X className="w-3.5 h-3.5" />
@@ -1739,37 +1694,43 @@ export function EmergencyCommandCenterPage({
       {/* ========================================================================= */}
       {/* MAIN LAYOUT GRID (LEFT 8 COLS, RIGHT 4 COLS MATCHING TARGET DESIGN)        */}
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 md:gap-4 mt-3 flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 md:gap-3 mt-2 flex-1 min-h-0">
         {/* ────────────────────────────────────────────────────────────────────── */}
         {/* LEFT COLUMN: 3D VIEWPORT + BOTTOM DUAL CARDS (8 COLS)                   */}
         {/* ────────────────────────────────────────────────────────────────────── */}
-        <div className="lg:col-span-8 flex flex-col gap-3.5 min-w-0">
-          {/* ── 3D Viewport Container (fills leftover vertical space) ── */}
-          <div className="relative w-full rounded-2xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-sm flex flex-col h-[340px] md:h-[370px] lg:h-auto lg:flex-1 lg:min-h-[380px]">
+        <div className="lg:col-span-8 flex flex-col gap-2.5 min-w-0">
+          {/* ── 3D Viewport Container (fills upper area) ── */}
+          <div className={`relative w-full rounded-2xl overflow-hidden border shadow-sm flex flex-col h-[270px] sm:h-[300px] md:h-[320px] lg:h-[335px] xl:h-[350px] shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-900 border-slate-200/90'}`}>
             {/* Top Left: Main Academic Building Dropdown Pill */}
             <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/80 text-white text-[11px] font-semibold shadow-lg">
-                <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl backdrop-blur-md border text-[11px] font-semibold shadow-lg ${
+                isDark
+                  ? 'bg-slate-950/80 border-slate-700/80 text-white'
+                  : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-sm'
+              }`}>
+                <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span className="truncate max-w-[160px] sm:max-w-none">{selectedBuilding}</span>
-                <ChevronDown className="w-3 h-3 text-slate-400 shrink-0 ml-0.5" />
+                <ChevronDown className={`w-3 h-3 shrink-0 ml-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
               </div>
             </div>
 
             {/* ── FLOATING TACTICAL EVACUATION HUD (Top Center of 3D Canvas) ── */}
-            <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-3.5 py-1.5 rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-700/80 shadow-2xl">
+            <div className={`absolute top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl backdrop-blur-md border shadow-2xl ${
+              isDark ? 'bg-slate-950/90 border-slate-700/80 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-md'
+            }`}>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${isSimulating ? 'bg-red-500 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-200">
+                <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
                   {isSimulating ? 'Evacuation Active' : isCompleted ? 'All Safe Outside' : 'Ready'}
                 </span>
                 {liveStats && isSimulating && (
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold">
+                  <span className="text-[10px] font-mono text-emerald-500 font-bold">
                     {Math.round((liveStats.evacuated / Math.max(1, totalOccupants)) * 100)}% Safe ({liveStats.evacuated}/{totalOccupants})
                   </span>
                 )}
               </div>
 
-              <div className="h-4 w-px bg-slate-700" />
+              <div className={`h-4 w-px ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`} />
 
               <button
                 onClick={handleToggleEvacuation}
@@ -1780,15 +1741,18 @@ export function EmergencyCommandCenterPage({
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                       : 'bg-red-600 hover:bg-red-500 text-white shadow-red-500/40 animate-pulse'
                 }`}
+                title={isSimulating ? 'Pause Evacuation Simulation' : 'Start Intelligent Building Evacuation Protocol'}
               >
                 {isSimulating ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
-                <span>{isSimulating ? 'Pause' : 'Start Evacuation'}</span>
+                <span>{isSimulating ? 'PAUSE EVACUATION' : 'START EVACUATION'}</span>
               </button>
 
               {(isSimulating || isCompleted) && (
                 <button
                   onClick={handleResetEvacuation}
-                  className="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-all cursor-pointer"
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
+                  }`}
                   title="Reset Evacuation"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -1798,14 +1762,20 @@ export function EmergencyCommandCenterPage({
 
             {/* Top Right: 2D View / 3D View Toggle + Fullscreen */}
             <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/80 shadow-lg text-[11px] font-bold">
+              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-lg text-[11px] font-bold ${
+                isDark ? 'bg-slate-950/80 border-slate-700/80' : 'bg-white/95 border-slate-200/90 text-slate-600'
+              }`}>
                 <button
                   onClick={() => {
                     setViewMode('2D');
                     if (sceneManager) sceneManager.setCameraPreset('TOP_DOWN');
                   }}
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    viewMode === '2D' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+                    viewMode === '2D'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : isDark
+                        ? 'text-slate-300 hover:text-white'
+                        : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   2D View
@@ -1816,7 +1786,11 @@ export function EmergencyCommandCenterPage({
                     if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                   }}
                   className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
-                    viewMode === '3D' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:text-white'
+                    viewMode === '3D'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : isDark
+                        ? 'text-slate-300 hover:text-white'
+                        : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   <Layers className="w-3 h-3 shrink-0" />
@@ -1829,13 +1803,16 @@ export function EmergencyCommandCenterPage({
                   setIsFullscreen(!isFullscreen);
                   if (sceneManager) setTimeout(() => sceneManager.handleResize(), 100);
                 }}
-                className="w-7 h-7 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-700/80 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer shadow-lg"
+                className={`w-7 h-7 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all cursor-pointer shadow-lg ${
+                  isDark
+                    ? 'bg-slate-950/80 border-slate-700/80 text-slate-300 hover:text-white'
+                    : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-slate-900 shadow-sm'
+                }`}
                 title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
             </div>
-
 
             {/* Left Vertical Floor Selector Buttons */}
             <div className="absolute left-2.5 top-12 bottom-12 z-20 flex flex-col gap-1 overflow-y-auto no-scrollbar py-0.5">
@@ -1845,10 +1822,12 @@ export function EmergencyCommandCenterPage({
                   <button
                     key={fl.num}
                     onClick={() => handleSelectFloor(fl.num)}
-                    className={`w-16 py-1.5 px-2 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer shadow-md shrink-0 ${
+                    className={`w-14 sm:w-16 py-1 px-1.5 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer shrink-0 ${
                       isActive
-                        ? 'bg-blue-600 text-white ring-2 ring-blue-400/50 shadow-blue-500/40'
-                        : 'bg-slate-950/80 backdrop-blur-md text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80'
+                        ? 'bg-blue-600 text-white ring-2 ring-blue-400/50 shadow-md shadow-blue-500/30'
+                        : isDark
+                          ? 'bg-slate-950/80 backdrop-blur-md text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80'
+                          : 'bg-white/95 backdrop-blur-md text-slate-700 hover:text-slate-900 hover:bg-white border border-slate-200/90 shadow-sm'
                     }`}
                   >
                     {fl.label}
@@ -1865,7 +1844,9 @@ export function EmergencyCommandCenterPage({
             />
 
             {/* Viewport Legend (Top Right) */}
-            <div className="absolute top-12 right-2.5 z-20 p-2.5 rounded-xl bg-slate-950/85 backdrop-blur-md border border-slate-800 shadow-2xl flex flex-col gap-1.5 text-[10px] font-medium text-slate-200 pointer-events-none">
+            <div className={`absolute top-12 right-2.5 z-20 p-2.5 rounded-xl backdrop-blur-md border shadow-2xl flex flex-col gap-1.5 text-[10px] font-medium pointer-events-none ${
+              isDark ? 'bg-slate-950/85 border-slate-800 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
+            }`}>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-red-500 shadow-xs shadow-red-500/50 shrink-0" />
                 <span>Fire</span>
@@ -1894,12 +1875,16 @@ export function EmergencyCommandCenterPage({
 
             {/* Viewport Bottom Controls: Nav Buttons + Compass */}
             <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-              <div className="flex items-center p-0.5 rounded-xl bg-slate-950/85 backdrop-blur-md border border-slate-800 shadow-2xl text-slate-300">
+              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-2xl ${
+                isDark ? 'bg-slate-950/85 border-slate-800 text-slate-300' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
+              }`}>
                 <button
                   onClick={() => {
                     if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                   }}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-800 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                   title="Recenter 3D View"
                 >
                   <Crosshair className="w-3.5 h-3.5" />
@@ -1908,7 +1893,9 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.rotateCamera) sceneManager.rotateCamera(45);
                   }}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-800 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                   title="Rotate 3D Camera (+45°)"
                 >
                   <RotateCw className="w-3.5 h-3.5" />
@@ -1917,7 +1904,9 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.zoomIn) sceneManager.zoomIn(6);
                   }}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-800 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                   title="Zoom In 3D"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1926,7 +1915,9 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.zoomOut) sceneManager.zoomOut(6);
                   }}
-                  className="w-7 h-7 rounded-lg hover:bg-slate-800 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                  }`}
                   title="Zoom Out 3D"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -1938,7 +1929,11 @@ export function EmergencyCommandCenterPage({
                 onClick={() => {
                   if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                 }}
-                className="w-9 h-9 rounded-full bg-slate-950/85 backdrop-blur-md border border-slate-700 shadow-2xl flex items-center justify-center relative cursor-pointer hover:border-slate-500 transition-all shrink-0"
+                className={`w-9 h-9 rounded-full backdrop-blur-md border shadow-2xl flex items-center justify-center relative cursor-pointer transition-all shrink-0 ${
+                  isDark
+                    ? 'bg-slate-950/85 border-slate-700 hover:border-slate-500'
+                    : 'bg-white/95 border-slate-200 hover:border-slate-400 shadow-md'
+                }`}
                 title={`Orientation: ${compassYaw}° (Click to Reset North)`}
               >
                 <span className="absolute top-0.5 text-[7px] font-black text-red-500">N</span>
@@ -1956,66 +1951,96 @@ export function EmergencyCommandCenterPage({
           {/* ── BOTTOM DUAL SUB-CARDS (MATCHING REFERENCE DESIGN) ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full min-w-0 shrink-0">
             {/* ── Sub-Card 1: Building Emergency Overview ── */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between w-full min-w-0">
+            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${
+              isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
               {/* Header Row */}
-              <div className="flex items-center justify-between mb-2.5 gap-1.5 min-w-0">
-                <h2 className="text-xs sm:text-[13px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
+              <div className="flex items-center justify-between mb-2 gap-1.5 min-w-0">
+                <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${
+                  isDark ? 'text-white' : 'text-slate-900'
+                }`}>
                   Building Emergency Overview
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-600 border border-red-200 flex items-center gap-1 shrink-0">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${
+                  isDark ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
+                }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                   Active Simulation
                 </span>
               </div>
 
               {/* 4 Stat Badges */}
-              <div className="grid grid-cols-4 gap-1.5 mb-2.5">
-                <div className="py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-red-100/70 text-red-600 flex items-center justify-center mb-0.5 shrink-0">
-                    <Flame className="w-3.5 h-3.5 fill-red-600" />
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
+                    isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                  }`}>
+                    <Flame className="w-3 h-3 fill-current" />
                   </div>
-                  <span className="text-base font-black text-slate-900 leading-none">{fireCount}</span>
-                  <span className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 mt-0.5 truncate w-full">Fire Zones</span>
+                  <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{fireCount}</span>
+                  <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fire Zones</span>
                 </div>
 
-                <div className="py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-slate-200/70 text-slate-600 flex items-center justify-center mb-0.5 shrink-0">
-                    <Cloud className="w-3.5 h-3.5" />
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
+                    isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/70 text-slate-600'
+                  }`}>
+                    <Cloud className="w-3 h-3" />
                   </div>
-                  <span className="text-base font-black text-slate-900 leading-none">{smokeCount}</span>
-                  <span className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 mt-0.5 truncate w-full">Smoke Zones</span>
+                  <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{smokeCount}</span>
+                  <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Smoke Zones</span>
                 </div>
 
-                <div className="py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-red-100/70 text-red-600 flex items-center justify-center mb-0.5 shrink-0">
-                    <Ban className="w-3.5 h-3.5" />
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
+                    isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                  }`}>
+                    <Ban className="w-3 h-3" />
                   </div>
-                  <span className="text-base font-black text-slate-900 leading-none">{blockedAreasCount}</span>
-                  <span className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 mt-0.5 truncate w-full">Blocked Areas</span>
+                  <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{blockedAreasCount}</span>
+                  <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Blocked Areas</span>
                 </div>
 
-                <div className="py-1.5 px-1 rounded-xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center min-w-0">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100/70 text-emerald-700 flex items-center justify-center mb-0.5 shrink-0">
-                    <DoorClosed className="w-3.5 h-3.5" />
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
+                }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
+                    isDark ? 'bg-emerald-950/80 text-emerald-400' : 'bg-emerald-100/70 text-emerald-700'
+                  }`}>
+                    <DoorClosed className="w-3 h-3" />
                   </div>
-                  <span className="text-base font-black text-slate-900 leading-none">{blockedExitsCount}</span>
-                  <span className="text-[9.5px] sm:text-[10px] font-semibold text-slate-500 mt-0.5 truncate w-full">Blocked Exit</span>
+                  <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{blockedExitsCount}</span>
+                  <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Blocked Exit</span>
                 </div>
               </div>
 
               {/* Occupancy Analytics: Floor-wise / Room-wise toggle */}
               <div>
                 <div className="flex items-center justify-between mb-1 gap-1.5 min-w-0">
-                  <h3 className="text-xs font-bold text-slate-800 truncate">
+                  <h3 className={`text-xs font-bold truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
                     {occupancyView === 'floors'
                       ? 'Floor-wise Occupancy'
                       : `Room-wise Occupancy — Floor ${roomOccupancyList[0]?.floorNum ?? selectedFloor}`}
                   </h3>
-                  <div className="flex items-center p-0.5 rounded-lg bg-slate-100 border border-slate-200 shrink-0">
+                  <div className={`flex items-center p-0.5 rounded-lg border shrink-0 ${
+                    isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'
+                  }`}>
                     <button
                       onClick={() => setOccupancyView('floors')}
                       className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
-                        occupancyView === 'floors' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        occupancyView === 'floors'
+                          ? isDark
+                            ? 'bg-slate-800 text-white shadow-sm'
+                            : 'bg-white text-slate-900 shadow-sm'
+                          : isDark
+                            ? 'text-slate-400 hover:text-slate-200'
+                            : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       Floors
@@ -2023,7 +2048,13 @@ export function EmergencyCommandCenterPage({
                     <button
                       onClick={() => setOccupancyView('rooms')}
                       className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
-                        occupancyView === 'rooms' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        occupancyView === 'rooms'
+                          ? isDark
+                            ? 'bg-slate-800 text-white shadow-sm'
+                            : 'bg-white text-slate-900 shadow-sm'
+                          : isDark
+                            ? 'text-slate-400 hover:text-slate-200'
+                            : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       Rooms
@@ -2031,7 +2062,7 @@ export function EmergencyCommandCenterPage({
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1 max-h-[172px] overflow-y-auto pr-0.5">
+                <div className="flex flex-col gap-0.5 max-h-[96px] overflow-y-auto pr-0.5">
                   {occupancyView === 'floors'
                     ? floorOccupancyList.map((item) => (
                         <div
@@ -2044,18 +2075,28 @@ export function EmergencyCommandCenterPage({
                               if (flRooms.length > 0) selectRoomFromAnalytics(flRooms[0].id);
                             }
                           }}
-                          className="flex items-center text-xs py-0.5 min-w-0 cursor-pointer hover:bg-slate-50 rounded px-0.5"
+                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${
+                            isDark ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
+                          }`}
                           title="Select this floor"
                         >
-                          <span className="font-semibold text-slate-600 w-12 shrink-0 text-[11px] truncate">{item.floorName}</span>
-                          <span className="font-bold text-slate-800 w-14 shrink-0 text-center text-[10.5px]">{item.total} / {item.max}</span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                          <span className={`font-semibold w-10 shrink-0 text-[11px] truncate ${
+                            isDark ? 'text-slate-300' : 'text-slate-600'
+                          }`}>{item.floorName}</span>
+                          <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${
+                            isDark ? 'text-slate-200' : 'text-slate-800'
+                          }`}>{item.total} / {item.max}</span>
+                          <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
+                            isDark ? 'bg-slate-800' : 'bg-slate-100'
+                          }`}>
                             <div
                               className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
                               style={{ width: `${item.pct}%` }}
                             />
                           </div>
-                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : 'text-slate-500'}`}>
+                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${
+                            item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
                             {item.pct}%
                           </span>
                         </div>
@@ -2064,27 +2105,41 @@ export function EmergencyCommandCenterPage({
                         <div
                           key={item.id}
                           onClick={() => selectRoomFromAnalytics(item.id)}
-                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer hover:bg-slate-50 rounded px-0.5 ${
-                            item.id === selectedLocationId ? 'bg-blue-50/70' : ''
+                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${
+                            item.id === selectedLocationId
+                              ? isDark
+                                ? 'bg-blue-950/60'
+                                : 'bg-blue-50/70'
+                              : isDark
+                                ? 'hover:bg-slate-800/60'
+                                : 'hover:bg-slate-50'
                           }`}
                           title={`${item.type} — click to select`}
                         >
-                          <span className="font-semibold text-slate-600 w-16 shrink-0 text-[11px] truncate">{item.label}</span>
-                          <span className="font-bold text-slate-800 w-14 shrink-0 text-center text-[10.5px]">{item.people} / {item.capacity}</span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                          <span className={`font-semibold w-16 shrink-0 text-[11px] truncate ${
+                            isDark ? 'text-slate-300' : 'text-slate-600'
+                          }`}>{item.label}</span>
+                          <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${
+                            isDark ? 'text-slate-200' : 'text-slate-800'
+                          }`}>{item.people} / {item.capacity}</span>
+                          <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
+                            isDark ? 'bg-slate-800' : 'bg-slate-100'
+                          }`}>
                             <div
                               className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
                               style={{ width: `${item.pct}%` }}
                             />
                           </div>
-                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : 'text-slate-500'}`}>
+                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${
+                            item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
                             {item.pct}%
                           </span>
                         </div>
                       ))}
                 </div>
 
-                <div className="mt-1 text-[10px] text-slate-400 truncate">
+                <div className={`mt-1 text-[9.5px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                   {occupancyView === 'rooms'
                     ? `Floor total ${roomFloorTotal} / ${roomCapacityTotal} · click a room to select it`
                     : `Building total ${totalOccupants} occupants · click a floor to open its rooms`}
@@ -2093,26 +2148,34 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── Sub-Card 2: Exit-wise Distribution ── */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm flex flex-col justify-between w-full min-w-0">
+            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${
+              isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
               <div>
                 {/* Header Row */}
-                <div className="flex items-center justify-between mb-2.5 gap-1.5 min-w-0">
+                <div className="flex items-center justify-between mb-2 gap-1.5 min-w-0">
                   <div className="flex items-center gap-1 min-w-0 flex-1 truncate">
-                    <h2 className="text-xs sm:text-[13px] font-bold text-slate-900 tracking-tight whitespace-nowrap">
+                    <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${
+                      isDark ? 'text-white' : 'text-slate-900'
+                    }`}>
                       Exit-wise Distribution
                     </h2>
-                    <span className="text-[10px] text-slate-400 font-normal hidden sm:inline shrink-0">
+                    <span className={`text-[10px] font-normal hidden sm:inline shrink-0 ${
+                      isDark ? 'text-slate-400' : 'text-slate-500'
+                    }`}>
                       (AI Recommendation)
                     </span>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center gap-1 shrink-0">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${
+                    isDark ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  }`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     Optimized
                   </span>
                 </div>
 
                 {/* Exit Rows */}
-                <div className="flex flex-col gap-1 my-1">
+                <div className="flex flex-col gap-0.5 my-0.5">
                   {exitData.map((ex) => (
                     <div key={ex.id} className="flex items-center text-xs py-0.5 min-w-0">
                       {/* Exit name with icon */}
@@ -2122,30 +2185,40 @@ export function EmergencyCommandCenterPage({
                         title={ex.isBlocked ? 'Click to Unblock' : 'Click to Block'}
                       >
                         {ex.isBlocked ? (
-                          <DoorClosed className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                          <DoorClosed className="w-3.5 h-3.5 text-red-500 shrink-0" />
                         ) : (
-                          <DoorOpen className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <DoorOpen className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         )}
-                        <span className={`font-semibold text-[10.5px] truncate ${ex.isBlocked ? 'text-red-600 font-bold' : 'text-slate-700'}`}>
+                        <span className={`font-semibold text-[10.5px] truncate ${
+                          ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-300' : 'text-slate-700'
+                        }`}>
                           {ex.name}
                         </span>
                       </button>
 
                       {/* People count */}
-                      <span className="text-slate-500 font-medium text-[10px] w-14 text-center shrink-0">
+                      <span className={`font-medium text-[10px] w-14 text-center shrink-0 ${
+                        isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
                         {ex.people} people
                       </span>
 
                       {/* Progress bar */}
-                      <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden mx-1.5 min-w-[24px]">
+                      <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
+                        isDark ? 'bg-slate-800' : 'bg-slate-100'
+                      }`}>
                         <div
-                          className={`h-full rounded-full transition-all ${ex.isBlocked ? 'bg-slate-200' : 'bg-blue-600'}`}
+                          className={`h-full rounded-full transition-all ${
+                            ex.isBlocked ? (isDark ? 'bg-slate-700' : 'bg-slate-200') : 'bg-blue-600'
+                          }`}
                           style={{ width: `${Math.max(ex.pct, ex.isBlocked ? 0 : 2)}%` }}
                         />
                       </div>
 
                       {/* Percentage */}
-                      <span className={`font-bold text-right shrink-0 text-[10px] sm:text-[10.5px] min-w-[76px] whitespace-nowrap ${ex.isBlocked ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
+                      <span className={`font-bold text-right shrink-0 text-[10px] sm:text-[10.5px] min-w-[76px] whitespace-nowrap ${
+                        ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
                         {ex.isBlocked ? '0% (Blocked)' : `${ex.pct}%`}
                       </span>
                     </div>
@@ -2154,578 +2227,660 @@ export function EmergencyCommandCenterPage({
               </div>
 
               {/* AI Suggestion Box */}
-              <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80 flex items-start gap-2 mt-2 min-w-0">
-                <Lightbulb className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className={`p-2 rounded-xl border flex items-start gap-2 mt-1.5 min-w-0 ${
+                isDark ? 'bg-blue-950/40 border-blue-900/60' : 'bg-blue-50/70 border-blue-200/80'
+              }`}>
+                <Lightbulb className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-[11px] font-bold text-blue-900 leading-tight">AI Suggestion</span>
-                  <p className="text-[10px] text-blue-800/90 font-medium mt-0.5 leading-snug">
-                    Exit E is blocked. People are automatically distributed to Exits A, B, C and D to avoid congestion.
+                  <span className={`text-[11px] font-bold leading-tight ${
+                    isDark ? 'text-blue-300' : 'text-blue-900'
+                  }`}>AI Suggestion</span>
+                  <p className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${
+                    isDark ? 'text-blue-200/90' : 'text-blue-800/90'
+                  }`}>
+                    {aiSuggestionText}
                   </p>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
 
         {/* ────────────────────────────────────────────────────────────────────── */}
         {/* RIGHT COLUMN: COMMAND & CONTROL PANEL (4 COLS MATCHING TARGET)          */}
         {/* ────────────────────────────────────────────────────────────────────── */}
-        <div className="lg:col-span-4 flex flex-col gap-3.5 min-w-0">
-          {/* ── CARD 1: Select Location ── */}
-            {/* ── SECTION 1: Select Location ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
-                <h3 className="text-xs md:text-sm font-bold text-slate-900">
-                  1. Select Location
-                </h3>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200/60 px-2 py-0.5 rounded-full shrink-0">
-                  {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'}
-                </span>
+        <div className="lg:col-span-4 flex flex-col gap-2.5 min-w-0 lg:max-h-[calc(100vh-95px)] lg:overflow-y-auto pr-0.5 scrollbar-thin">
+          {/* ── SECTION 1: Select Location ── */}
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
+            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+              <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                1. Select Location
+              </h3>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                isDark ? 'text-blue-400 bg-blue-950/60 border border-blue-800/60' : 'text-blue-600 bg-blue-50 border border-blue-200/60'
+              }`}>
+                {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'}
+              </span>
+            </div>
+
+            {/* Target Category Selector Tabs: ALL | ROOM | CORRIDOR | STAIR | EXIT */}
+            <div className={`grid grid-cols-5 gap-1 p-1 border rounded-xl mb-2.5 ${
+              isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+            }`}>
+              {[
+                { key: 'ALL', label: 'All' },
+                { key: 'ROOM', label: 'Room' },
+                { key: 'CORRIDOR', label: 'Corridor' },
+                { key: 'STAIR', label: 'Staircase' },
+                { key: 'EXIT', label: 'Exit' }
+              ].map((cat) => {
+                const isSel = (selectedCategory || 'ALL') === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => handleSelectCategory(cat.key)}
+                    className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate cursor-pointer ${
+                      isSel
+                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
+                        : isDark
+                          ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Two Dropdowns: Floor & Room / Area */}
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className={`text-[10.5px] font-medium block mb-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Floor</label>
+                <div className="relative">
+                  <select
+                    value={selectedFloor}
+                    onChange={(e) =>
+                      handleSelectFloor(
+                        e.target.value === 'ROOF' || e.target.value === 'GROUND' || e.target.value === 'ALL'
+                          ? e.target.value
+                          : Number(e.target.value)
+                      )
+                    }
+                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm border ${
+                      isDark
+                        ? 'bg-slate-900 border-slate-700 text-slate-200'
+                        : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {ALL_FLOORS.map((fl) => (
+                      <option key={fl.num} value={fl.num}>
+                        {fl.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className={`w-3 h-3 absolute right-2 top-2.5 pointer-events-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                </div>
               </div>
 
-              {/* Target Category Selector Tabs: ALL | ROOM | CORRIDOR | STAIR | EXIT */}
-              <div className="grid grid-cols-5 gap-1 p-1 bg-slate-100/90 border border-slate-200/80 rounded-xl mb-2.5">
-                {[
-                  { key: 'ALL', label: 'All' },
-                  { key: 'ROOM', label: 'Room' },
-                  { key: 'CORRIDOR', label: 'Corridor' },
-                  { key: 'STAIR', label: 'Staircase' },
-                  { key: 'EXIT', label: 'Exit' }
-                ].map((cat) => {
-                  const isSel = (selectedCategory || 'ALL') === cat.key;
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => handleSelectCategory(cat.key)}
-                      className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate ${
-                        isSel
-                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
+              <div>
+                <label className={`text-[10.5px] font-medium block mb-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'} Selection
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedLocationId}
+                    onChange={(e) => handleSelectLocation(e.target.value)}
+                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate border ${
+                      isDark
+                        ? 'bg-slate-900 border-slate-700 text-slate-200'
+                        : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {((selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory))).length > 0
+                      ? (selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory)))
+                      : floorLocations
+                    ).map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.shortName || loc.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className={`w-3 h-3 absolute right-2 top-2.5 pointer-events-none ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                </div>
+              </div>
+            </div>
+
+            {/* Selected location preview card (data-driven) */}
+            <div className={`border rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm min-w-0 ${
+              isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
+              <div className="w-[96px] h-[56px] rounded-lg border border-slate-700 shrink-0 bg-slate-950 flex flex-col items-center justify-center gap-0.5 px-1.5 overflow-hidden">
+                <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate w-full text-center">
+                  {CATEGORY_LABEL[currentLocation.category] || 'Location'}
+                </span>
+                <span className="text-[15px] font-extrabold text-white leading-none">
+                  {currentLocation.category === 'ROOM'
+                    ? currentLocation.roomNumber
+                    : currentLocation.category === 'EXIT'
+                      ? 'EXIT'
+                      : currentLocation.zone === 'West'
+                        ? 'W'
+                        : 'E'}
+                </span>
+                <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-300"
+                    style={{
+                      width: `${
+                        currentLocation.capacity
+                          ? Math.min(100, Math.round((currentLocation.current / currentLocation.capacity) * 100))
+                          : 0
+                      }%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <h4 className={`text-xs sm:text-sm font-bold leading-tight truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                    {currentLocation.shortName}
+                  </h4>
+                  <button
+                    onClick={() => setIsDetailsModalOpen(true)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 shadow-xs ${
+                      isDark
+                        ? 'text-blue-400 border border-blue-800/80 bg-blue-950/60 hover:bg-blue-900/60'
+                        : 'text-blue-700 border border-blue-300 bg-blue-50 hover:bg-blue-100'
+                    }`}
+                  >
+                    View Details
+                  </button>
+                </div>
+                <p className={`text-[11px] truncate mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {currentLocation.type}
+                </p>
+                <div className={`text-[10px] mt-1 flex items-center gap-1.5 flex-wrap ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span>Capacity: {currentLocation.capacity} People</span>
+                  <span>•</span>
+                  <span>Current: <strong className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{currentLocation.current} People</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3D object mapping report */}
+            {mapping3D && mapping3D.found === false && (
+              <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10.5px] font-semibold text-amber-600">
+                ⚠ No 3D object mapping for this location — effects are not rendered.
+              </div>
+            )}
+          </div>
+
+          {/* ── SECTION 2: Emergency Actions (category-aware grid with crisp Light/Dark contrast) ── */}
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
+            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+              <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                2. Emergency Actions
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-semibold border shrink-0 ${
+                isDark ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}>
+                {CATEGORY_LABEL[currentLocation.category] || 'Location'} Actions
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              {locationActions.map((action) => {
+                const Icon = action.Icon;
+                const isBtnActive = action.isActive;
+
+                let toneCls = '';
+                let iconCls = '';
+
+                if (isBtnActive) {
+                  if (action.tone === 'red-active') {
+                    toneCls = 'bg-gradient-to-br from-red-600 to-rose-700 text-white border-red-600 shadow-md shadow-red-500/30 ring-2 ring-red-400/50';
+                    iconCls = 'text-white fill-white';
+                  } else if (action.tone === 'blue-active') {
+                    toneCls = 'bg-gradient-to-br from-slate-700 to-slate-900 text-white border-slate-800 shadow-md shadow-slate-800/30 ring-2 ring-slate-400/50';
+                    iconCls = 'text-white fill-white';
+                  } else if (action.tone === 'amber-active') {
+                    toneCls = 'bg-gradient-to-br from-amber-600 to-amber-700 text-white border-amber-700 shadow-md ring-2 ring-amber-400/50';
+                    iconCls = 'text-white fill-white';
+                  } else if (action.tone === 'purple-active') {
+                    toneCls = 'bg-gradient-to-br from-purple-600 to-purple-800 text-white border-purple-700 shadow-md ring-2 ring-purple-400/50';
+                    iconCls = 'text-white';
+                  } else if (action.tone === 'orange-active') {
+                    toneCls = 'bg-gradient-to-br from-orange-600 to-orange-700 text-white border-orange-700 shadow-md ring-2 ring-orange-400/50';
+                    iconCls = 'text-white';
+                  } else {
+                    toneCls = 'bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-400/50';
+                    iconCls = 'text-white';
+                  }
+                } else {
+                  // Inactive button in Light & Dark modes
+                  if (isDark) {
+                    toneCls = 'bg-slate-900/90 hover:bg-slate-800 border-slate-700/80 text-slate-200';
+                  } else {
+                    toneCls = 'bg-white hover:bg-slate-50 border-slate-200 hover:border-slate-300 text-slate-800 shadow-xs hover:shadow-sm';
+                  }
+
+                  if (action.tone === 'red') {
+                    iconCls = 'text-red-500 fill-red-500/20';
+                  } else if (action.tone === 'blue') {
+                    iconCls = 'text-slate-500 fill-slate-500/20';
+                  } else if (action.tone === 'amber') {
+                    iconCls = 'text-amber-500 fill-amber-500/20';
+                  } else if (action.tone === 'purple') {
+                    iconCls = 'text-purple-500';
+                  } else if (action.tone === 'orange') {
+                    iconCls = 'text-orange-500';
+                  } else if (action.tone === 'emerald') {
+                    iconCls = 'text-emerald-500';
+                  } else {
+                    iconCls = isDark ? 'text-slate-400' : 'text-slate-500';
+                  }
+                }
+
+                return (
+                  <button
+                    key={action.key}
+                    onClick={action.onClick}
+                    className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-xs active:scale-95 group min-h-[58px] sm:min-h-[62px] relative ${toneCls}`}
+                  >
+                    {action.status && (
+                      <span className={`absolute top-1 right-1 text-[7.5px] font-black px-1 py-0.2 rounded-full uppercase tracking-wider ${
+                        isBtnActive
+                          ? 'bg-black/30 text-white'
+                          : isDark
+                            ? 'bg-slate-800 text-slate-400'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200/60'
+                      }`}>
+                        {action.status}
+                      </span>
+                    )}
+                    <Icon
+                      className={`w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover:scale-110 transition-transform mb-1 shrink-0 ${iconCls} ${isBtnActive ? 'animate-pulse' : ''}`}
+                    />
+                    <span className={`text-[10px] sm:text-[10.5px] font-bold leading-tight text-center ${
+                      isBtnActive ? 'text-white' : isDark ? 'text-slate-200' : 'text-slate-800'
+                    }`}>
+                      {action.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── SECTION 3: Location Status + Active Events (all floors) ── */}
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
+            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
+              <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                3. Status & Events
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-bold border shrink-0 ${isDark ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-100 text-red-700 border-red-300'}`} style={!isDark ? { color: '#b91c1c', backgroundColor: '#fee2e2', borderColor: '#fca5a5' } : undefined}>
+                {hazards.length} Active
+              </span>
+            </div>
+
+            {/* Selected location status */}
+            {(() => {
+              const blockedNow =
+                currentLocation.category === 'EXIT'
+                  ? !!exitData.find((e) => e.id === currentLocation.id && e.isBlocked)
+                  : !!findEventAt(
+                      currentLocation.id,
+                      currentLocation.category === 'CORRIDOR'
+                        ? 'BLOCK_CORRIDOR'
+                        : currentLocation.category === 'STAIR'
+                          ? 'BLOCK_STAIR'
+                          : 'BLOCK_ROOM'
+                    );
+              const title =
+                currentLocation.category === 'CORRIDOR'
+                  ? 'Corridor Occupancy'
+                  : currentLocation.category === 'STAIR'
+                    ? 'Staircase Status'
+                    : currentLocation.category === 'EXIT'
+                      ? 'Exit Status & Capacity'
+                      : 'Room Status';
+              return (
+                <div className={`p-2.5 rounded-xl border mb-2 min-w-0 ${
+                  isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
+                    <span className={`text-[11px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
+                        blockedNow
+                          ? 'bg-red-100 text-red-700 border-red-200'
+                          : 'bg-emerald-100 text-emerald-700 border-emerald-200'
                       }`}
                     >
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Two Dropdowns: Floor & Room / Area */}
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <div>
-                  <label className="text-[10.5px] text-slate-500 font-medium block mb-0.5">Floor</label>
-                  <div className="relative">
-                    <select
-                      value={selectedFloor}
-                      onChange={(e) =>
-                        handleSelectFloor(
-                          e.target.value === 'ROOF' || e.target.value === 'GROUND' || e.target.value === 'ALL'
-                            ? e.target.value
-                            : Number(e.target.value)
-                        )
-                      }
-                      className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm"
-                    >
-                      {ALL_FLOORS.map((fl) => (
-                        <option key={fl.num} value={fl.num}>
-                          {fl.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2.5 pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10.5px] text-slate-500 font-medium block mb-0.5">
-                    {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'} Selection
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={selectedLocationId}
-                      onChange={(e) => handleSelectLocation(e.target.value)}
-                      className="w-full h-8 pl-2.5 pr-7 rounded-xl bg-white border border-slate-200 text-xs font-semibold text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate"
-                    >
-                      {((selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory))).length > 0
-                        ? (selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory)))
-                        : floorLocations
-                      ).map((loc) => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.shortName || loc.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3 h-3 text-slate-500 absolute right-2 top-2.5 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Selected location preview card (data-driven, no static images) */}
-              <div className="border border-slate-200/90 rounded-xl p-2.5 flex items-center gap-2.5 bg-white shadow-sm min-w-0">
-                <div className="w-[96px] h-[56px] rounded-lg border border-slate-200 shrink-0 bg-slate-900 flex flex-col items-center justify-center gap-0.5 px-1.5 overflow-hidden">
-                  <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate w-full text-center">
-                    {CATEGORY_LABEL[currentLocation.category] || 'Location'}
-                  </span>
-                  <span className="text-[15px] font-extrabold text-white leading-none">
-                    {currentLocation.category === 'ROOM'
-                      ? currentLocation.roomNumber
-                      : currentLocation.category === 'EXIT'
-                        ? 'EXIT'
-                        : currentLocation.zone === 'West'
-                          ? 'W'
-                          : 'E'}
-                  </span>
-                  <div className="w-full h-1.5 rounded-full bg-slate-700 overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-400 transition-all duration-300"
-                      style={{
-                        width: `${
-                          currentLocation.capacity
-                            ? Math.min(100, Math.round((currentLocation.current / currentLocation.capacity) * 100))
-                            : 0
-                        }%`
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight truncate">
-                      {currentLocation.shortName}
-                    </h4>
-                    <button
-                      onClick={() => setIsDetailsModalOpen(true)}
-                      className="px-2 py-0.5 text-[10.5px] font-semibold text-blue-600 border border-blue-200 bg-blue-50/50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                    >
-                      View Details
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                    {currentLocation.type}
-                  </p>
-                  <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
-                    <span>Capacity: {currentLocation.capacity} People</span>
-                    <span>•</span>
-                    <span>Current: <strong className="text-slate-800 font-bold">{currentLocation.current} People</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 3D object mapping report — never render an effect at a wrong place */}
-              {mapping3D && mapping3D.found === false && (
-                <div className="mt-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[10.5px] font-semibold text-amber-700">
-                  ⚠ No 3D object mapping for this location — effects are not rendered.
-                </div>
-              )}
-            </div>
-
-            {/* ── SECTION 2: Emergency Actions (category-aware grid) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
-                <h3 className="text-xs md:text-sm font-bold text-slate-900">
-                  2. Emergency Actions
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                  {CATEGORY_LABEL[currentLocation.category] || 'Location'} Actions
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                {locationActions.map((action) => {
-                  const Icon = action.Icon;
-                  const toneCls =
-                    action.tone === 'red-active'
-                      ? 'border-red-500 bg-red-600 text-white shadow-md shadow-red-500/30 ring-2 ring-red-400/50'
-                      : action.tone === 'blue-active'
-                        ? 'border-blue-500 bg-blue-600 text-white shadow-md shadow-blue-500/30 ring-2 ring-blue-400/50'
-                        : action.tone === 'amber-active'
-                          ? 'border-amber-500 bg-amber-600 text-white shadow-md shadow-amber-500/30 ring-2 ring-amber-400/50'
-                          : action.tone === 'purple-active'
-                            ? 'border-purple-500 bg-purple-600 text-white shadow-md shadow-purple-500/30 ring-2 ring-purple-400/50'
-                            : action.tone === 'orange-active'
-                              ? 'border-orange-500 bg-orange-600 text-white shadow-md shadow-orange-500/30 ring-2 ring-orange-400/50'
-                              : action.tone === 'red'
-                                ? 'border-red-200 bg-red-50/50 hover:bg-red-100 text-red-600'
-                                : action.tone === 'emerald'
-                                  ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100 text-emerald-600'
-                                  : action.tone === 'blue'
-                                    ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-100 text-blue-600'
-                                    : action.tone === 'amber'
-                                      ? 'border-amber-200 bg-amber-50/50 hover:bg-amber-100 text-amber-600'
-                                      : action.tone === 'purple'
-                                        ? 'border-purple-200 bg-purple-50/50 hover:bg-purple-100 text-purple-600'
-                                        : action.tone === 'orange'
-                                          ? 'border-orange-200 bg-orange-50/50 hover:bg-orange-100 text-orange-600'
-                                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700';
-                  const iconCls =
-                    action.isActive
-                      ? 'text-white fill-white'
-                      : action.tone === 'red'
-                        ? 'text-red-500 fill-red-500'
-                        : action.tone === 'emerald'
-                          ? 'text-emerald-500'
-                          : action.tone === 'blue'
-                            ? 'text-blue-500'
-                            : 'text-slate-400';
-                  return (
-                    <button
-                      key={action.key}
-                      onClick={action.onClick}
-                      className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-sm active:scale-95 group min-h-[58px] sm:min-h-[62px] relative ${toneCls}`}
-                    >
-                      {action.status && (
-                        <span className={`absolute top-1 right-1.5 text-[7.5px] font-black px-1 py-0.2 rounded-full leading-tight uppercase tracking-wider ${
-                          action.isActive ? 'bg-black/30 text-white' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {action.status}
-                        </span>
-                      )}
-                      <Icon
-                        className={`w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover:scale-110 transition-transform mb-1 shrink-0 ${iconCls} ${action.isActive ? 'animate-pulse' : ''}`}
-                      />
-                      <span className="text-[10px] sm:text-[10.5px] font-semibold leading-tight text-center">{action.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ── SECTION 3: Location Status + Active Events (all floors) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
-                <h3 className="text-xs md:text-sm font-bold text-slate-900">
-                  3. Status & Events
-                </h3>
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-red-50 text-red-600 border border-red-200 shrink-0">
-                  {hazards.length} Active
-                </span>
-              </div>
-
-              {/* ── Selected location status (occupancy / capacity / block state) ── */}
-              {(() => {
-                const blockedNow =
-                  currentLocation.category === 'EXIT'
-                    ? !!exitData.find((e) => e.id === currentLocation.id && e.isBlocked)
-                    : !!findEventAt(
-                        currentLocation.id,
-                        currentLocation.category === 'CORRIDOR'
-                          ? 'BLOCK_CORRIDOR'
-                          : currentLocation.category === 'STAIR'
-                            ? 'BLOCK_STAIR'
-                            : 'BLOCK_ROOM'
-                      );
-                const title =
-                  currentLocation.category === 'CORRIDOR'
-                    ? 'Corridor Occupancy'
-                    : currentLocation.category === 'STAIR'
-                      ? 'Staircase Status'
-                      : currentLocation.category === 'EXIT'
-                        ? 'Exit Status & Capacity'
-                        : 'Room Status';
-                return (
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 mb-2 min-w-0">
-                    <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
-                      <span className="text-[11px] font-bold text-slate-800 truncate">{title}</span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
-                          blockedNow
-                            ? 'bg-red-100 text-red-700 border-red-200'
-                            : 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                        }`}
-                      >
-                        {blockedNow ? 'BLOCKED' : 'OPERATIONAL'}
-                      </span>
-                    </div>
-                    <div className="text-[10.5px] text-slate-600 leading-relaxed min-w-0">
-                      {currentLocation.category === 'ROOM' && (
-                        <>
-                          Occupancy <strong>{currentLocation.current}</strong> / {currentLocation.capacity} ·
-                          Available <strong>{Math.max(0, currentLocation.capacity - currentLocation.current)}</strong> ·
-                          3D object <strong>{mapping3D && mapping3D.found ? mapping3D.id : 'missing'}</strong>
-                          {findEventAt(currentLocation.id, 'FIRE') && (
-                            <span className="ml-1 text-red-600 font-bold">· Fire active</span>
-                          )}
-                          {findEventAt(currentLocation.id, 'SMOKE') && (
-                            <span className="ml-1 text-slate-500 font-bold">· Smoke active</span>
-                          )}
-                        </>
-                      )}
-                      {currentLocation.category === 'CORRIDOR' && (
-                        <>
-                          Agents on segment <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
-                          Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
-                          Design capacity {currentLocation.capacity}
-                        </>
-                      )}
-                      {currentLocation.category === 'STAIR' && (
-                        <>
-                          Agents using <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
-                          Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
-                          Feeds {currentLocation.zone} exit
-                        </>
-                      )}
-                      {currentLocation.category === 'EXIT' && (
-                        <>
-                          Capacity <strong>{currentLocation.capacity}</strong> ·
-                          Load <strong>{currentLocation.current}</strong> people ·
-                          Share <strong>{Math.round((currentLocation.capacity / 200) * 100)}%</strong> of building flow
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── All active events (multi-hazard + per-location, each removable) ── */}
-              {mergedEvents.length > 0 ? (
-                <div className="flex flex-col gap-1.5 mb-2 max-h-[190px] overflow-y-auto pr-0.5">
-                  {mergedEvents.map((haz) => {
-                    const EvIcon =
-                      haz.type === 'MULTI_HAZARD'
-                        ? haz.hazardKey === 'powerGridFailure'
-                          ? Zap
-                          : haz.hazardKey === 'hvacPressurizationFailure'
-                            ? Wind
-                            : haz.hazardKey === 'structuralCollapse'
-                              ? BrickWall
-                              : Flame
-                        : haz.type === 'FIRE'
-                          ? Flame
-                          : haz.type === 'SMOKE'
-                            ? Cloud
-                            : Ban;
-                    const evBg =
-                      haz.type === 'MULTI_HAZARD'
-                        ? haz.hazardKey === 'powerGridFailure'
-                          ? 'bg-amber-100 text-amber-600'
-                          : haz.hazardKey === 'hvacPressurizationFailure'
-                            ? 'bg-purple-100 text-purple-600'
-                            : haz.hazardKey === 'structuralCollapse'
-                              ? 'bg-orange-100 text-orange-600'
-                              : 'bg-red-100 text-red-600'
-                        : haz.type === 'FIRE'
-                          ? 'bg-red-100 text-red-600'
-                          : haz.type === 'SMOKE'
-                            ? 'bg-slate-200 text-slate-600'
-                            : haz.type === 'BLOCK_CORRIDOR'
-                              ? 'bg-blue-100 text-blue-600'
-                              : haz.type === 'BLOCK_STAIR'
-                                ? 'bg-amber-100 text-amber-600'
-                                : 'bg-red-100 text-red-600';
-                    return (
-                      <div
-                        key={haz.id}
-                        onClick={() => {
-                          if (haz.locationId) focusEventLocation(haz);
-                        }}
-                        className={`p-2 rounded-xl border flex items-center justify-between gap-2 min-w-0 cursor-pointer transition-colors ${
-                          haz.locationId === currentLocation.id
-                            ? 'bg-red-50/80 border-red-200'
-                            : 'bg-white border-slate-200 hover:bg-slate-50'
-                        }`}
-                        title="Click to select this location"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${evBg}`}>
-                            <EvIcon className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-[11.5px] font-bold text-slate-800 block leading-tight truncate">
-                              {haz.title}
-                            </span>
-                            <span className="text-[10.5px] text-slate-500 block truncate">
-                              {haz.locationName} · {haz.time}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveHazard(haz.id);
-                          }}
-                          className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors cursor-pointer border border-red-200/60 shadow-sm shrink-0"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center mb-2 text-xs text-emerald-800 font-semibold min-w-0">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mr-2" />
-                  <span className="truncate">No active events across the building</span>
-                </div>
-              )}
-
-              {/* People Count Stepper (applies to the selected room ONLY) */}
-              {currentLocation.category === 'ROOM' && (
-                <div className="flex items-center justify-between text-xs flex-wrap gap-2">
-                  <span className="font-semibold text-slate-700 shrink-0">People Count (this room)</span>
-
-                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                    <button
-                      onClick={() => handleAdjustPeopleStep(-1)}
-                      className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
-                      title="Decrease 1 Person"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-
-                    <span className="w-8 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center font-bold text-slate-800 text-xs shadow-sm shrink-0">
-                      {currentLocation.current}
+                      {blockedNow ? 'BLOCKED' : 'OPERATIONAL'}
                     </span>
-
-                    <button
-                      onClick={() => handleAdjustPeopleStep(1)}
-                      className="w-7 h-7 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center font-bold text-slate-700 cursor-pointer shadow-sm shrink-0"
-                      title="Increase 1 Person"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-
-                    <span className="text-slate-400 text-[10.5px] ml-1 shrink-0">/ {currentLocation.capacity} (Max)</span>
-
-                    <button
-                      onClick={handleResetRoomOccupancy}
-                      className="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold text-[11px] flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0"
-                      title="Reset to Baseline"
-                    >
-                      <RotateCcw className="w-3 h-3 text-slate-400" />
-                      <span>Reset</span>
-                    </button>
+                  </div>
+                  <div className="text-[10.5px] leading-relaxed min-w-0">
+                    {currentLocation.category === 'ROOM' && (
+                      <>
+                        Occupancy <strong>{currentLocation.current}</strong> / {currentLocation.capacity} ·
+                        Available <strong>{Math.max(0, currentLocation.capacity - currentLocation.current)}</strong> ·
+                        3D object <strong>{mapping3D && mapping3D.found ? mapping3D.id : 'missing'}</strong>
+                        {findEventAt(currentLocation.id, 'FIRE') && (
+                          <span className="ml-1 text-red-600 font-bold">· Fire active</span>
+                        )}
+                        {findEventAt(currentLocation.id, 'SMOKE') && (
+                          <span className="ml-1 text-slate-500 font-bold">· Smoke active</span>
+                        )}
+                      </>
+                    )}
+                    {currentLocation.category === 'CORRIDOR' && (
+                      <>
+                        Agents on segment <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
+                        Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
+                        Design capacity {currentLocation.capacity}
+                      </>
+                    )}
+                    {currentLocation.category === 'STAIR' && (
+                      <>
+                        Agents using <strong>{segmentInfo ? segmentInfo.onSegment : 0}</strong> ·
+                        Floor in transit <strong>{segmentInfo ? segmentInfo.floorTotal : 0}</strong> ·
+                        Feeds {currentLocation.zone} exit
+                      </>
+                    )}
+                    {currentLocation.category === 'EXIT' && (
+                      <>
+                        Capacity <strong>{currentLocation.capacity}</strong> ·
+                        Load <strong>{currentLocation.current}</strong> people ·
+                        Share <strong>{Math.round((currentLocation.capacity / 200) * 100)}%</strong> of building flow
+                      </>
+                    )}
                   </div>
                 </div>
-              )}
+              );
+            })()}
+
+            {/* All active events */}
+            {mergedEvents.length > 0 ? (
+              <div className="flex flex-col gap-1.5 mb-2 max-h-[190px] overflow-y-auto pr-0.5">
+                {mergedEvents.map((haz) => {
+                  const EvIcon =
+                    haz.type === 'MULTI_HAZARD'
+                      ? haz.hazardKey === 'powerGridFailure'
+                        ? Zap
+                        : haz.hazardKey === 'hvacPressurizationFailure'
+                          ? Wind
+                          : haz.hazardKey === 'structuralCollapse'
+                            ? BrickWall
+                            : Flame
+                      : haz.type === 'FIRE'
+                        ? Flame
+                        : haz.type === 'SMOKE'
+                          ? Cloud
+                          : Ban;
+                  const evBg =
+                    haz.type === 'MULTI_HAZARD'
+                      ? haz.hazardKey === 'powerGridFailure'
+                        ? 'bg-amber-100 text-amber-600'
+                        : haz.hazardKey === 'hvacPressurizationFailure'
+                          ? 'bg-purple-100 text-purple-600'
+                          : haz.hazardKey === 'structuralCollapse'
+                            ? 'bg-orange-100 text-orange-600'
+                            : 'bg-red-100 text-red-600'
+                      : haz.type === 'FIRE'
+                        ? 'bg-red-100 text-red-600'
+                        : haz.type === 'SMOKE'
+                          ? 'bg-slate-200 text-slate-600'
+                          : haz.type === 'BLOCK_CORRIDOR'
+                            ? 'bg-blue-100 text-blue-600'
+                            : haz.type === 'BLOCK_STAIR'
+                              ? 'bg-amber-100 text-amber-600'
+                              : 'bg-red-100 text-red-600';
+                  return (
+                    <div
+                      key={haz.id}
+                      onClick={() => {
+                        if (haz.locationId) focusEventLocation(haz);
+                      }}
+                      className={`p-2 rounded-xl border flex items-center justify-between gap-2 min-w-0 cursor-pointer transition-colors ${
+                        haz.locationId === currentLocation.id
+                          ? 'bg-red-50/80 border-red-200'
+                          : isDark
+                            ? 'bg-slate-900/80 border-slate-800 hover:bg-slate-800'
+                            : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                      title="Click to select this location"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${evBg}`}>
+                          <EvIcon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className={`text-[11.5px] font-bold block leading-tight truncate ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {haz.title}
+                          </span>
+                          <span className={`text-[10.5px] block truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {haz.locationName} · {haz.time}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveHazard(haz.id);
+                        }}
+                        className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-red-100 text-red-600 hover:bg-red-200 transition-colors cursor-pointer border border-red-200/60 shadow-sm shrink-0"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex items-center mb-2 text-xs text-emerald-800 font-semibold min-w-0">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mr-2" />
+                <span className="truncate">No active events across the building</span>
+              </div>
+            )}
+
+            {/* People Count Stepper (selected room) */}
+            {currentLocation.category === 'ROOM' && (
+              <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+                <span className={`font-semibold shrink-0 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>People Count (this room)</span>
+
+                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                  <button
+                    onClick={() => handleAdjustPeopleStep(-1)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                    title="Decrease 1 Person"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+
+                  <span className={`w-8 h-7 rounded-lg border flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${
+                    isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+                  }`}>
+                    {currentLocation.current}
+                  </span>
+
+                  <button
+                    onClick={() => handleAdjustPeopleStep(1)}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${
+                      isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                    title="Increase 1 Person"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+
+                  <span className="text-slate-400 text-[10.5px] ml-1 shrink-0">/ {currentLocation.capacity} (Max)</span>
+
+                  <button
+                    onClick={handleResetRoomOccupancy}
+                    className={`px-2 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0 ${
+                      isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                    }`}
+                    title="Reset to Baseline"
+                  >
+                    <RotateCcw className="w-3 h-3 text-slate-400" />
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── SECTION 4: Scenario Controls (2x2 Grid) ── */}
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
+            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <h3 className={`text-xs md:text-sm font-bold mb-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              4. Scenario Controls
+            </h3>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={handleRecalculateRoutes}
+                className="py-2 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer active:scale-95 min-h-[38px] truncate"
+              >
+                <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">Recalculate Routes</span>
+              </button>
+
+              <button
+                onClick={handleUndo}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
+                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <Undo2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">Undo Last</span>
+              </button>
+
+              <button
+                onClick={handleResetScenario}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
+                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">Reset Scenario</span>
+              </button>
+
+              <button
+                onClick={handleLoadScenario}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
+                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <FolderOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">Load Scenario</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── SECTION 5: Live Environmental Telemetry ── */}
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
+            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+          }`}>
+            <h3 className={`text-xs md:text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              5. Live Environmental Telemetry
+            </h3>
+
+            {/* Power Telemetry */}
+            <div className={`rounded-xl border p-2.5 mb-2 ${
+              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Zap
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    envTelemetry.power.mainGrid === 'OFFLINE' ? 'text-amber-500' : 'text-slate-400'
+                  }`}
+                />
+                <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>POWER</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <TelemetryRow label="Main Grid" value={envTelemetry.power.mainGrid} bad={envTelemetry.power.mainGrid === 'OFFLINE'} />
+                <TelemetryRow label="Emergency Lighting" value={envTelemetry.power.emergencyLighting} warn={envTelemetry.power.emergencyLighting === 'ACTIVE'} />
+              </div>
             </div>
 
-            {/* ── SECTION 4: Scenario Controls (2x2 Grid) ── */}
-          <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-1.5">
-                4. Scenario Controls
-              </h3>
-
-              <div className="grid grid-cols-2 gap-2">
-                {/* 1. Recalculate Routes */}
-                <button
-                  onClick={handleRecalculateRoutes}
-                  className="py-2 px-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-500/20 cursor-pointer active:scale-95 min-h-[38px] truncate"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Recalculate Routes</span>
-                </button>
-
-                {/* 2. Undo Last */}
-                <button
-                  onClick={handleUndo}
-                  className="py-2 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate"
-                >
-                  <Undo2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Undo Last</span>
-                </button>
-
-                {/* 3. Reset Scenario */}
-                <button
-                  onClick={handleResetScenario}
-                  className="py-2 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Reset Scenario</span>
-                </button>
-
-                {/* 4. Load Scenario */}
-                <button
-                  onClick={handleLoadScenario}
-                  className="py-2 px-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="truncate">Load Scenario</span>
-                </button>
+            {/* HVAC Telemetry */}
+            <div className={`rounded-xl border p-2.5 mb-2 ${
+              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Wind
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    envTelemetry.hvac.fans === 'DISABLED' ? 'text-purple-500' : 'text-slate-400'
+                  }`}
+                />
+                <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>HVAC</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <TelemetryRow label="Stairwell Fans" value={envTelemetry.hvac.fans} bad={envTelemetry.hvac.fans === 'DISABLED'} />
+                <TelemetryRow label="Smoke Propagation" value={envTelemetry.hvac.smokePropagation} bad={envTelemetry.hvac.smokePropagation !== '1.0x'} />
+                <TelemetryRow label="Avg Smoke Exposure Rate" value={`${envTelemetry.hvac.avgExposureRate.toFixed(1)}/s`} neutral />
+                <TelemetryRow label="Exposed Occupants" value={String(envTelemetry.hvac.exposedAgents)} neutral />
               </div>
             </div>
 
-            {/* ── SECTION 5: Live Environmental Telemetry ── */}
-            <div className="p-3.5 md:p-4 rounded-2xl bg-white border border-slate-200/90 shadow-sm min-w-0">
-              <h3 className="text-xs md:text-sm font-bold text-slate-900 mb-2">
-                5. Live Environmental Telemetry
-              </h3>
-
-              {/* Power Telemetry */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Zap
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      envTelemetry.power.mainGrid === 'OFFLINE' ? 'text-amber-500' : 'text-slate-400'
-                    }`}
-                  />
-                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">POWER</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <TelemetryRow label="Main Grid" value={envTelemetry.power.mainGrid} bad={envTelemetry.power.mainGrid === 'OFFLINE'} />
-                  <TelemetryRow label="Emergency Lighting" value={envTelemetry.power.emergencyLighting} warn={envTelemetry.power.emergencyLighting === 'ACTIVE'} />
-                </div>
+            {/* Structural Telemetry */}
+            <div className={`rounded-xl border p-2.5 mb-2 ${
+              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <BrickWall
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    envTelemetry.structural.corridor === 'BLOCKED' ? 'text-orange-500' : 'text-slate-400'
+                  }`}
+                />
+                <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>STRUCTURAL</span>
               </div>
-
-              {/* HVAC Telemetry */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Wind
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      envTelemetry.hvac.fans === 'DISABLED' ? 'text-purple-500' : 'text-slate-400'
-                    }`}
-                  />
-                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">HVAC</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <TelemetryRow label="Stairwell Fans" value={envTelemetry.hvac.fans} bad={envTelemetry.hvac.fans === 'DISABLED'} />
-                  <TelemetryRow label="Smoke Propagation" value={envTelemetry.hvac.smokePropagation} bad={envTelemetry.hvac.smokePropagation !== '1.0x'} />
-                  <TelemetryRow label="Avg Smoke Exposure Rate" value={`${envTelemetry.hvac.avgExposureRate.toFixed(1)}/s`} neutral />
-                  <TelemetryRow label="Exposed Occupants" value={String(envTelemetry.hvac.exposedAgents)} neutral />
-                </div>
-              </div>
-
-              {/* Structural Telemetry */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 mb-2">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <BrickWall
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      envTelemetry.structural.corridor === 'BLOCKED' ? 'text-orange-500' : 'text-slate-400'
-                    }`}
-                  />
-                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">STRUCTURAL</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <TelemetryRow label="Corridor C-101" value={envTelemetry.structural.corridor} bad={envTelemetry.structural.corridor === 'BLOCKED'} />
-                  <TelemetryRow label="West Stair Connection" value={envTelemetry.structural.westConnection} bad={envTelemetry.structural.westConnection === 'BLOCKED'} />
-                  <TelemetryRow label="Affected Occupants" value={String(envTelemetry.structural.affected)} neutral />
-                  <TelemetryRow label="Rerouted Occupants" value={String(envTelemetry.structural.rerouted)} neutral />
-                </div>
-              </div>
-
-              {/* Emergency Summary */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-2.5">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <ShieldAlert
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      envTelemetry.summary.activeHazards > 0 ? 'text-red-500' : 'text-slate-400'
-                    }`}
-                  />
-                  <span className="text-[10.5px] font-bold text-slate-700 tracking-wide">EMERGENCY SUMMARY</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <TelemetryRow label="Active Hazards" value={`${envTelemetry.summary.activeHazards}/4`} bad={envTelemetry.summary.activeHazards > 0} />
-                  <TelemetryRow label="Blocked Routes" value={String(envTelemetry.summary.blockedRoutes)} bad={envTelemetry.summary.blockedRoutes > 0} />
-                  <TelemetryRow
-                    label="Evacuating Occupants"
-                    value={envTelemetry.summary.evacuating === null ? '—' : String(envTelemetry.summary.evacuating)}
-                    neutral
-                  />
-                </div>
+              <div className="flex flex-col gap-1">
+                <TelemetryRow label="Corridor C-101" value={envTelemetry.structural.corridor} bad={envTelemetry.structural.corridor === 'BLOCKED'} />
+                <TelemetryRow label="West Stair Connection" value={envTelemetry.structural.westConnection} bad={envTelemetry.structural.westConnection === 'BLOCKED'} />
+                <TelemetryRow label="Affected Occupants" value={String(envTelemetry.structural.affected)} neutral />
+                <TelemetryRow label="Rerouted Occupants" value={String(envTelemetry.structural.rerouted)} neutral />
               </div>
             </div>
+
+            {/* Emergency Summary */}
+            <div className={`rounded-xl border p-2.5 ${
+              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+            }`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <ShieldAlert
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    envTelemetry.summary.activeHazards > 0 ? 'text-red-500' : 'text-slate-400'
+                  }`}
+                />
+                <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>EMERGENCY SUMMARY</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <TelemetryRow label="Active Hazards" value={`${envTelemetry.summary.activeHazards}/4`} bad={envTelemetry.summary.activeHazards > 0} />
+                <TelemetryRow label="Blocked Routes" value={String(envTelemetry.summary.blockedRoutes)} bad={envTelemetry.summary.blockedRoutes > 0} />
+                <TelemetryRow
+                  label="Evacuating Occupants"
+                  value={envTelemetry.summary.evacuating === null ? '—' : String(envTelemetry.summary.evacuating)}
+                  neutral
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -112,28 +112,28 @@ body {
   color: #64748b !important;
 }
 
-/* Always preserve white text in buttons, badges, and alerts */
-.theme-light button[class*="bg-red-"],
-.theme-light button[class*="bg-blue-"],
-.theme-light button[class*="bg-sky-"],
-.theme-light button[class*="bg-emerald-"],
-.theme-light button[class*="bg-orange-"],
+/* Always preserve white text in solid colored buttons, badges, and alerts (excluding light pastel -50, -100, -200 tints) */
+.theme-light button[class*="bg-red-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light button[class*="bg-blue-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light button[class*="bg-sky-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light button[class*="bg-emerald-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light button[class*="bg-orange-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
 .theme-light button[class*="bg-gradient-"],
-.theme-light span[class*="bg-red-"],
-.theme-light span[class*="bg-blue-"],
-.theme-light span[class*="bg-sky-"],
-.theme-light span[class*="bg-emerald-"],
-.theme-light span[class*="bg-orange-"] {
+.theme-light span[class*="bg-red-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light span[class*="bg-blue-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light span[class*="bg-sky-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light span[class*="bg-emerald-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]),
+.theme-light span[class*="bg-orange-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) {
   color: #ffffff !important;
 }
 
-.theme-light button[class*="bg-red-"] *,
-.theme-light button[class*="bg-blue-"] *,
-.theme-light button[class*="bg-sky-"] *,
-.theme-light button[class*="bg-emerald-"] *,
-.theme-light button[class*="bg-orange-"] *,
+.theme-light button[class*="bg-red-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) *,
+.theme-light button[class*="bg-blue-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) *,
+.theme-light button[class*="bg-sky-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) *,
+.theme-light button[class*="bg-emerald-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) *,
+.theme-light button[class*="bg-orange-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) *,
 .theme-light button[class*="bg-gradient-"] *,
-.theme-light span[class*="bg-red-"] * {
+.theme-light span[class*="bg-red-"]:not([class*="-50"]):not([class*="-100"]):not([class*="-200"]) * {
   color: #ffffff !important;
 }
 

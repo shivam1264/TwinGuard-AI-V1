@@ -33,7 +33,7 @@ assert(sidebar.includes('START EVACUATION'), 'DynamicLeftSidebar must include ev
 console.log('✅ PASS: Collapsed rail and expanded menu both cleanly supported with badges & controls');
 
 // 3. Verify App.jsx renders DynamicLeftSidebar persistently
-const app = fs.readFileSync('src/App.jsx', 'utf8');
+const app = fs.readFileSync('src/App.jsx', 'utf8').replace(/\r\n/g, '\n');
 
 // The sidebar must NOT be wrapped in a condition that hides it when away from LIVE_VIEW
 assert(app.includes('<DynamicLeftSidebar'), 'App.jsx must render DynamicLeftSidebar');
