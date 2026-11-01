@@ -227,7 +227,8 @@ export default function GisMapDrawer({
         minZoom: 12,
         maxZoom: 18,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        keyboard: false
       });
 
       // Base Satellite Tile Layer

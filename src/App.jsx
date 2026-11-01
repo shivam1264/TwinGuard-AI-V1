@@ -248,6 +248,9 @@ export function App() {
       },
       (spreadRoomId) => {
         handleTriggerFire(spreadRoomId, false);
+      },
+      (preset) => {
+        setActiveCameraPreset(preset);
       }
     );
 

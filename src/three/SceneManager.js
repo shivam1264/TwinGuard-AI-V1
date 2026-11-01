@@ -78,13 +78,14 @@ import { EmergencyVehiclesManager } from './EmergencyVehiclesManager.js';
 import { RouteOptimizationEngine } from '../simulation/RouteOptimizationEngine.js';
 
 export class SceneManager {
-  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread) {
+  constructor(containerElement, onStatsUpdate, onRoomSelect, onRoomDoubleTap, onFacadeModeChange, onFireSpread, onCameraPresetChange) {
     this.onFireSpread = onFireSpread;
     this.container = containerElement;
     this.onStatsUpdate = onStatsUpdate;
     this.onRoomSelect = onRoomSelect;
     this.onRoomDoubleTap = onRoomDoubleTap;
     this.onFacadeModeChange = onFacadeModeChange;
+    this.onCameraPresetChange = onCameraPresetChange;
 
     this.simSpeed = 1.0;
     this.isSimulating = false;
@@ -109,6 +110,7 @@ export class SceneManager {
 
     // Deterministic simulation clock with proper pause/resume
     this._clock = new SimulationClock();
+    this._renderClock = new THREE.Clock();
 
     // Phase 5D: Zone-to-grid hazard mapper
     this._zoneToGridMapper = null;
@@ -341,10 +343,11 @@ export class SceneManager {
     this.keysDown = {};
 
     this.handleKeyDown = (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
 
-      const code = e.code;
-      const key = e.key;
+      const code = e.code || '';
+      const key = e.key || '';
+      const keyLower = key.toLowerCase();
 
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Space'].includes(key) ||
           ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
@@ -353,14 +356,21 @@ export class SceneManager {
 
       this.keysDown[code] = true;
       this.keysDown[key] = true;
+      if (keyLower) this.keysDown[keyLower] = true;
 
       // Yield any running camera transition on user manual input
       this.cameraTransition = null;
 
-      if ((key === 'h' || key === 'H') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      if (keyLower === 'h' && !e.altKey && !e.ctrlKey && !e.metaKey) {
         this.setCameraPreset('HERO_VIEW');
-      } else if ((key === 'c' || key === 'C') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      } else if (keyLower === 'c' && !e.altKey && !e.ctrlKey && !e.metaKey) {
         this.toggleFacadeMode();
+      } else if (keyLower === 't' && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        this.setCameraPreset('TOP_DOWN');
+      } else if ((key === '+' || key === '=' || code === 'NumpadAdd') && !e.ctrlKey && !e.metaKey) {
+        this.zoomIn(6);
+      } else if ((key === '-' || key === '_' || code === 'NumpadSubtract') && !e.ctrlKey && !e.metaKey) {
+        this.zoomOut(6);
       }
     };
 
@@ -368,6 +378,7 @@ export class SceneManager {
       if (this.keysDown) {
         delete this.keysDown[e.code];
         delete this.keysDown[e.key];
+        if (e.key) delete this.keysDown[e.key.toLowerCase()];
       }
     };
 
@@ -855,6 +866,9 @@ export class SceneManager {
   // Smooth, Cinematic Camera Transition to any preset
   setCameraPreset(presetName, targetRoomId = null, animate = true) {
     if (!this.camera || !this.controls) return;
+    if (this.onCameraPresetChange && typeof this.onCameraPresetChange === 'function') {
+      this.onCameraPresetChange(presetName);
+    }
 
     let targetPos = new THREE.Vector3(3, 20, 68);
     let targetLook = new THREE.Vector3(0, 19, 0);
@@ -2993,14 +3007,17 @@ export class SceneManager {
     if (this.isDisposed) return;
     this.animationFrameId = requestAnimationFrame(this.animate);
 
-    // Get delta from simulation clock (returns 0 when stopped, handles pause/resume correctly)
-    const delta = Math.min(this._clock.getDelta(), 0.1);
+    // Frame/render delta for 3D navigation, camera transitions, and visual updates (always advances smoothly)
+    const renderDelta = Math.min(this._renderClock ? this._renderClock.getDelta() : 0.016, 0.1);
+
+    // Simulation delta from deterministic simulation clock (advances only when evacuation is actively simulating)
+    const simDelta = this.isSimulating ? Math.min(this._clock.getDelta(), 0.1) : 0;
 
     if (this._renderPaused) {
       // In 2D views, pause heavy WebGL rendering to eliminate UI lag & keep CPU/GPU cool
       if (this.agentCrowd && this.isSimulating) {
-        const stats = this.agentCrowd.update(delta, this.simSpeed);
-        this.elapsedSeconds += delta * this.simSpeed;
+        const stats = this.agentCrowd.update(simDelta, this.simSpeed);
+        this.elapsedSeconds += simDelta * this.simSpeed;
         const currentFloorSec = Math.floor(this.elapsedSeconds);
         const now = performance.now();
         const shouldUpdate =
@@ -3031,7 +3048,7 @@ export class SceneManager {
     // Smooth Camera Transition Interpolation
     if (this.cameraTransition) {
       const ct = this.cameraTransition;
-      ct.elapsed += delta;
+      ct.elapsed += renderDelta;
       const progress = Math.min(1.0, ct.elapsed / ct.duration);
 
       // Smoothstep Cubic Easing
@@ -3049,7 +3066,7 @@ export class SceneManager {
       }
     }
 
-    this.updateCameraNavigation(delta);
+    this.updateCameraNavigation(renderDelta);
 
     if (this.controls) {
       // Dynamic boundary enforcement on orbit target (prevents panning into empty void)
@@ -3069,17 +3086,17 @@ export class SceneManager {
     }
 
     if (this.fireSystem) {
-      this.fireSystem.update(delta, this.camera);
+      this.fireSystem.update(renderDelta, this.camera);
 
       // Multi-hazard live effects — driven by the EXISTING animation loop
       if (this.powerFailureState.active) {
-        this.updateEmergencyLights(delta);
+        this.updateEmergencyLights(renderDelta);
         if (this.building && this.building.updateZonePowerAnimations) {
           this.building.updateZonePowerAnimations(performance.now() * 0.001);
         }
       }
-      if (this.structuralCollapseState.active) this.updateCollapseDust(delta);
-      this._smokeTelemetryTimer += delta;
+      if (this.structuralCollapseState.active) this.updateCollapseDust(renderDelta);
+      this._smokeTelemetryTimer += renderDelta;
       if (this._smokeTelemetryTimer > 0.5) {
         this.updateSmokeTelemetry(this._smokeTelemetryTimer);
         this._smokeTelemetryTimer = 0;
@@ -3087,16 +3104,16 @@ export class SceneManager {
     }
 
     if (this.building && this.building.update) {
-      this.building.update(delta);
+      this.building.update(renderDelta);
     }
 
     if (this.campusSite && this.campusSite.update) {
-      this.campusSite.update(delta);
+      this.campusSite.update(renderDelta);
     }
 
     if (this.emergencyManager) {
       const speed = this.isSimulating ? (this.simSpeed || 1.0) : 1.0;
-      this.emergencyManager.update(delta, speed);
+      this.emergencyManager.update(renderDelta, speed);
     }
 
     if (this.agentCrowd) {
@@ -3123,7 +3140,7 @@ export class SceneManager {
       }
 
       // 6. Update agents with current valid routes (after hazard/routing updates)
-      const stats = this.agentCrowd.update(delta, this.isSimulating ? this.simSpeed : 0);
+      const stats = this.agentCrowd.update(renderDelta, this.isSimulating ? this.simSpeed : 0);
 
       // Update live edge occupancy from agent positions (for congestion-aware routing)
       if (this.navigationGraph && this.isSimulating) {
