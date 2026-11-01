@@ -28,14 +28,13 @@ const requiredSections = [
   'SCENARIO PRESETS',
   'TOPSIS EVALUATION',
   'INCIDENT LOG & FLEET',
-  'PREDICTIVE METRICS',
-  'AUDIT & COMPLIANCE'
+  'PREDICTIVE METRICS & AUDIT'
 ];
 
 requiredSections.forEach(title => {
   assert(sidebarCode.includes(title), `DynamicLeftSidebar must contain contextual section: ${title}`);
 });
-console.log('✅ PASS: All 8 modules have dedicated contextual tools & shortcuts in the Left Sidebar');
+console.log('✅ PASS: All core modules have dedicated contextual tools & shortcuts in the Left Sidebar');
 
 // 3. App.jsx Unified Switching Verification
 const appCode = fs.readFileSync('src/App.jsx', 'utf8').replace(/\r\n/g, '\n');

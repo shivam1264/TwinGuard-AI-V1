@@ -19,6 +19,8 @@ export class EmergencyVehiclesManager {
     this.isActive = false;
     this.isArrived = false;
     this.isSirenMuted = false; // Emergency siren alarm active by default on dispatch
+    this.timeSinceArrival = 0.0; // Auto-off timer: automatically mutes siren 5.0s after arrival
+    this.sirenAutoMuted = false;
     this.isSprayActive = false;
     this.isDirectSuiteMode = false; // Distinguish direct timestamp calls in unit test runner
 
@@ -465,46 +467,81 @@ export class EmergencyVehiclesManager {
   // ==========================================================================
 
   getRoadSplineForGate(gateSide) {
-    let targetPoints = [];
-
     if (gateSide === 'west') {
-      // Enters at South Main Gate (z=240), travels North up Ceremonial Avenue to Central Circus (z=86), then branches West into West Ring to West Core A
-      targetPoints = [
-        new THREE.Vector3(0, 0.1, 240),   // South Main Entrance Portal (Exact 3D Gate)
-        new THREE.Vector3(0, 0.1, 175),   // Ceremonial Avenue South
-        new THREE.Vector3(0, 0.1, 110),   // Approach to Circus
-        new THREE.Vector3(0, 0.1, 86),    // Central Axis Circus Roundabout
-        new THREE.Vector3(-25, 0.1, 65),  // West Ring connector
-        new THREE.Vector3(-45, 0.1, 35),  // West Boulevard
-        new THREE.Vector3(-44, 0.1, 0)    // West Gate Staging (Core A Portal)
-      ];
+      // Follows South Ceremonial Avenue straight north to Roundabout Entrance (z=104),
+      // navigates the western arc of the roundabout roadway ring around the central fountain island (radius ~13.5m),
+      // exits onto Hero Arrival Avenue to Core Ring junction (z=52),
+      // then follows ROAD-SECONDARY-CORE-RING curving smoothly to West Staging at Core A (x=-44, z=0).
+      // Strictly follows the paved road network without cutting across the central roundabout lawn or gardens.
+      const path = new THREE.CurvePath();
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 240), new THREE.Vector3(0, 0.1, 104)));
+      path.add(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.1, 104),
+        new THREE.Vector3(-6.0, 0.1, 98.0),
+        new THREE.Vector3(-11.5, 0.1, 93.0),
+        new THREE.Vector3(-13.6, 0.1, 86.0),
+        new THREE.Vector3(-11.5, 0.1, 79.0),
+        new THREE.Vector3(-6.0, 0.1, 74.0),
+        new THREE.Vector3(0, 0.1, 70.0)
+      ], false, 'centripetal'));
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 70), new THREE.Vector3(0, 0.1, 52)));
+      path.add(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.1, 52),
+        new THREE.Vector3(-18, 0.1, 46),
+        new THREE.Vector3(-32, 0.1, 38),
+        new THREE.Vector3(-42, 0.1, 22),
+        new THREE.Vector3(-44, 0.1, 0)
+      ], false, 'centripetal'));
+      return path;
     } else if (gateSide === 'east') {
-      // Enters at South Main Gate (z=240), travels North up Ceremonial Avenue to Central Circus (z=86), then branches East into East Ring to East Core B
-      targetPoints = [
-        new THREE.Vector3(0, 0.1, 240),   // South Main Entrance Portal (Exact 3D Gate)
-        new THREE.Vector3(0, 0.1, 175),   // Ceremonial Avenue South
-        new THREE.Vector3(0, 0.1, 110),   // Approach to Circus
-        new THREE.Vector3(0, 0.1, 86),    // Central Axis Circus Roundabout
-        new THREE.Vector3(25, 0.1, 65),   // East Ring connector
-        new THREE.Vector3(45, 0.1, 35),   // East Boulevard
-        new THREE.Vector3(44, 0.1, 0)     // East Gate Staging (Core B Portal)
-      ];
+      // Follows South Ceremonial Avenue straight north to Roundabout Entrance (z=104),
+      // navigates the eastern arc of the roundabout roadway ring around the central island (radius ~13.5m),
+      // exits onto Hero Arrival Avenue to Core Ring junction (z=52),
+      // then follows ROAD-SECONDARY-CORE-RING curving smoothly to East Staging at Core B (x=44, z=0).
+      // Strictly follows the paved road network without cutting across the central roundabout lawn or gardens.
+      const path = new THREE.CurvePath();
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 240), new THREE.Vector3(0, 0.1, 104)));
+      path.add(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.1, 104),
+        new THREE.Vector3(6.0, 0.1, 98.0),
+        new THREE.Vector3(11.5, 0.1, 93.0),
+        new THREE.Vector3(13.6, 0.1, 86.0),
+        new THREE.Vector3(11.5, 0.1, 79.0),
+        new THREE.Vector3(6.0, 0.1, 74.0),
+        new THREE.Vector3(0, 0.1, 70.0)
+      ], false, 'centripetal'));
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 70), new THREE.Vector3(0, 0.1, 52)));
+      path.add(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.1, 52),
+        new THREE.Vector3(18, 0.1, 46),
+        new THREE.Vector3(32, 0.1, 38),
+        new THREE.Vector3(42, 0.1, 22),
+        new THREE.Vector3(44, 0.1, 0)
+      ], false, 'centripetal'));
+      return path;
     } else {
-      // Enters at South Main Gate (z=240), travels North up Ceremonial Avenue directly to Hero Forecourt Plaza
-      targetPoints = [
-        new THREE.Vector3(0, 0.1, 240),   // South Main Entrance Portal (Exact 3D Gate)
-        new THREE.Vector3(0, 0.1, 185),   // Ceremonial Avenue
-        new THREE.Vector3(0, 0.1, 135),   // Ceremonial Avenue Mid
-        new THREE.Vector3(0, 0.1, 86),    // Central Circus
-        new THREE.Vector3(0, 0.1, 60),    // Hero Forecourt approach
-        new THREE.Vector3(0, 0.1, 38)     // Forecourt drop-off apron (Main Building Hero)
-      ];
+      // South Main Entrance / Front Gate:
+      // Follows South Ceremonial Avenue straight north to Roundabout Entrance (z=104),
+      // navigates smoothly around the roundabout roadway ring (radius ~13.5m),
+      // exits at (0, 70) and continues straight north along Hero Arrival Avenue to Forecourt Drop-off Apron (z=36).
+      // Strictly follows the designed asphalt roads, never cutting over the roundabout lawn, fountain, or trees.
+      const path = new THREE.CurvePath();
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 240), new THREE.Vector3(0, 0.1, 104)));
+      path.add(new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0.1, 104),
+        new THREE.Vector3(-6.0, 0.1, 98.0),
+        new THREE.Vector3(-11.5, 0.1, 93.0),
+        new THREE.Vector3(-13.6, 0.1, 86.0),
+        new THREE.Vector3(-11.5, 0.1, 79.0),
+        new THREE.Vector3(-6.0, 0.1, 74.0),
+        new THREE.Vector3(0, 0.1, 70.0)
+      ], false, 'centripetal'));
+      path.add(new THREE.LineCurve3(new THREE.Vector3(0, 0.1, 70), new THREE.Vector3(0, 0.1, 36)));
+      return path;
     }
-
-    return new THREE.CatmullRomCurve3(targetPoints);
   }
 
-  // ==========================================================================
+    // ==========================================================================
   // 4. DISPATCH & SIMULATION TIMING (30-SECOND ARRIVAL INVARIANT)
   // ==========================================================================
 
@@ -559,6 +596,8 @@ export class EmergencyVehiclesManager {
     this.isActive = true;
     this.elapsedTime = 0.0;
     this.isArrived = false;
+    this.timeSinceArrival = 0.0;
+    this.sirenAutoMuted = false;
     this.targetGate = newTargetGate;
     this.hazardFloor = newHazardFloor;
     this.isDirectSuiteMode = false;
@@ -574,13 +613,13 @@ export class EmergencyVehiclesManager {
     // 3D vehicles remain hidden until GIS arrival at Main Gate
     this.setVehiclesVisibility(false);
 
-    // Position perimeter group at final staging zone
+    // Position perimeter group at final staging zone (staged cleanly beside vehicles on plaza)
     if (this.targetGate.side === 'west') {
-      this.perimeterGroup.position.set(-42, 0.1, 6.0);
+      this.perimeterGroup.position.set(-36, 0.1, 0.0);
     } else if (this.targetGate.side === 'east') {
-      this.perimeterGroup.position.set(42, 0.1, 6.0);
+      this.perimeterGroup.position.set(36, 0.1, 0.0);
     } else {
-      this.perimeterGroup.position.set(0, 0.1, 34.0);
+      this.perimeterGroup.position.set(10, 0.1, 34.0);
     }
 
     this.updateVehiclePositions(0.0);
@@ -618,6 +657,11 @@ export class EmergencyVehiclesManager {
       if (this.elapsedTime >= (this.transitDuration - 1e-4)) {
         this.isArrived = true;
         this.perimeterGroup.visible = true;
+        this.timeSinceArrival = Math.max(0.0, this.elapsedTime - this.transitDuration);
+        if (this.timeSinceArrival >= 5.0 && !this.isSirenMuted && !this.sirenAutoMuted) {
+          this.sirenAutoMuted = true;
+          this.muteSiren();
+        }
       }
       return;
     }
@@ -655,6 +699,16 @@ export class EmergencyVehiclesManager {
       }
     }
 
+    // Automatically turn off siren without waiting for admin after 5s reached at hazardous location
+    if (this.isArrived) {
+      const speed = typeof simSpeedOrTime === 'number' ? simSpeedOrTime : 1.0;
+      this.timeSinceArrival += (delta > 0 ? delta : 0.016) * speed;
+      if (this.timeSinceArrival >= 5.0 && !this.isSirenMuted && !this.sirenAutoMuted) {
+        this.sirenAutoMuted = true;
+        this.muteSiren();
+      }
+    }
+
     // Strobe light animation (~4.5 Hz frequency)
     const flashPhase = Math.sin(this.elapsedTime * 28.0);
     const stateA = flashPhase > 0;
@@ -675,53 +729,50 @@ export class EmergencyVehiclesManager {
   updateVehiclePositions(progress) {
     if (!this.activeSpline) return;
 
-    // Offsets along spline for convoy spacing: Engine 1 leads, Rescue 1 follows, Medic 1 trails
+    // True In-Line Convoy Follower Model:
+    // All 3 emergency units follow the exact road centerline spline with zero lateral shifting.
+    // Engine 1 leads, Rescue 1 follows in its tracks, Medic 1 trails behind Rescue 1.
+    // Strictly no zig-zag, strictly follows the road without crossing grass, gardens, or trees.
     const engineP = Math.min(1.0, Math.max(0.0, progress));
-    const rescueP = Math.min(1.0, Math.max(0.0, progress - 0.045));
-    const medicP = Math.min(1.0, Math.max(0.0, progress - 0.090));
 
-    // Update Fire Engine
+    // Update Fire Engine (Lead Unit)
     if (this.fireEngine) {
       const pt = this.activeSpline.getPoint(engineP);
       const tangent = this.activeSpline.getTangent(engineP);
       this.fireEngine.position.copy(pt);
-      if (progress < 0.999) {
-        this.fireEngine.lookAt(pt.clone().add(tangent));
-      } else {
-        // Parked heading facing building gate
-        const targetX = this.targetGate.side === 'west' ? -29.2 : (this.targetGate.side === 'east' ? 29.2 : 0);
-        this.fireEngine.lookAt(targetX, 0.1, this.fireEngine.position.z);
-      }
+      this.fireEngine.lookAt(pt.clone().add(tangent));
       this.rotateWheels(this.fireEngine, progress < 1.0 ? 12 : 0);
     }
 
-    // Update Rescue Team Unit
+    // Update Rescue Team Unit (Directly in-line behind Fire Engine)
     if (this.rescueTeam) {
-      const pt = this.activeSpline.getPoint(rescueP);
-      const tangent = this.activeSpline.getTangent(rescueP);
-      const lateralShift = this.targetGate.side === 'west' ? -2.5 : (this.targetGate.side === 'east' ? 2.5 : 4.0);
-      this.rescueTeam.position.set(pt.x + lateralShift * (1 - progress * 0.5), pt.y, pt.z + (progress >= 1.0 ? 5.5 : 0));
-      if (progress < 0.999) {
-        this.rescueTeam.lookAt(pt.clone().add(tangent));
+      let pt, tangent;
+      if (progress >= 0.045) {
+        pt = this.activeSpline.getPoint(progress - 0.045);
+        tangent = this.activeSpline.getTangent(progress - 0.045);
       } else {
-        const targetX = this.targetGate.side === 'west' ? -29.2 : (this.targetGate.side === 'east' ? 29.2 : 0);
-        this.rescueTeam.lookAt(targetX, 0.1, this.rescueTeam.position.z);
+        pt = this.activeSpline.getPoint(0).clone();
+        pt.z += (0.045 - progress) * 140;
+        tangent = new THREE.Vector3(0, 0, -1);
       }
+      this.rescueTeam.position.copy(pt);
+      this.rescueTeam.lookAt(pt.clone().add(tangent));
       this.rotateWheels(this.rescueTeam, progress < 1.0 ? 12 : 0);
     }
 
-    // Update Ambulance Unit
+    // Update Ambulance Unit (Directly in-line behind Rescue Team)
     if (this.ambulance) {
-      const pt = this.activeSpline.getPoint(medicP);
-      const tangent = this.activeSpline.getTangent(medicP);
-      const lateralShift = this.targetGate.side === 'west' ? -4.5 : (this.targetGate.side === 'east' ? 4.5 : -4.0);
-      this.ambulance.position.set(pt.x + lateralShift * (1 - progress * 0.5), pt.y, pt.z + (progress >= 1.0 ? 11.5 : 0));
-      if (progress < 0.999) {
-        this.ambulance.lookAt(pt.clone().add(tangent));
+      let pt, tangent;
+      if (progress >= 0.090) {
+        pt = this.activeSpline.getPoint(progress - 0.090);
+        tangent = this.activeSpline.getTangent(progress - 0.090);
       } else {
-        const targetX = this.targetGate.side === 'west' ? -29.2 : (this.targetGate.side === 'east' ? 29.2 : 0);
-        this.ambulance.lookAt(targetX, 0.1, this.ambulance.position.z);
+        pt = this.activeSpline.getPoint(0).clone();
+        pt.z += (0.090 - progress) * 140;
+        tangent = new THREE.Vector3(0, 0, -1);
       }
+      this.ambulance.position.copy(pt);
+      this.ambulance.lookAt(pt.clone().add(tangent));
       this.rotateWheels(this.ambulance, progress < 1.0 ? 12 : 0);
     }
   }
@@ -797,24 +848,36 @@ export class EmergencyVehiclesManager {
       }
 
       if (this.sirenOsc) {
-        return; // Already actively generating siren wail
+        return; // Already actively generating siren audio
       }
 
+      // Soft, mellow low-frequency ambulance / fire brigade siren alarm
+      // Uses a pure sine wave with a 750Hz acoustic low-pass filter to eliminate any sharp/harsh frequencies
       this.sirenOsc = this.audioCtx.createOscillator();
+      this.sirenOsc.type = 'sine'; // Mellow sine wave (replaces harsh/sharp sawtooth)
+
+      // Low-pass filter removes any sharp upper harmonics or edge clicks
+      this.sirenFilter = this.audioCtx.createBiquadFilter();
+      this.sirenFilter.type = 'lowpass';
+      this.sirenFilter.frequency.setValueAtTime(750, this.audioCtx.currentTime);
+      this.sirenFilter.Q.setValueAtTime(1.0, this.audioCtx.currentTime);
+
       this.sirenGain = this.audioCtx.createGain();
+      this.sirenGain.gain.setValueAtTime(0.045, this.audioCtx.currentTime); // Soft, comfortable ambient volume
 
-      this.sirenOsc.type = 'sawtooth';
-      this.sirenGain.gain.setValueAtTime(0.08, this.audioCtx.currentTime); // Low non-intrusive volume
-
-      // Two-tone wail frequency modulation (680Hz to 960Hz)
+      // Soft low-frequency European/American two-tone / deep wail cadence (415 Hz to 550 Hz)
+      // Fundamental frequencies are an octave lower, deep, warm, and authoritative
       const now = this.audioCtx.currentTime;
-      for (let i = 0; i < 100; i++) {
-        this.sirenOsc.frequency.setValueAtTime(680, now + i * 1.2);
-        this.sirenOsc.frequency.linearRampToValueAtTime(960, now + i * 1.2 + 0.6);
-        this.sirenOsc.frequency.linearRampToValueAtTime(680, now + i * 1.2 + 1.2);
+      const cycleLength = 2.4; // 2.4s smooth authentic emergency cadence
+      for (let i = 0; i < 60; i++) {
+        const t0 = now + i * cycleLength;
+        this.sirenOsc.frequency.setValueAtTime(415, t0);
+        this.sirenOsc.frequency.exponentialRampToValueAtTime(550, t0 + cycleLength * 0.5);
+        this.sirenOsc.frequency.exponentialRampToValueAtTime(415, t0 + cycleLength);
       }
 
-      this.sirenOsc.connect(this.sirenGain);
+      this.sirenOsc.connect(this.sirenFilter);
+      this.sirenFilter.connect(this.sirenGain);
       this.sirenGain.connect(this.audioCtx.destination);
       this.sirenOsc.start();
     } catch (err) {
@@ -831,10 +894,17 @@ export class EmergencyVehiclesManager {
       } catch (_) {}
       this.sirenOsc = null;
     }
+    if (this.sirenFilter) {
+      try {
+        this.sirenFilter.disconnect();
+      } catch (_) {}
+      this.sirenFilter = null;
+    }
   }
 
   toggleSirenAudio() {
     if (this.isSirenMuted) {
+      this.sirenAutoMuted = true; // Manual unmute override: prevent immediate auto-mute
       this.startSirenAudio();
     } else {
       this.muteSiren();
@@ -842,7 +912,7 @@ export class EmergencyVehiclesManager {
     return !this.isSirenMuted;
   }
 
-  // ==========================================================================
+    // ==========================================================================
   // 6. STATUS TELEMETRY FOR UI CONSUMPTION
   // ==========================================================================
 
@@ -918,6 +988,8 @@ export class EmergencyVehiclesManager {
     this.isActive = false;
     this.elapsedTime = 0.0;
     this.isArrived = false;
+    this.timeSinceArrival = 0.0;
+    this.sirenAutoMuted = false;
     this.muteSiren();
     this.isSprayActive = false;
     this.perimeterGroup.visible = false;
@@ -927,21 +999,21 @@ export class EmergencyVehiclesManager {
     this.gisProgress = 0.0;
     this.campusProgress = 0.0;
 
-    // Initially position vehicles at South Main Entrance (z = 240) facing North, but keep hidden until arrival
+    // Initially position vehicles in single-file straight queue at South Main Entrance (z = 240) facing North, hidden until dispatch
     if (this.fireEngine) {
       this.fireEngine.position.set(0, 0.1, 240);
       this.fireEngine.rotation.set(0, Math.PI, 0);
       this.fireEngine.visible = false;
     }
-    if (this.ambulance) {
-      this.ambulance.position.set(-3, 0.1, 246);
-      this.ambulance.rotation.set(0, Math.PI, 0);
-      this.ambulance.visible = false;
-    }
     if (this.rescueTeam) {
-      this.rescueTeam.position.set(3, 0.1, 246);
+      this.rescueTeam.position.set(0, 0.1, 246);
       this.rescueTeam.rotation.set(0, Math.PI, 0);
       this.rescueTeam.visible = false;
+    }
+    if (this.ambulance) {
+      this.ambulance.position.set(0, 0.1, 252);
+      this.ambulance.rotation.set(0, Math.PI, 0);
+      this.ambulance.visible = false;
     }
   }
 

@@ -112,12 +112,6 @@ export const DynamicLeftSidebar = React.memo(({
       label: 'Analytics',
       icon: LineChart,
       color: isDark ? '#38bdf8' : '#0284c7'
-    },
-    {
-      id: 'REPORTS',
-      label: 'Reports',
-      icon: FileText,
-      color: isDark ? '#38bdf8' : '#0284c7'
     }
   ];
 
@@ -181,20 +175,12 @@ export const DynamicLeftSidebar = React.memo(({
         };
       case 'ANALYTICS':
         return {
-          title: 'PREDICTIVE METRICS',
+          title: 'PREDICTIVE METRICS & AUDIT',
           items: [
             { id: 'CURVE', label: 'Crowd Clearance Curve', icon: LineChart, color: '#38bdf8', badge: 'Live' },
             { id: 'BOTTLENECK', label: 'Stair Density Forecast', icon: Activity, color: '#f59e0b', badge: 'High' },
-            { id: 'FLOW', label: 'Doorway Flow Rates', icon: Layers, color: '#10b981', badge: 'Flow' }
-          ]
-        };
-      case 'REPORTS':
-        return {
-          title: 'AUDIT & COMPLIANCE',
-          items: [
-            { id: 'NFPA', label: 'NFPA 101 Compliance', icon: ShieldCheck, color: '#10b981', badge: 'Grade A' },
-            { id: 'LOGS', label: 'Evacuation Log Sheet', icon: ClipboardList, color: isDark ? '#38bdf8' : '#0284c7', badge: 'PDF' },
-            { id: 'CERT', label: 'Life Safety Audit', icon: FileText, color: '#a855f7', badge: 'Verified' }
+            { id: 'FLOW', label: 'Doorway Flow Rates', icon: Layers, color: '#10b981', badge: 'Flow' },
+            { id: 'REPORT', label: 'Safety & Egress Report', icon: FileText, color: '#a855f7', badge: 'PDF' }
           ]
         };
       default:

@@ -15,15 +15,14 @@ const requiredModules = [
   { id: 'SCENARIOS', label: 'AI Scenarios' },
   { id: 'STRATEGY_RANKER', label: 'Strategy Ranker' },
   { id: 'INCIDENTS', label: 'Incidents' },
-  { id: 'ANALYTICS', label: 'Analytics' },
-  { id: 'REPORTS', label: 'Reports' }
+  { id: 'ANALYTICS', label: 'Analytics' }
 ];
 
 requiredModules.forEach(({ id, label }) => {
   assert(sidebar.includes(`id: '${id}'`), `DynamicLeftSidebar must contain module ID: ${id}`);
   assert(sidebar.includes(`'${label}'`), `DynamicLeftSidebar must contain label: ${label}`);
 });
-console.log('✅ PASS: All 8 navigation items exist in DynamicLeftSidebar.jsx with exact labels & IDs');
+console.log('✅ PASS: All 7 core navigation items exist in DynamicLeftSidebar.jsx with exact labels & IDs');
 
 // 2. Verify Collapsed and Expanded States in DynamicLeftSidebar.jsx
 assert(sidebar.includes('isCollapsed ?'), 'DynamicLeftSidebar must support isCollapsed state');
@@ -46,7 +45,8 @@ assert(app.includes("activeTab === 'SCENARIOS' && (\n            <ScenariosView"
 assert(app.includes("activeTab === 'STRATEGY_RANKER' && (\n            <StrategyRankerView"), 'Central area must render StrategyRankerView for STRATEGY_RANKER');
 assert(app.includes("activeTab === 'INCIDENTS' && (\n            <IncidentsView"), 'Central area must render IncidentsView for INCIDENTS');
 assert(app.includes("activeTab === 'ANALYTICS' && (\n            <AnalyticsView"), 'Central area must render AnalyticsView for ANALYTICS');
-assert(app.includes("activeTab === 'REPORTS' && (\n            <ReportsView"), 'Central area must render ReportsView for REPORTS');
+// Reports page integrated into AnalyticsView with PDF/Print export
+assert(app.includes("activeTab === 'ANALYTICS' && (\n            <AnalyticsView"), 'Central area must render AnalyticsView');
 assert((app.includes("activeTab === 'BUILDING_INFO'") || app.includes("activeSidebarMode === 'INFO'")) && app.includes('<BuildingInfoPage'), 
   'Central area must render BuildingInfoPage for BUILDING_INFO');
 assert((app.includes("activeTab === 'COMMAND_CENTER'") || app.includes("activeSidebarMode === 'COMMAND_CENTER'")) && app.includes('<EmergencyCommandCenterPage'), 

@@ -731,6 +731,11 @@ export function App() {
       setIsReportsOpen(false);
       return;
     }
+    if (tab === 'REPORTS') {
+      setActiveSidebarMode('3D_VIEW');
+      setActiveTab('ANALYTICS');
+      return;
+    }
     if (tab === 'SETTINGS') {
       setIsSettingsOpen(true);
       return;
