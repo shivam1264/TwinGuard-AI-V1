@@ -8,9 +8,12 @@ import {
   Eye,
   Plus,
   Minus,
-  Volume2,
-  VolumeX,
-  Radio
+  MapPin,
+  Crosshair,
+  Layers,
+  Compass,
+  Boxes,
+  MinusSquare
 } from 'lucide-react';
 import {
   GIS_COORDINATES,
@@ -121,6 +124,7 @@ function createTacticalFireTruckSvg(headingDeg = 0, isPulsing = false) {
 }
 
 export default function GisMapDrawer({
+  theme = 'dark',
   isOpen,
   onClose,
   emergencyStatus,
@@ -128,6 +132,7 @@ export default function GisMapDrawer({
   isMuted,
   onToggleMute
 }) {
+  const isDark = theme === 'dark';
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -136,6 +141,7 @@ export default function GisMapDrawer({
   const baseRoutePolylineRef = useRef(null);
   const travelledRoutePolylineRef = useRef(null);
 
+  const [isMinimized, setIsMinimized] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [mapMode, setMapMode] = useState('satellite'); // 'satellite' | 'streets'
 
@@ -270,17 +276,23 @@ export default function GisMapDrawer({
       gateMarker.bindTooltip('South Main Gate', { direction: 'top', offset: [0, -10], className: 'tactical-tooltip' });
       gateMarkerRef.current = gateMarker;
 
-      // 3. Hero Facility HQ Marker
+      // 3. Hero Facility HQ Marker (TWIN with purple pin matching reference)
       const heroIcon = L.divIcon({
         className: 'custom-div-icon',
         html: `
-          <div style="background: rgba(15, 23, 42, 0.88); border: 1.5px solid #38bdf8; border-radius: 6px; padding: 2px 5px; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.6);">
-            <span style="font-size: 11px;">🏢</span>
-            <span style="font-size: 9px; font-weight: 800; color: #38bdf8; letter-spacing: 0.04em;">TWIN HQ</span>
+          <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));">
+            <div style="background: rgba(7, 18, 38, 0.92); border: 1.5px solid #00d2ff; border-radius: 9px; padding: 2px 8px; display: flex; align-items: center; gap: 5px; box-shadow: 0 0 12px rgba(0, 210, 255, 0.45);">
+              <span style="font-size: 11px;">🏢</span>
+              <span style="font-size: 10px; font-weight: 800; color: #00d2ff; letter-spacing: 0.06em; font-family: monospace;">TWIN</span>
+            </div>
+            <div style="width: 20px; height: 20px; border-radius: 50%; background: #a855f7; border: 2px solid #ffffff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px #a855f7; margin-top: 3px;">
+              <span style="font-size: 9px; color: #ffffff;">⌂</span>
+            </div>
+            <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #a855f7;"></div>
           </div>
         `,
-        iconSize: [70, 22],
-        iconAnchor: [35, 11]
+        iconSize: [80, 48],
+        iconAnchor: [40, 48]
       });
       L.marker([GIS_COORDINATES.FACILITY_ORIGIN.lat, GIS_COORDINATES.FACILITY_ORIGIN.lng], { icon: heroIcon }).addTo(map);
 
@@ -400,9 +412,9 @@ export default function GisMapDrawer({
     }
   }, [dispatchProgress, isEmergency, isExpanded]);
 
-  // Invalidate map size on expand/collapse
+  // Invalidate map size on expand/collapse or minimize/restore
   useEffect(() => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && !isMinimized) {
       setTimeout(() => {
         mapInstanceRef.current.invalidateSize();
         if (dispatchProgress > 0 && dispatchProgress < 1.0) {
@@ -411,9 +423,9 @@ export default function GisMapDrawer({
         } else {
           mapInstanceRef.current.setView([28.5028, 77.0850], isExpanded ? 14 : 14);
         }
-      }, 250);
+      }, 100);
     }
-  }, [isExpanded]);
+  }, [isExpanded, isMinimized]);
 
   // Zoom helpers
   const handleZoomIn = (e) => {
@@ -426,54 +438,91 @@ export default function GisMapDrawer({
     if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
   };
 
+  const handleRecenter = (e) => {
+    e.stopPropagation();
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([GIS_COORDINATES.FACILITY_ORIGIN.lat, GIS_COORDINATES.FACILITY_ORIGIN.lng], 15, { animate: true });
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className={`fixed top-18 right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
-        isExpanded
-          ? 'w-[480px] h-[480px] shadow-2xl'
-          : 'w-[220px] h-[220px] shadow-2xl'
-      }`}
-      style={{
-        background: 'rgba(7, 13, 24, 0.95)',
-        backdropFilter: 'blur(16px)',
-        border: '1.5px solid rgba(56, 189, 248, 0.45)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.85), 0 0 16px rgba(56, 189, 248, 0.25)',
-        borderRadius: '0px', // Sharp edges
-        fontFamily: "'Inter', system-ui, sans-serif"
-      }}
-    >
-      {/* ── 1. Top HUD Strip: ONLY 3 Controls (+, -, Expand/Contract) ── */}
+    <>
+      {/* Minimized Floating HUD Button */}
+      {isMinimized && (
+        <button
+          onClick={() => setIsMinimized(false)}
+          className="fixed top-18 right-4 z-40 flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md transition-all shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
+          style={{
+            background: isDark ? 'rgba(7, 18, 38, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+            border: isDark ? '1.5px solid #00d2ff' : '1.5px solid #0284c7',
+            boxShadow: isDark
+              ? '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 210, 255, 0.35)'
+              : '0 8px 24px rgba(0, 0, 0, 0.12), 0 0 12px rgba(2, 132, 199, 0.25)',
+            fontFamily: "'Inter', system-ui, sans-serif"
+          }}
+          title="Restore Site Map"
+        >
+          <MapPin className={`w-4 h-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
+          <span className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            Site Map
+          </span>
+          <Maximize2 className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-500'} ml-1`} />
+        </button>
+      )}
+
+      {/* Main Map Container: kept mounted in DOM via display:none/block so Leaflet state and canvas never get destroyed */}
       <div
-        className="flex items-center justify-end px-2 py-1 z-20 shrink-0 border-b border-white/10"
-        style={{ background: 'rgba(10, 15, 30, 0.85)' }}
+        className={`fixed top-18 right-4 z-40 transition-all duration-300 ease-out flex flex-col select-none overflow-hidden ${
+          isMinimized ? 'hidden' : 'flex'
+        } ${
+          isExpanded
+            ? 'w-[440px] h-[440px]'
+            : 'w-[230px] h-[240px]'
+        }`}
+        style={{
+          background: isDark ? 'rgba(6, 14, 28, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(20px)',
+          border: isDark ? '1.5px solid #00d2ff' : '1.5px solid #cbd5e1',
+          boxShadow: isDark
+            ? '0 12px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 210, 255, 0.3)'
+            : '0 12px 32px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06)',
+          borderRadius: '18px',
+          fontFamily: "'Inter', system-ui, sans-serif"
+        }}
       >
-        {/* Right: EXACTLY the 3 Options (+, -, Expand/Compress) */}
-        <div className="flex items-center gap-2 text-slate-300">
-          {/* Option 1: Zoom In (+) */}
+      {/* ── 1. Top Bar: [Location Icon + "Site Map"] on left, Window controls on right ── */}
+      <div
+        className="flex items-center justify-between px-3 py-2 z-20 shrink-0 transition-colors"
+        style={{
+          background: isDark ? 'rgba(8, 18, 36, 0.92)' : '#ffffff',
+          borderBottom: isDark ? '1px solid rgba(0, 210, 255, 0.2)' : '1px solid #e2e8f0'
+        }}
+      >
+        <div className="flex items-center gap-1.5">
+          <MapPin className={`w-4 h-4 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
+          <span className={`text-xs font-bold tracking-wide ${isDark ? 'text-white' : 'text-slate-800'}`}>
+            Site Map
+          </span>
+        </div>
+
+        {/* Window controls: Minimize to Pill / Expand/Restore Size */}
+        <div className={`flex items-center gap-2.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+          {/* Minimize button: collapses into floating restore pill */}
           <button
-            onClick={handleZoomIn}
-            title="Zoom In (+)"
-            className="w-5 h-5 flex items-center justify-center hover:text-white hover:bg-white/10 transition cursor-pointer"
+            onClick={() => setIsMinimized(true)}
+            title="Minimize to Button"
+            className="text-slate-400 hover:text-sky-500 transition cursor-pointer p-0.5"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Minus className="w-3.5 h-3.5 stroke-[2.5]" />
           </button>
 
-          {/* Option 2: Zoom Out (-) */}
-          <button
-            onClick={handleZoomOut}
-            title="Zoom Out (-)"
-            className="w-5 h-5 flex items-center justify-center hover:text-white hover:bg-white/10 transition cursor-pointer"
-          >
-            <Minus className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Option 3: Expand / Compress View */}
+          {/* Expand / Restore size button */}
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            title={isExpanded ? 'Collapse Mini-Map' : 'Expand Mini-Map'}
-            className="w-5 h-5 flex items-center justify-center hover:text-white hover:bg-white/10 transition cursor-pointer"
+            title={isExpanded ? 'Restore Size' : 'Expand Size'}
+            className="text-slate-400 hover:text-sky-500 transition cursor-pointer p-0.5"
           >
             {isExpanded ? (
               <Minimize2 className="w-3.5 h-3.5" />
@@ -484,44 +533,82 @@ export default function GisMapDrawer({
         </div>
       </div>
 
-      {/* ── 2. Satellite Map Hero Area (100% full square view) ── */}
-      <div className="relative flex-1 w-full bg-slate-950 overflow-hidden">
+      {/* ── 2. Interactive Map Container with Floating HUD Controls ── */}
+      <div className={`relative flex-1 w-full overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-slate-100'}`}>
         <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-        {/* Optional Expanded Mode Top-Right Layer Switcher */}
-        {isExpanded && (
-          <div className="absolute top-2 right-2 z-10 flex items-center bg-slate-900/90 border border-slate-700/60 rounded-none p-0.5 text-[10px]">
-            <button
-              onClick={() => setMapMode('satellite')}
-              className={`px-2 py-0.5 font-semibold transition ${
-                mapMode === 'satellite' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Satellite
-            </button>
-            <button
-              onClick={() => setMapMode('streets')}
-              className={`px-2 py-0.5 font-semibold transition ${
-                mapMode === 'streets' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Streets
-            </button>
-          </div>
-        )}
+        {/* Left Floating Dock Controls: [Layers, Target/Recenter, Zoom +, Zoom -] */}
+        <div className="absolute top-2.5 left-2.5 z-10 flex flex-col gap-1.5">
+          {/* Layer switcher */}
+          <button
+            onClick={() => setMapMode(mapMode === 'satellite' ? 'streets' : 'satellite')}
+            className={`w-7 h-7 rounded-lg backdrop-blur-md flex items-center justify-center transition shadow-sm cursor-pointer ${
+              isDark
+                ? 'bg-[#071328]/90 hover:bg-slate-800 border border-cyan-500/30 text-slate-300 hover:text-white'
+                : 'bg-white/95 hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Toggle Map Layer (Satellite / Streets)"
+          >
+            <Layers className={`w-3.5 h-3.5 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
+          </button>
 
-        {/* 3D Campus Quick Focus Button (Subtle overlay) */}
+          {/* Target / Recenter facility */}
+          <button
+            onClick={handleRecenter}
+            className={`w-7 h-7 rounded-lg backdrop-blur-md flex items-center justify-center transition shadow-sm cursor-pointer ${
+              isDark
+                ? 'bg-[#071328]/90 hover:bg-slate-800 border border-cyan-500/30 text-slate-300 hover:text-white'
+                : 'bg-white/95 hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Recenter on Horizon Tower"
+          >
+            <Crosshair className={`w-3.5 h-3.5 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
+          </button>
+
+          {/* Zoom In */}
+          <button
+            onClick={handleZoomIn}
+            className={`w-7 h-7 rounded-lg backdrop-blur-md flex items-center justify-center transition shadow-sm cursor-pointer ${
+              isDark
+                ? 'bg-[#071328]/90 hover:bg-slate-800 border border-cyan-500/30 text-slate-300 hover:text-white'
+                : 'bg-white/95 hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Zoom In"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Zoom Out */}
+          <button
+            onClick={handleZoomOut}
+            className={`w-7 h-7 rounded-lg backdrop-blur-md flex items-center justify-center transition shadow-sm cursor-pointer ${
+              isDark
+                ? 'bg-[#071328]/90 hover:bg-slate-800 border border-cyan-500/30 text-slate-300 hover:text-white'
+                : 'bg-white/95 hover:bg-slate-50 border border-slate-300 text-slate-700 hover:text-slate-900'
+            }`}
+            title="Zoom Out"
+          >
+            <Minus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Bottom-Right: 3D Focus Pill Button */}
         {onFocusCampusView && (
           <button
             onClick={onFocusCampusView}
-            className="absolute bottom-2 right-2 z-10 flex items-center gap-1 px-2 py-1 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 backdrop-blur-sm text-[10px] font-semibold transition shadow-md"
+            className={`absolute bottom-2.5 right-2.5 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-md text-[11px] font-semibold transition-all cursor-pointer ${
+              isDark
+                ? 'bg-[#071328]/90 hover:bg-slate-800 text-slate-200 hover:text-white border border-cyan-500/40 shadow-[0_0_10px_rgba(0,210,255,0.25)]'
+                : 'bg-white/95 hover:bg-slate-50 text-slate-800 hover:text-blue-600 border border-slate-300 shadow-sm'
+            }`}
             title="Focus 3D Digital Twin Camera on Campus"
           >
-            <Eye className="w-3 h-3 text-blue-400" />
+            <Boxes className={`w-3.5 h-3.5 ${isDark ? 'text-cyan-400' : 'text-blue-600'}`} />
             <span>3D Focus</span>
           </button>
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -865,6 +865,11 @@ export class SceneManager {
       // Target is set to central campus spatial area (0, 10, 18), NOT pinned to building geometry center
       targetPos.set(52, 45, 125);
       targetLook.set(0, 10, 18);
+    } else if (presetName === 'EMERGENCY_ROUTE_VIEW' || presetName === 'CAMPUS_EMERGENCY_VIEW') {
+      // Strategic wide tactical perspective: perfectly frames the 10-storey building, entire ceremonial approach avenue,
+      // all emergency vehicles (fire engine, ambulance, rescue convoy), and the active dispatch route trajectory
+      targetPos.set(70, 75, 185);
+      targetLook.set(0, 12, 50);
     } else if (presetName === 'CAMPUS_OVERVIEW') {
       // High aerial isometric view showing complete master plan, road ring & surrounding clusters
       targetPos.set(0, 240, 275);

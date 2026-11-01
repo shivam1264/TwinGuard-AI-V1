@@ -20,6 +20,7 @@ export const ViewportOverlay = ({
   facadeMode = 'FULL',
   onSetFacadeMode,
   activeFloorView = 'ALL',
+  activeCameraPreset = 'HERO_VIEW',
   onSelectFloor,
   cameraYaw = 0,
   onZoomIn,
@@ -72,13 +73,13 @@ export const ViewportOverlay = ({
             }}
             className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
-              background: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+              background: (facadeMode === 'FULL' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
                 : 'transparent',
-              color: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+              color: (facadeMode === 'FULL' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? '#ffffff'
                 : (isDark ? '#94a3b8' : '#475569'),
-              boxShadow: facadeMode === 'FULL' && activeFloorView !== 'EXPLODED'
+              boxShadow: (facadeMode === 'FULL' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? '0 0 10px rgba(37, 99, 235, 0.6)'
                 : 'none'
             }}
@@ -97,13 +98,13 @@ export const ViewportOverlay = ({
             }}
             className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
-              background: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+              background: (facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
                 : 'transparent',
-              color: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+              color: (facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? '#ffffff'
                 : (isDark ? '#94a3b8' : '#475569'),
-              boxShadow: facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED'
+              boxShadow: (facadeMode === 'CUTAWAY' && activeFloorView !== 'EXPLODED' && activeCameraPreset !== 'TOP_DOWN')
                 ? '0 0 10px rgba(37, 99, 235, 0.6)'
                 : 'none'
             }}
@@ -119,8 +120,15 @@ export const ViewportOverlay = ({
             }}
             className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
-              background: 'transparent',
-              color: isDark ? '#94a3b8' : '#475569'
+              background: (activeCameraPreset === 'TOP_DOWN' && activeFloorView !== 'EXPLODED')
+                ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                : 'transparent',
+              color: (activeCameraPreset === 'TOP_DOWN' && activeFloorView !== 'EXPLODED')
+                ? '#ffffff'
+                : (isDark ? '#94a3b8' : '#475569'),
+              boxShadow: (activeCameraPreset === 'TOP_DOWN' && activeFloorView !== 'EXPLODED')
+                ? '0 0 10px rgba(37, 99, 235, 0.6)'
+                : 'none'
             }}
           >
             Top View
@@ -135,13 +143,13 @@ export const ViewportOverlay = ({
             className="cursor-pointer transition-all px-3 py-1.5 rounded-lg text-xs font-bold"
             style={{
               background: activeFloorView === 'EXPLODED'
-                ? 'linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)'
+                ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
                 : 'transparent',
               color: activeFloorView === 'EXPLODED'
                 ? '#ffffff'
                 : (isDark ? '#94a3b8' : '#475569'),
               boxShadow: activeFloorView === 'EXPLODED'
-                ? '0 0 10px rgba(20, 184, 166, 0.6)'
+                ? '0 0 10px rgba(37, 99, 235, 0.6)'
                 : 'none'
             }}
           >

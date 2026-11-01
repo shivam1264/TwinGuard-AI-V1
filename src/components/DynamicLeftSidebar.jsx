@@ -219,66 +219,30 @@ export const DynamicLeftSidebar = React.memo(({
         fontFamily: "'Inter', system-ui, sans-serif"
       }}
     >
-      {/* ── Top Header / Theme Toggle & Collapse Bar ── */}
+      {/* ── Top Header / Collapse Bar (Only Open/Close Toggle) ── */}
       <div
-        className="flex items-center justify-between px-2.5 min-h-[48px] h-[48px] overflow-hidden w-full transition-colors"
+        className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-end'} px-2.5 min-h-[48px] h-[48px] overflow-hidden w-full transition-colors`}
         style={{
           borderBottom: isDark ? '1px solid rgba(56, 189, 248, 0.15)' : '1px solid #e2e8f0'
         }}
       >
-        {!isCollapsed ? (
-          <div className="flex items-center gap-2 truncate pl-1">
-            <span className={`w-2 h-2 rounded-full ${isDark ? 'bg-sky-400 shadow-[0_0_6px_#38bdf8]' : 'bg-blue-600'}`} />
-            <span
-              className="text-[10px] font-extrabold uppercase tracking-wider truncate"
-              style={{ color: isDark ? '#cbd5e1' : '#334155' }}
-            >
-              NAVIGATION MENU
-            </span>
-          </div>
-        ) : (
-          <span className="sr-only">Collapsed Menu</span>
-        )}
-
-        <div className={`flex items-center gap-1.5 ${isCollapsed ? 'mx-auto' : ''}`}>
-          {/* Theme Toggle Button (Integrated directly into left sidebar) */}
-          {onToggleTheme && (
-            <button
-              onClick={onToggleTheme}
-              className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
-              style={{
-                background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9',
-                border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
-                color: isDark ? '#f59e0b' : '#2563eb'
-              }}
-              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {isDark ? (
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-              ) : (
-                <Moon className="w-3.5 h-3.5 text-blue-600" />
-              )}
-            </button>
+        {/* Collapse/Expand Toggle Button */}
+        <button
+          onClick={onToggleCollapse}
+          className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
+          style={{
+            background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9',
+            border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
+            color: isDark ? '#38bdf8' : '#0284c7'
+          }}
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? (
+            <PanelLeftOpen className="w-4 h-4" />
+          ) : (
+            <PanelLeftClose className="w-4 h-4" />
           )}
-
-          {/* Collapse/Expand Toggle Button */}
-          <button
-            onClick={onToggleCollapse}
-            className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0"
-            style={{
-              background: isDark ? 'rgba(15, 23, 42, 0.8)' : '#f1f5f9',
-              border: isDark ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid #cbd5e1',
-              color: isDark ? '#38bdf8' : '#0284c7'
-            }}
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="w-4 h-4" />
-            ) : (
-              <PanelLeftClose className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+        </button>
       </div>
 
       {/* ── Scrollable Body: 8 Primary Nav Items + Contextual Tools ── */}

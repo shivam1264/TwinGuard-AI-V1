@@ -129,6 +129,7 @@ export function App() {
   const [simSpeed, setSimSpeed] = useState(1.0);
   const [facadeMode, setFacadeMode] = useState('FULL');
   const [activeFloorView, setActiveFloorView] = useState('ALL');
+  const [activeCameraPreset, setActiveCameraPreset] = useState('HERO_VIEW');
   const [activeTab, setActiveTab] = useState('LIVE_VIEW');
   const [activeSidebarMode, setActiveSidebarMode] = useState('3D_VIEW');
   const [cameraYaw, setCameraYaw] = useState(0);
@@ -651,6 +652,7 @@ export function App() {
   };
 
   const handleSetCameraPreset = useCallback((preset, roomId = null) => {
+    setActiveCameraPreset(preset);
     if (sceneManagerRef.current) {
       sceneManagerRef.current.setCameraPreset(preset, roomId);
     }
@@ -900,6 +902,7 @@ export function App() {
               facadeMode={facadeMode}
               onSetFacadeMode={handleSetFacadeMode}
               activeFloorView={activeFloorView}
+              activeCameraPreset={activeCameraPreset}
               onSelectFloor={handleSetFloorView}
               cameraYaw={cameraYaw}
               onZoomIn={() => sceneManagerRef.current && sceneManagerRef.current.zoomIn(6)}
@@ -1183,11 +1186,18 @@ export function App() {
       {/* KILLER FEATURE 1: Live Interactive Satellite GIS Mini-Map (Free Fire style Top-Right Radar HUD) */}
       {activeTab === 'LIVE_VIEW' && (
         <GisMapDrawer
+          theme={theme}
           isOpen={isGisOpen}
           onClose={() => setIsGisOpen(false)}
           emergencyStatus={emergencyStatus}
           onFocusCampusView={() => {
-            handleSetCameraPreset('CAMPUS_HERO');
+            // When user triggers 3D Focus from the map:
+            // 1. Reset facade mode to FULL so the entire building exterior is visible
+            handleSetFacadeMode('FULL');
+            // 2. Set floor view to ALL so full building geometry is visible
+            handleSetFloorView('ALL');
+            // 3. Move camera to the wide tactical perspective showing vehicles, entire approach avenue & building
+            handleSetCameraPreset('EMERGENCY_ROUTE_VIEW');
           }}
           isMuted={isSirenMuted}
           onToggleMute={handleToggleSirenMute}
