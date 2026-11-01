@@ -1,0 +1,21 @@
+TwinGuard AI browser QA
+Date: 2026-10-31
+Page: http://localhost:5173/
+Browser workflow: VS Code integrated browser via Playwright extension tools
+
+Startup
+- npm run dev reported the TwinGuard server listening on port 5000 and Vite ready on port 5173.
+- A direct Socket.IO polling handshake to localhost:5000 returned HTTP 200 and advertised websocket upgrade support.
+
+Browser console and page errors
+- On initial load and refresh: WebSocket connection to ws://localhost:5000/socket.io/?EIO=4&transport=websocket failed because the connection closed before establishment.
+- On refresh: Failed to load resource: net::ERR_CONNECTION_REFUSED.
+- Clicking Zoom In raised an uncaught TypeError: sceneManagerRef.current.zoomIn is not a function (App.jsx:556).
+
+Network
+- While the analytics panel was open, repeated GET requests to http://localhost:8000/api/ml/health failed with net::ERR_ABORTED.
+- On refresh, GET http://localhost:8000/api/ml/health failed with net::ERR_CONNECTION_REFUSED.
+- The analytics panel displayed its edge fallback indicator.
+
+Tracing
+- The exposed Playwright extension tools did not provide a trace-recording action; no trace was captured.

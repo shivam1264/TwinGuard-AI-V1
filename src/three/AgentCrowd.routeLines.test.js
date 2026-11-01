@@ -115,3 +115,139 @@ test('clears route lines and removes groups from the scene on dispose', () => {
   assert.equal(crowd.group.parent, null);
   assert.equal(scene.children.includes(crowd.pathLinesGroup), false);
 });
+
+test('reapplying an unchanged PHASED_ZONE assignment preserves an in-progress waiting delay', () => {
+  const agent = makeWaitingAgent();
+  const { crowd } = setup([agent]);
+  crowd.pathLinesGroup = null;
+
+  crowd.assignRoutes([makeAssignment()]);
+  agent.delayTimer = 39;
+
+  crowd.assignRoutes([makeAssignment({ delayTimer: 46 })]);
+
+  assert.equal(agent.state, 'WAITING');
+  assert.equal(agent.delayTimer, 39);
+  assert.equal(agent.originalDelayTimer, 47);
+});
+
+test('a waiting delay counts down across reevaluations at two-second intervals', () => {
+  const agent = makeWaitingAgent({ path: [] });
+  const { crowd } = setup([agent]);
+  crowd.pathLinesGroup = null;
+  crowd.isWaitingZoneDangerous = () => false;
+  crowd.assignRoutes([makeAssignment({ delayTimer: 5 })]);
+
+  for (let tick = 1; tick <= 10; tick++) {
+    crowd.update(0.5);
+    if (tick % 4 === 0) {
+      crowd.assignRoutes([makeAssignment({ delayTimer: 5 })]);
+    }
+  }
+
+  assert.equal(agent.delayTimer, 0);
+  assert.equal(agent.state, 'EVACUATING');
+});
+
+test('a changed path with the same exit updates the route without restarting the phased delay', () => {
+  const agent = makeWaitingAgent();
+  const { crowd } = setup([agent]);
+  crowd.pathLinesGroup = null;
+  const updatedPath = [{ x: 1, y: 3.8, z: 1 }, { x: 3, y: 0.15, z: 3 }];
+
+  crowd.assignRoutes([makeAssignment()]);
+  agent.delayTimer = 30;
+  crowd.assignRoutes([makeAssignment({ delayTimer: 46, path: updatedPath })]);
+
+  assert.equal(agent.path, updatedPath);
+  assert.equal(agent.delayTimer, 30);
+  assert.equal(agent.state, 'WAITING');
+});
+
+test('an exit or phased delay-policy change initializes the new waiting delay', () => {
+  const agent = makeWaitingAgent();
+  const { crowd } = setup([agent]);
+  crowd.pathLinesGroup = null;
+
+  crowd.assignRoutes([makeAssignment()]);
+  agent.delayTimer = 30;
+  crowd.assignRoutes([makeAssignment({ exitId: 'exit_east', delayTimer: 46 })]);
+  assert.equal(agent.delayTimer, 46);
+  assert.equal(agent.originalDelayTimer, 46);
+
+  crowd.assignRoutes([makeAssignment({ exitId: 'exit_east', delayTimer: 5 })]);
+  assert.equal(agent.delayTimer, 5);
+  assert.equal(agent.originalDelayTimer, 5);
+  assert.equal(agent.state, 'WAITING');
+});
+
+test('a waiting agent in a dangerous zone still receives emergency override', () => {
+  const agent = makeWaitingAgent({ path: [] });
+  const { crowd } = setup([agent]);
+  crowd.pathLinesGroup = null;
+  crowd.isWaitingZoneDangerous = () => true;
+  crowd.assignRoutes([makeAssignment({ delayTimer: 5 })]);
+
+  crowd.update(0.1);
+
+  assert.equal(agent.delayTimer, 0);
+  assert.equal(agent.state, 'EVACUATING');
+});
+
+test('non-phased assignments preserve immediate evacuation behavior', () => {
+  for (const strategy of ['NEAREST_CORE', 'LOAD_BALANCED']) {
+    const agent = makeWaitingAgent();
+    const { crowd } = setup([agent]);
+    crowd.pathLinesGroup = null;
+
+    crowd.assignRoutes([makeAssignment({ delayTimer: 0 })]);
+    assert.equal(agent.state, 'EVACUATING', `${strategy} assignment should evacuate immediately`);
+    assert.equal(agent.delayTimer, 0);
+  }
+});
+
+test('reevaluation does not return EVACUATING or SAFE agents to WAITING', () => {
+  for (const state of ['EVACUATING', 'SAFE']) {
+    const agent = makeWaitingAgent({
+      state,
+      delayTimer: 0,
+      originalDelayTimer: 0,
+      currentExitId: 'exit_west'
+    });
+    const { crowd } = setup([agent]);
+    crowd.pathLinesGroup = null;
+
+    crowd.assignRoutes([makeAssignment({ delayTimer: 47 })]);
+
+    assert.equal(agent.state, state);
+    assert.equal(agent.delayTimer, 0);
+    assert.equal(agent.originalDelayTimer, 0);
+  }
+});
+
+function makeWaitingAgent(overrides = {}) {
+  return makeAgent({
+    state: 'IDLE',
+    isSeated: false,
+    mesh: { visible: true },
+    delayTimer: 0,
+    originalDelayTimer: 0,
+    currentExitId: null,
+    currentRouteCondition: null,
+    beacon: { material: { color: null } },
+    shirtMat: { emissive: null, emissiveIntensity: 0 },
+    ...overrides
+  });
+}
+
+function makeAssignment(overrides = {}) {
+  return {
+    agentId: 'a1',
+    exitId: 'exit_west',
+    exitColor: '#00ff88',
+    routeCondition: 'PERMITTED',
+    delayTimer: 47,
+    path: [{ x: 0, y: 3.8, z: 0 }, { x: 2, y: 0.15, z: 2 }],
+    ...overrides
+  };
+}

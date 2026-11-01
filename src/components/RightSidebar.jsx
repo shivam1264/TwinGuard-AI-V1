@@ -74,16 +74,6 @@ export const RightSidebar = ({
       capacity: exits[2]?.capacity || 80,
       status: exits[2]?.status || 'Operational',
       percent: Math.min(100, Math.round(((exits[2]?.load || 0) / (exits[2]?.capacity || 80)) * 100))
-    },
-    {
-      id: 'exit_elev',
-      name: 'Stairwell D (Elevators)',
-      iconBg: '#d1fae5',
-      iconColor: '#059669',
-      load: 38,
-      capacity: 60,
-      status: 'Operational',
-      percent: 63
     }
   ];
 

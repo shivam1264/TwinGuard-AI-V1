@@ -479,6 +479,33 @@ export class SceneManager {
     return 'CUTAWAY';
   }
 
+  // Dolly the camera toward (zoomIn) or away (zoomOut) from the OrbitControls
+  // target along the current view direction, respecting min/max distance.
+  dollyCamera(steps, toward) {
+    if (this.isDisposed || !this.camera || !this.controls) return;
+    const direction = new THREE.Vector3();
+    this.camera.getWorldDirection(direction);
+    const distance = this.controls.target.distanceTo(this.camera.position);
+    const step = Math.abs(steps || 1) * 2.0;
+    let newDistance = toward ? Math.max(distance - step, 0.01) : distance + step;
+    if (typeof this.controls.minDistance === 'number') {
+      newDistance = Math.max(newDistance, this.controls.minDistance);
+    }
+    if (typeof this.controls.maxDistance === 'number') {
+      newDistance = Math.min(newDistance, this.controls.maxDistance);
+    }
+    this.camera.position.copy(this.controls.target).sub(direction.multiplyScalar(newDistance));
+    this.controls.update();
+  }
+
+  zoomIn(steps = 1) {
+    this.dollyCamera(steps, true);
+  }
+
+  zoomOut(steps = 1) {
+    this.dollyCamera(steps, false);
+  }
+
   // Presentation View Mode Selection (Full Exterior, Transparent, Cutaway, Floor Plan, etc.)
   setViewMode(mode) {
     if (!this.building) return;
@@ -3128,26 +3155,6 @@ export class SceneManager {
 
   focusEmergencyStaging() {
     this.setCameraPreset('EMERGENCY_FOCUS');
-  }
-
-  zoomIn(delta = 6) {
-    if (!this.camera || !this.controls) return;
-    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
-    const dist = offset.length();
-    const newDist = Math.max(10, dist - delta);
-    offset.setLength(newDist);
-    this.camera.position.addVectors(this.controls.target, offset);
-    this.controls.update();
-  }
-
-  zoomOut(delta = 6) {
-    if (!this.camera || !this.controls) return;
-    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
-    const dist = offset.length();
-    const newDist = Math.min(600, dist + delta);
-    offset.setLength(newDist);
-    this.camera.position.addVectors(this.controls.target, offset);
-    this.controls.update();
   }
 
   panLeft(delta = 6) {

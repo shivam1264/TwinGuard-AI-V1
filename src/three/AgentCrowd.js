@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { getRoomSeatingSpots } from '../simulation/Doorways.js';
 
+function phasedDelayPolicy(delayTimer) {
+  if (delayTimer <= 0) return null;
+  if (delayTimer <= 2) return 'FIRE_FLOOR';
+  if (delayTimer <= 6) return 'ADJACENT_FLOOR';
+  return 'SHELTERED_FLOOR';
+}
+
 export class AgentCrowd {
   constructor(scene) {
     this.scene = scene;
@@ -423,7 +430,8 @@ export class AgentCrowd {
       assignedExitColor: null,
       roomId: data.roomId,
       delayTimer: data.delayTimer || 0,
-      originalDelayTimer: data.delayTimer || 0
+      originalDelayTimer: data.delayTimer || 0,
+      phasedDelayPolicy: null
     };
 
     this.agents.push(agent);
@@ -464,15 +472,21 @@ export class AgentCrowd {
         this.standUpAgent(agent);
         agent.path = assignment.path || [];
         agent.currentWaypointIdx = 0;
-        // Handle phased evacuation delays
         const delayTimer = assignment.delayTimer || 0;
-        agent.delayTimer = delayTimer;
-        agent.originalDelayTimer = delayTimer;
-        if (delayTimer > 0) {
-          agent.state = 'WAITING';
-        } else {
-          agent.state = 'EVACUATING';
+        const nextDelayPolicy = phasedDelayPolicy(delayTimer);
+        const sameWaitingAssignment = agent.state === 'WAITING'
+          && delayTimer > 0
+          && agent.currentExitId === assignment.exitId
+          && agent.phasedDelayPolicy === nextDelayPolicy;
+        const alreadyAssigned = agent.currentExitId != null;
+        const preserveActiveEvacuation = agent.state === 'EVACUATING' && alreadyAssigned;
+
+        if (agent.state !== 'SAFE' && !preserveActiveEvacuation && !sameWaitingAssignment) {
+          agent.delayTimer = delayTimer;
+          agent.originalDelayTimer = delayTimer;
+          agent.state = delayTimer > 0 ? 'WAITING' : 'EVACUATING';
         }
+        agent.phasedDelayPolicy = nextDelayPolicy;
         agent.assignedExitColor = assignment.exitColor;
         // Store current exit and route condition for urgent reevaluation checks
         agent.currentExitId = assignment.exitId;
@@ -885,6 +899,7 @@ export class AgentCrowd {
     this.agents.forEach(agent => {
       agent.delayTimer = 0;
       agent.originalDelayTimer = 0;
+      agent.phasedDelayPolicy = null;
       if (agent.state === 'WAITING') {
         agent.state = 'IDLE';
       }

@@ -32,6 +32,13 @@ import { ReportsView } from './components/ReportsView';
 import { DynamicLeftSidebar } from './components/DynamicLeftSidebar';
 import { AIEngine, EVACUATION_STRATEGIES } from './ai';
 import { resolveStrategyInfo } from './ai/StrategyInfo';
+import {
+  clearPendingFireTriggers,
+  createFireTriggerId,
+  forgetPendingFireTrigger,
+  registerFireTriggerSocketHandlers,
+  rememberPendingFireTrigger
+} from './simulation/FireTriggerCorrelation';
 import { X, Video, BarChart3 } from 'lucide-react';
 
 import { FLOOR_THEMES, ROOM_TEMPLATES } from './simulation/Doorways';
@@ -113,6 +120,7 @@ export function App() {
   const mainSlotRef = useRef(null);
   const sceneManagerRef = useRef(null);
   const socketRef = useRef(null);
+  const pendingFireTriggersRef = useRef(new Map());
 
   const [rooms, setRooms] = useState(INITIAL_ROOMS);
   const [exits, setExits] = useState(INITIAL_EXITS);
@@ -372,9 +380,24 @@ export function App() {
       setServerConnected(false);
     });
 
-    socket.on('fire-detected', (data) => {
-      handleTriggerFire(data.roomId, false);
-    });
+    registerFireTriggerSocketHandlers(
+      socket,
+      pendingFireTriggersRef.current,
+      (roomId, createIncident) => {
+        handleTriggerFire(roomId, false, createIncident);
+      },
+      (state) => {
+        if (state.rooms) setRooms(state.rooms);
+        if (state.exits) setExits(state.exits);
+        if (state.evacuatedCount !== undefined) {
+          setStats((prev) => ({
+            ...prev,
+            evacuated: state.evacuatedCount,
+            inTransit: state.inTransitCount !== undefined ? state.inTransitCount : prev.inTransit
+          }));
+        }
+      }
+    );
 
     socket.on('incident-sos', (sosAlert) => {
       setIncidents((prev) => [sosAlert, ...prev]);
@@ -383,23 +406,20 @@ export function App() {
       playCommandCenterSosChime();
     });
 
-    socket.on('state-update', (state) => {
-      if (state.rooms) setRooms(state.rooms);
-      if (state.exits) setExits(state.exits);
-      if (state.evacuatedCount !== undefined) {
-        setStats((prev) => ({
-          ...prev,
-          evacuated: state.evacuatedCount,
-          inTransit: state.inTransitCount !== undefined ? state.inTransitCount : prev.inTransit
-        }));
-      }
-    });
-
-    return () => socket.disconnect();
+    return () => {
+      clearPendingFireTriggers(pendingFireTriggersRef.current);
+      socket.disconnect();
+    };
   }, []);
 
   // Trigger Fire in a room
-  const handleTriggerFire = (roomId, emitToServer = true) => {
+  const handleTriggerFire = (roomId, emitToServer = true, createIncident = true) => {
+    const triggerId = emitToServer ? createFireTriggerId() : null;
+    const shouldSendToServer = Boolean(triggerId && socketRef.current?.connected);
+    if (shouldSendToServer) {
+      rememberPendingFireTrigger(pendingFireTriggersRef.current, triggerId);
+    }
+
     const targetRoom = rooms.find((r) => r.id === roomId);
 
     setRooms((prev) =>
@@ -417,31 +437,40 @@ export function App() {
       sceneManagerRef.current.triggerFire(roomId);
     }
 
-    // Append new real incident to live incidents timeline
-    const nowTime = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    if (createIncident) {
+      // Append new real incident to live incidents timeline
+      const nowTime = new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
 
-    const newIncident = {
-      id: `inc_${Date.now()}`,
-      time: nowTime,
-      title: `Smoke & Thermal Hazard - Level ${targetRoom?.floor || 1}`,
-      subtitle: targetRoom ? `${targetRoom.name} (${targetRoom.camId})` : 'Active Fire Alert',
-      severity: 'High',
-      floor: targetRoom?.floor || 1,
-      roomId
-    };
+      const newIncident = {
+        id: `inc_${Date.now()}`,
+        time: nowTime,
+        title: `Smoke & Thermal Hazard - Level ${targetRoom?.floor || 1}`,
+        subtitle: targetRoom ? `${targetRoom.name} (${targetRoom.camId})` : 'Active Fire Alert',
+        severity: 'High',
+        floor: targetRoom?.floor || 1,
+        roomId
+      };
 
-    setIncidents((prev) => [newIncident, ...prev]);
+      setIncidents((prev) => [newIncident, ...prev]);
+    }
 
-    if (emitToServer && socketRef.current && socketRef.current.connected) {
+    if (shouldSendToServer) {
       fetch('http://localhost:5000/api/trigger-fire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId })
-      }).catch(() => {});
+        body: JSON.stringify({ roomId, triggerId })
+      }).then((response) => {
+        if (!response.ok) {
+          throw new Error(`Fire trigger request failed with status ${response.status}`);
+        }
+      }).catch((error) => {
+        forgetPendingFireTrigger(pendingFireTriggersRef.current, triggerId);
+        console.error('Failed to send fire trigger to the server:', error);
+      });
     }
   };
 

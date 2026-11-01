@@ -1,0 +1,489 @@
+{
+  "capture_cdp.cjs": {
+    "mtime": 1793354898.3822782,
+    "seen": 1793397163.8492517,
+    "ast_hash": "bd922307286c0af68765ff1acc212948",
+    "semantic_hash": "bd922307286c0af68765ff1acc212948"
+  },
+  "debug_pathfinder.js": {
+    "mtime": 1793307676.8795102,
+    "seen": 1793397163.849473,
+    "ast_hash": "a645142abab84e54dbffe7955729b23a",
+    "semantic_hash": "a645142abab84e54dbffe7955729b23a"
+  },
+  "fix_if.cjs": {
+    "mtime": 1793372427.960166,
+    "seen": 1793397163.849601,
+    "ast_hash": "344c656ada5938a83922f67894e6b8cf",
+    "semantic_hash": "344c656ada5938a83922f67894e6b8cf"
+  },
+  "fix_if.js": {
+    "mtime": 1793372393.3808584,
+    "seen": 1793397163.849735,
+    "ast_hash": "1a6ce893ea900fb9a4e78891ba85c9c8",
+    "semantic_hash": "1a6ce893ea900fb9a4e78891ba85c9c8"
+  },
+  "fix_if_final.cjs": {
+    "mtime": 1793382645.6458037,
+    "seen": 1793397163.8498507,
+    "ast_hash": "48e2b64ac0004760e596b9fa214f9843",
+    "semantic_hash": "48e2b64ac0004760e596b9fa214f9843"
+  },
+  "jsconfig.json": {
+    "mtime": 1793280724.473434,
+    "seen": 1793397163.8499625,
+    "ast_hash": "2d21e8e02ce98b171d4aba8f94060483",
+    "semantic_hash": "2d21e8e02ce98b171d4aba8f94060483"
+  },
+  "package.json": {
+    "mtime": 1793396134.7795625,
+    "seen": 1793397163.850073,
+    "ast_hash": "d78c72597f79b9d3b5fe3a1a6a1eb7de",
+    "semantic_hash": "d78c72597f79b9d3b5fe3a1a6a1eb7de"
+  },
+  "postcss.config.js": {
+    "mtime": 1793280724.4766984,
+    "seen": 1793397163.8501842,
+    "ast_hash": "6b5c4cb81230b2fed05f0216b775c0f5",
+    "semantic_hash": "6b5c4cb81230b2fed05f0216b775c0f5"
+  },
+  "server/index.js": {
+    "mtime": 1793354898.4134526,
+    "seen": 1793397163.8502953,
+    "ast_hash": "fa9a12670691c7993e791d3b9abb6ff7",
+    "semantic_hash": "fa9a12670691c7993e791d3b9abb6ff7"
+  },
+  "src/App.jsx": {
+    "mtime": 1793395747.5799625,
+    "seen": 1793397163.8504088,
+    "ast_hash": "047b9dfb684d95ca7ff5ee816f3f58a8",
+    "semantic_hash": "047b9dfb684d95ca7ff5ee816f3f58a8"
+  },
+  "src/ai/BehavioralCrowdEngine.js": {
+    "mtime": 1793370387.0817566,
+    "seen": 1793397163.8505225,
+    "ast_hash": "221b0513a47dbc7016351eb88b5ad235",
+    "semantic_hash": "221b0513a47dbc7016351eb88b5ad235"
+  },
+  "src/ai/MultiStrategyRanker.js": {
+    "mtime": 1793384094.7100875,
+    "seen": 1793397163.850644,
+    "ast_hash": "589d53e2dd9867843173e326e8fef17e",
+    "semantic_hash": "589d53e2dd9867843173e326e8fef17e"
+  },
+  "src/ai/SafetyAnalystLLM.js": {
+    "mtime": 1793354898.4344597,
+    "seen": 1793397163.8507605,
+    "ast_hash": "b0f097042531979bf51bc2d179ba7c52",
+    "semantic_hash": "b0f097042531979bf51bc2d179ba7c52"
+  },
+  "src/ai/ScenarioEngine.js": {
+    "mtime": 1793384094.7122223,
+    "seen": 1793397163.850876,
+    "ast_hash": "5881f150441e5b59f26c40b9e118c12e",
+    "semantic_hash": "5881f150441e5b59f26c40b9e118c12e"
+  },
+  "src/ai/index.js": {
+    "mtime": 1793354898.4374797,
+    "seen": 1793397163.8509922,
+    "ast_hash": "f36d37091f27591737a0f738963e6bbd",
+    "semantic_hash": "f36d37091f27591737a0f738963e6bbd"
+  },
+  "src/components/BottleneckAnalytics.jsx": {
+    "mtime": 1793370387.184417,
+    "seen": 1793397163.8511448,
+    "ast_hash": "591b5678f62fc808bae25eff0018a993",
+    "semantic_hash": "591b5678f62fc808bae25eff0018a993"
+  },
+  "src/components/BottomControlDock.jsx": {
+    "mtime": 1793370387.193336,
+    "seen": 1793397163.8513086,
+    "ast_hash": "7c892abfc4ce41fb546af3b661a8eaa4",
+    "semantic_hash": "7c892abfc4ce41fb546af3b661a8eaa4"
+  },
+  "src/components/BuildingInfoModal.jsx": {
+    "mtime": 1793370387.199335,
+    "seen": 1793397163.8514628,
+    "ast_hash": "17623483ceef71b9ee50c47c3dd1a63f",
+    "semantic_hash": "17623483ceef71b9ee50c47c3dd1a63f"
+  },
+  "src/components/BuildingInfoPage.jsx": {
+    "mtime": 1793370387.2039547,
+    "seen": 1793397163.8515775,
+    "ast_hash": "3199ceb707d21457c4ec0ff77f9d0cad",
+    "semantic_hash": "3199ceb707d21457c4ec0ff77f9d0cad"
+  },
+  "src/components/CCTVMultiviewer.jsx": {
+    "mtime": 1793370387.2059186,
+    "seen": 1793397163.851691,
+    "ast_hash": "2efc5052f3099370dafd935132596f9d",
+    "semantic_hash": "2efc5052f3099370dafd935132596f9d"
+  },
+  "src/components/ControlPanel.jsx": {
+    "mtime": 1793370387.207941,
+    "seen": 1793397163.8518155,
+    "ast_hash": "890ba33d054a39ccbdcd17dd994361dc",
+    "semantic_hash": "890ba33d054a39ccbdcd17dd994361dc"
+  },
+  "src/components/EmergencyControlModal.jsx": {
+    "mtime": 1793395704.0764346,
+    "seen": 1793397163.8519285,
+    "ast_hash": "e8297ca5c36244d40b0149659d8bea77",
+    "semantic_hash": "e8297ca5c36244d40b0149659d8bea77"
+  },
+  "src/components/FireTriggerBubble.jsx": {
+    "mtime": 1793370387.2089405,
+    "seen": 1793397163.8520446,
+    "ast_hash": "a9c9d488862546cc1212ece55967d362",
+    "semantic_hash": "a9c9d488862546cc1212ece55967d362"
+  },
+  "src/components/IncidentsModal.jsx": {
+    "mtime": 1793370387.2109396,
+    "seen": 1793397163.852157,
+    "ast_hash": "2cd13ba90fce8bfc104cdab250f9f1e3",
+    "semantic_hash": "2cd13ba90fce8bfc104cdab250f9f1e3"
+  },
+  "src/components/LeftSidebar.jsx": {
+    "mtime": 1793395704.078458,
+    "seen": 1793397163.852276,
+    "ast_hash": "e300c70a72c9c5ff6e309a6ff54a5ad9",
+    "semantic_hash": "e300c70a72c9c5ff6e309a6ff54a5ad9"
+  },
+  "src/components/ReportsModal.jsx": {
+    "mtime": 1793370387.215937,
+    "seen": 1793397163.8523893,
+    "ast_hash": "6c29dbe2f7afe014663d773e732b8d15",
+    "semantic_hash": "6c29dbe2f7afe014663d773e732b8d15"
+  },
+  "src/components/RightSidebar.jsx": {
+    "mtime": 1793395696.9600563,
+    "seen": 1793397163.852502,
+    "ast_hash": "fa81ec01016a239ea9406cc469c8452f",
+    "semantic_hash": "fa81ec01016a239ea9406cc469c8452f"
+  },
+  "src/components/RoomModal.jsx": {
+    "mtime": 1793370387.2184937,
+    "seen": 1793397163.852614,
+    "ast_hash": "23367885bec43dcc7009394be5d11719",
+    "semantic_hash": "23367885bec43dcc7009394be5d11719"
+  },
+  "src/components/ScenarioConfigModal.jsx": {
+    "mtime": 1793384094.7132227,
+    "seen": 1793397163.8527277,
+    "ast_hash": "498b7e4c926c1f723b04e6a46d70f8e8",
+    "semantic_hash": "498b7e4c926c1f723b04e6a46d70f8e8"
+  },
+  "src/components/SettingsModal.jsx": {
+    "mtime": 1793354898.442208,
+    "seen": 1793397163.8528414,
+    "ast_hash": "1038dfaa65f907cd51ae4f91c0cb8ab5",
+    "semantic_hash": "1038dfaa65f907cd51ae4f91c0cb8ab5"
+  },
+  "src/components/StrategyRankModal.jsx": {
+    "mtime": 1793370387.2234898,
+    "seen": 1793397163.8529549,
+    "ast_hash": "598069f35f3668683a52b123ffca68c5",
+    "semantic_hash": "598069f35f3668683a52b123ffca68c5"
+  },
+  "src/components/TopHeader.jsx": {
+    "mtime": 1793370387.2244902,
+    "seen": 1793397163.8530684,
+    "ast_hash": "9aa66b2da577ee1cd0fc6141a97f8488",
+    "semantic_hash": "9aa66b2da577ee1cd0fc6141a97f8488"
+  },
+  "src/components/ViewportOverlay.jsx": {
+    "mtime": 1793370387.2254887,
+    "seen": 1793397163.85318,
+    "ast_hash": "a9f5cd24a38d39e91b1ee18190fc32b7",
+    "semantic_hash": "a9f5cd24a38d39e91b1ee18190fc32b7"
+  },
+  "src/main.jsx": {
+    "mtime": 1793354898.4675124,
+    "seen": 1793397163.853291,
+    "ast_hash": "fb9787a2d9d7555e6b678eb050abba38",
+    "semantic_hash": "fb9787a2d9d7555e6b678eb050abba38"
+  },
+  "src/simulation/AlternativeRoutes.test.js": {
+    "mtime": 1793363384.5620556,
+    "seen": 1793397163.8534026,
+    "ast_hash": "56f8439201a88ac064c8c877d26926fd",
+    "semantic_hash": "56f8439201a88ac064c8c877d26926fd"
+  },
+  "src/simulation/BuildingGraph.js": {
+    "mtime": 1793286291.4984922,
+    "seen": 1793397163.8535178,
+    "ast_hash": "7bd0515b4ddede32abf229148789bc6f",
+    "semantic_hash": "7bd0515b4ddede32abf229148789bc6f"
+  },
+  "src/simulation/BuildingGraph.test.js": {
+    "mtime": 1793286349.047016,
+    "seen": 1793397163.8536305,
+    "ast_hash": "1bc45112183f941db75fa3fc87b46d29",
+    "semantic_hash": "1bc45112183f941db75fa3fc87b46d29"
+  },
+  "src/simulation/CrowdOptimizer.js": {
+    "mtime": 1793386896.0566242,
+    "seen": 1793397163.8537524,
+    "ast_hash": "d9475ebc17dbb212b814581056f83b3e",
+    "semantic_hash": "d9475ebc17dbb212b814581056f83b3e"
+  },
+  "src/simulation/Doorways.js": {
+    "mtime": 1793370387.2302887,
+    "seen": 1793397163.8538654,
+    "ast_hash": "4dbf1783144e7b681637fd738d8f07dc",
+    "semantic_hash": "4dbf1783144e7b681637fd738d8f07dc"
+  },
+  "src/simulation/DynamicCongestion.test.js": {
+    "mtime": 1793386533.9762468,
+    "seen": 1793397163.8539777,
+    "ast_hash": "a57239cd8d07539f2c92296400612208",
+    "semantic_hash": "a57239cd8d07539f2c92296400612208"
+  },
+  "src/simulation/ExposureAssessment.js": {
+    "mtime": 1793291673.2031333,
+    "seen": 1793397163.854091,
+    "ast_hash": "e168abdb5131efcd8e60d8b3dad88c38",
+    "semantic_hash": "e168abdb5131efcd8e60d8b3dad88c38"
+  },
+  "src/simulation/ExposureAssessment.test.js": {
+    "mtime": 1793291646.1051342,
+    "seen": 1793397163.854205,
+    "ast_hash": "8f3acc82ede944735f2fb465dfd12fb3",
+    "semantic_hash": "8f3acc82ede944735f2fb465dfd12fb3"
+  },
+  "src/simulation/GridCongestion.test.js": {
+    "mtime": 1793360756.2331588,
+    "seen": 1793397163.854318,
+    "ast_hash": "fb22293dffd6dadcb11012e181abf0a8",
+    "semantic_hash": "fb22293dffd6dadcb11012e181abf0a8"
+  },
+  "src/simulation/HazardPropagation.js": {
+    "mtime": 1793353003.981014,
+    "seen": 1793397163.8544407,
+    "ast_hash": "cd8af5a4069fc11ca1646e4fea6d3d99",
+    "semantic_hash": "cd8af5a4069fc11ca1646e4fea6d3d99"
+  },
+  "src/simulation/HazardPropagation.test.js": {
+    "mtime": 1793288759.127915,
+    "seen": 1793397163.8545544,
+    "ast_hash": "a711aa14284bb70c8fc2683871c6b8f8",
+    "semantic_hash": "a711aa14284bb70c8fc2683871c6b8f8"
+  },
+  "src/simulation/NavGrid.js": {
+    "mtime": 1793370387.232288,
+    "seen": 1793397163.8546674,
+    "ast_hash": "9fb5719184cceae1d2e2cb6bc70650c5",
+    "semantic_hash": "9fb5719184cceae1d2e2cb6bc70650c5"
+  },
+  "src/simulation/NavigationGraph.js": {
+    "mtime": 1793384094.7155168,
+    "seen": 1793397163.8547795,
+    "ast_hash": "7573e391ba4b177bd547625e8129d0f7",
+    "semantic_hash": "7573e391ba4b177bd547625e8129d0f7"
+  },
+  "src/simulation/Occupancy.js": {
+    "mtime": 1793291586.5932944,
+    "seen": 1793397163.854891,
+    "ast_hash": "4761ea0ead86d4b0d333d3fcf693ad8c",
+    "semantic_hash": "4761ea0ead86d4b0d333d3fcf693ad8c"
+  },
+  "src/simulation/Occupancy.test.js": {
+    "mtime": 1793291652.5957484,
+    "seen": 1793397163.8550017,
+    "ast_hash": "924db04e10f50919e4d807858712527f",
+    "semantic_hash": "924db04e10f50919e4d807858712527f"
+  },
+  "src/simulation/Pathfinder.js": {
+    "mtime": 1793360688.4453773,
+    "seen": 1793397163.8551145,
+    "ast_hash": "57df947769f728b7d4b06cccbf9ac2cd",
+    "semantic_hash": "57df947769f728b7d4b06cccbf9ac2cd"
+  },
+  "src/simulation/Phase5CIntegration.test.js": {
+    "mtime": 1793387163.5059962,
+    "seen": 1793397163.855227,
+    "ast_hash": "3f0704458f85bd211e2b2e72586daf45",
+    "semantic_hash": "3f0704458f85bd211e2b2e72586daf45"
+  },
+  "src/simulation/Phase5EIntegration.test.js": {
+    "mtime": 1793347852.0839152,
+    "seen": 1793397163.8553405,
+    "ast_hash": "1eece7f7366a2b828fdff30af9bcf2a8",
+    "semantic_hash": "1eece7f7366a2b828fdff30af9bcf2a8"
+  },
+  "src/simulation/RiskAssessment.js": {
+    "mtime": 1793289432.1188917,
+    "seen": 1793397163.8554533,
+    "ast_hash": "511b7601d1b945a555453af3be87c7c0",
+    "semantic_hash": "511b7601d1b945a555453af3be87c7c0"
+  },
+  "src/simulation/RiskAssessment.test.js": {
+    "mtime": 1793289441.688007,
+    "seen": 1793397163.8555655,
+    "ast_hash": "a73598c8f248478d88122501cd08f5ff",
+    "semantic_hash": "a73598c8f248478d88122501cd08f5ff"
+  },
+  "src/simulation/RouteOptimizationEngine.js": {
+    "mtime": 1793384283.6308954,
+    "seen": 1793397163.8556776,
+    "ast_hash": "bd0a11c4af5e8af939348da80c14397e",
+    "semantic_hash": "bd0a11c4af5e8af939348da80c14397e"
+  },
+  "src/simulation/RoutingConsistency.test.js": {
+    "mtime": 1793361889.5066965,
+    "seen": 1793397163.855801,
+    "ast_hash": "614d517886dfcc97d2b915af9e91c567",
+    "semantic_hash": "614d517886dfcc97d2b915af9e91c567"
+  },
+  "src/simulation/RoutingHazardAdapter.js": {
+    "mtime": 1793296240.5522203,
+    "seen": 1793397163.8559148,
+    "ast_hash": "6ec1d1d1f3a9765a0721a6fa502b127c",
+    "semantic_hash": "6ec1d1d1f3a9765a0721a6fa502b127c"
+  },
+  "src/simulation/RoutingHazardAdapter.test.js": {
+    "mtime": 1793296388.2726128,
+    "seen": 1793397163.8560278,
+    "ast_hash": "a2e5a5cdff21421e27a06929ff7cd34d",
+    "semantic_hash": "a2e5a5cdff21421e27a06929ff7cd34d"
+  },
+  "src/simulation/ScenarioEngine.js": {
+    "mtime": 1793354898.4966123,
+    "seen": 1793397163.8561409,
+    "ast_hash": "2109e68e11976a0105121fbf67d4efed",
+    "semantic_hash": "2109e68e11976a0105121fbf67d4efed"
+  },
+  "src/simulation/StrategyValidation.test.js": {
+    "mtime": 1793365706.4002578,
+    "seen": 1793397163.8562524,
+    "ast_hash": "1d907c84176c046e999eefa0cd636a33",
+    "semantic_hash": "1d907c84176c046e999eefa0cd636a33"
+  },
+  "src/simulation/ZoneToGridMapper.js": {
+    "mtime": 1793353207.2584014,
+    "seen": 1793397163.8563662,
+    "ast_hash": "2d311d8b56023ead22746446d3f2b242",
+    "semantic_hash": "2d311d8b56023ead22746446d3f2b242"
+  },
+  "src/simulation/ZoneToGridMapper.test.js": {
+    "mtime": 1793353267.2801075,
+    "seen": 1793397163.8564794,
+    "ast_hash": "b59c8543caa38daf35f32a5f1ecdc132",
+    "semantic_hash": "b59c8543caa38daf35f32a5f1ecdc132"
+  },
+  "src/simulation/scenarios/sample-fire.json": {
+    "mtime": 1793286296.1650176,
+    "seen": 1793397163.8565922,
+    "ast_hash": "a8687e62bc2c220c3694c5921e9d3a53",
+    "semantic_hash": "a8687e62bc2c220c3694c5921e9d3a53",
+    "ast_empty": true
+  },
+  "src/three/AgentCrowd.js": {
+    "mtime": 1793395696.9610984,
+    "seen": 1793397163.8565948,
+    "ast_hash": "e5e4ae90ac677848f62028a35704588e",
+    "semantic_hash": "e5e4ae90ac677848f62028a35704588e"
+  },
+  "src/three/Building3D.js": {
+    "mtime": 1793370387.2362878,
+    "seen": 1793397163.856709,
+    "ast_hash": "1cc88bb5a1a6d17a1b40c9bc69ed1dd3",
+    "semantic_hash": "1cc88bb5a1a6d17a1b40c9bc69ed1dd3"
+  },
+  "src/three/EmergencyVehiclesManager.js": {
+    "mtime": 1793395704.0857418,
+    "seen": 1793397163.856821,
+    "ast_hash": "72f7d682e5c3df2a2ebe4bcd804301b6",
+    "semantic_hash": "72f7d682e5c3df2a2ebe4bcd804301b6"
+  },
+  "src/three/FireParticles.js": {
+    "mtime": 1793354898.534558,
+    "seen": 1793397163.856934,
+    "ast_hash": "a075c68188a2559d592cec3ba0efd112",
+    "semantic_hash": "a075c68188a2559d592cec3ba0efd112"
+  },
+  "src/three/SceneManager.js": {
+    "mtime": 1793395919.908823,
+    "seen": 1793397163.857047,
+    "ast_hash": "407709df17b27c0865792c2389871847",
+    "semantic_hash": "407709df17b27c0865792c2389871847"
+  },
+  "src/three/TextureHelper.js": {
+    "mtime": 1793354898.5385702,
+    "seen": 1793397163.857158,
+    "ast_hash": "de383155e0e5548c07f50029be01e98a",
+    "semantic_hash": "de383155e0e5548c07f50029be01e98a"
+  },
+  "src/three/site/CampusBuildingsManager.js": {
+    "mtime": 1793354898.5445695,
+    "seen": 1793397163.8572698,
+    "ast_hash": "72bb76c2feb9eb3137559635846bc7dc",
+    "semantic_hash": "72bb76c2feb9eb3137559635846bc7dc"
+  },
+  "src/three/site/CampusLayout.js": {
+    "mtime": 1793384094.7180417,
+    "seen": 1793397163.8573875,
+    "ast_hash": "45defb83952687bef1fa225a0f15adda",
+    "semantic_hash": "45defb83952687bef1fa225a0f15adda"
+  },
+  "src/three/site/CampusSite.js": {
+    "mtime": 1793384094.7180417,
+    "seen": 1793397163.857503,
+    "ast_hash": "883ccc0d02eb1f80070ebe969d0a5410",
+    "semantic_hash": "883ccc0d02eb1f80070ebe969d0a5410"
+  },
+  "src/three/site/FuturePlotManager.js": {
+    "mtime": 1793354898.5495985,
+    "seen": 1793397163.8576179,
+    "ast_hash": "9ec811ab1a4aba13dc36956ae4034f44",
+    "semantic_hash": "9ec811ab1a4aba13dc36956ae4034f44"
+  },
+  "src/three/site/LandscapeManager.js": {
+    "mtime": 1793384094.719037,
+    "seen": 1793397163.8577433,
+    "ast_hash": "142c57818dce437e7478a804f7dca2d7",
+    "semantic_hash": "142c57818dce437e7478a804f7dca2d7"
+  },
+  "src/three/site/ParkingManager.js": {
+    "mtime": 1793354898.5521176,
+    "seen": 1793397163.8578596,
+    "ast_hash": "b299b876e50140b1d4cf0d6c316b062f",
+    "semantic_hash": "b299b876e50140b1d4cf0d6c316b062f"
+  },
+  "src/three/site/PedestrianNetwork.js": {
+    "mtime": 1793384094.7200992,
+    "seen": 1793397163.8579736,
+    "ast_hash": "cc20c01ad0ebe11d429fae7725408f98",
+    "semantic_hash": "cc20c01ad0ebe11d429fae7725408f98"
+  },
+  "src/three/site/RoadNetwork.js": {
+    "mtime": 1793384094.7200992,
+    "seen": 1793397163.8580866,
+    "ast_hash": "c5f32f0a61f1afbf146ecdd1476a6afd",
+    "semantic_hash": "c5f32f0a61f1afbf146ecdd1476a6afd"
+  },
+  "src/three/site/WorldEnvironmentManager.js": {
+    "mtime": 1793384094.7200992,
+    "seen": 1793397163.8582008,
+    "ast_hash": "26190b57afb5237909cff94aca13e046",
+    "semantic_hash": "26190b57afb5237909cff94aca13e046"
+  },
+  "tailwind.config.js": {
+    "mtime": 1793280724.5279355,
+    "seen": 1793397163.8583167,
+    "ast_hash": "dadcb947b45261791670f52f41090ef6",
+    "semantic_hash": "dadcb947b45261791670f52f41090ef6"
+  },
+  "test/evacuation_verification.js": {
+    "mtime": 1793395704.1004148,
+    "seen": 1793397163.8584285,
+    "ast_hash": "6558f7d703918b59e651e5c6d8eee9c7",
+    "semantic_hash": "6558f7d703918b59e651e5c6d8eee9c7"
+  },
+  "vite.config.js": {
+    "mtime": 1793280724.5279355,
+    "seen": 1793397163.858542,
+    "ast_hash": "748285ebd8c919831d16dad2cd9296f9",
+    "semantic_hash": "748285ebd8c919831d16dad2cd9296f9"
+  }
+}

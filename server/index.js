@@ -156,7 +156,7 @@ app.post('/api/clear-incidents', (req, res) => {
 });
 
 app.post('/api/trigger-fire', (req, res) => {
-  const { roomId, intensity = 1.0 } = req.body;
+  const { roomId, intensity = 1.0, triggerId } = req.body;
   const room = simulationState.rooms.find(r => r.id === roomId);
   if (room) {
     room.hasFire = true;
@@ -165,14 +165,18 @@ app.post('/api/trigger-fire', (req, res) => {
     room.smokeLevel = 90;
     simulationState.status = 'ALARM';
     
-    io.emit('fire-detected', {
+    const fireEvent = {
       roomId,
       roomName: room.name,
       floor: room.floor,
       camId: room.camId,
       temp: room.tempCelsius,
       smoke: room.smokeLevel
-    });
+    };
+    if (typeof triggerId === 'string' && triggerId.length > 0) {
+      fireEvent.triggerId = triggerId;
+    }
+    io.emit('fire-detected', fireEvent);
     
     io.emit('state-update', simulationState);
     res.json({ success: true, room });
