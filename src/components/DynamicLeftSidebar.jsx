@@ -150,7 +150,7 @@ export const DynamicLeftSidebar = React.memo(({
           items: [
             { id: 'SPECS', label: 'Architectural Specs', icon: Building2, color: isDark ? '#38bdf8' : '#0284c7', badge: '10 L' },
             { id: 'STAIRS', label: 'Emergency Stair Cores', icon: Milestone, color: '#10b981', badge: '3 Cores' },
-            { id: 'EXITS', label: 'Ground Egress Portals', icon: MapPin, color: '#f59e0b', badge: '4 Gates' }
+            { id: 'EXITS', label: 'Ground Egress Portals', icon: MapPin, color: '#f59e0b', badge: '3 Exits' }
           ]
         };
       case 'SCENARIOS':

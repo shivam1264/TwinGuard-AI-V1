@@ -222,6 +222,7 @@ export class CrowdOptimizer {
 
     // Initialize tentative loads from live exit loads (updated each frame by SceneManager)
     const tentativeLoads = new Map();
+    const corridorPathCache = new Map();
     this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     agents.forEach((agent, index) => {
@@ -335,34 +336,18 @@ let fallbackAssignment = false;
       );
       const candidatePool = permittedCandidates.length > 0 ? permittedCandidates : candidates;
 
-      // Build full paths for ALL viable exits and compute their scores
-      const candidatePaths = [];
-      for (const candidate of candidatePool) {
-        const exit = candidate.exit;
-        const stairEntry = this.stairwellEntries[exit.id];
-
-        // Build full 3D path for this exit
-        const full3DPath = this.buildFull3DPath(agent, exit, doorway, stairEntry, seed);
-
-        const score = permittedCandidates.length > 0 ? candidate.score : candidate.baselineScore;
-
-        candidatePaths.push({
-          exit,
-          route: candidate.route,
-          score,
-          path: full3DPath,
-          baselineScore: candidate.baselineScore
-        });
-      }
-
-      // Sort by score (best first)
-      candidatePaths.sort((a, b) => a.score - b.score);
+      // Rank viable exits by precomputed score without computing full 3D paths for rejected candidates
+      candidatePool.sort((a, b) => {
+        const scoreA = permittedCandidates.length > 0 ? a.score : a.baselineScore;
+        const scoreB = permittedCandidates.length > 0 ? b.score : b.baselineScore;
+        return scoreA - scoreB;
+      });
 
       // Primary route is the best one
-      const bestCandidate = candidatePaths[0];
+      const bestCandidate = candidatePool[0];
       bestExit = bestCandidate.exit;
       bestRoute = bestCandidate.route;
-      bestScore = bestCandidate.score;
+      bestScore = permittedCandidates.length > 0 ? bestCandidate.score : bestCandidate.baselineScore;
 
       if (bestExit) {
         if (hazardAware && permittedCandidates.length === 0) {
@@ -418,7 +403,14 @@ let fallbackAssignment = false;
 
           // Path 2: From corridor staging point along central corridor to stairwell/exit entry
           let effectiveStairEntry = stairEntry;
-          let pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
+          const corridorCacheKey = `${doorway.corridor.x},${doorway.corridor.z}->${effectiveStairEntry.x},${effectiveStairEntry.z}`;
+          let pathInCorridor = corridorPathCache.get(corridorCacheKey);
+          if (!pathInCorridor) {
+            pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
+            if (pathInCorridor && pathInCorridor.length > 0) {
+              corridorPathCache.set(corridorCacheKey, pathInCorridor);
+            }
+          }
           if ((!pathInCorridor || pathInCorridor.length === 0) && agentFloor > 1) {
             const altStairId = stairCoreId === 'exit_west' ? 'exit_east' : 'exit_west';
             const altStairEntry = this.stairwellEntries[altStairId];

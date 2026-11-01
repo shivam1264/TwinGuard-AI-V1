@@ -3139,17 +3139,17 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
-      // Calculate simulation delta
-      const simDelta = this.isSimulating ? delta * this.simSpeed : 0;
+      // Calculate simulation delta scaled by simulation speed
+      const effectiveSimDelta = simDelta * this.simSpeed;
 
       // Phase 5C: Advance hazard state and update routing context BEFORE agent movement
       if (this.isSimulating && this.hazardState && this.buildingGraph) {
         // 1. Advance simulation time
-        this.elapsedSeconds += simDelta;
+        this.elapsedSeconds += effectiveSimDelta;
 
         // 2. Advance hazard propagation (includes updateRoutingContext + applyHazardStateToGrid)
-        this.advanceHazardState(simDelta);
-        this.reevaluationCooldown -= simDelta;
+        this.advanceHazardState(effectiveSimDelta);
+        this.reevaluationCooldown -= effectiveSimDelta;
 
         // 3. Check for urgent reevaluation (newly prohibited current routes)
         const urgentReeval = this.checkUrgentReevaluation();
@@ -3224,11 +3224,6 @@ export class SceneManager {
       if (this._shadowNeedsUpdate) {
         this.renderer.shadowMap.needsUpdate = true;
         this._shadowNeedsUpdate = false;
-      } else if (this.isSimulating || (this.emergencyManager && this.emergencyManager.isActive)) {
-        this._shadowFrameCounter = (this._shadowFrameCounter + 1) % 4;
-        if (this._shadowFrameCounter === 0) {
-          this.renderer.shadowMap.needsUpdate = true;
-        }
       }
     }
 
@@ -3277,6 +3272,12 @@ export class SceneManager {
 
   toggleEmergencySpray() {
     return this.emergencyManager ? this.emergencyManager.toggleSpray() : false;
+  }
+
+  get emergencyVehicles() {
+    return {
+      toggleMute: () => (this.emergencyManager ? this.emergencyManager.toggleSirenAudio() : false)
+    };
   }
 
   focusEmergencyStaging() {

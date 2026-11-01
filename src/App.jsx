@@ -319,9 +319,12 @@ export function App() {
   }, [isLeftCollapsed]);
 
   const handleToggleSirenMute = () => {
-    if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
-      const newMuted = sceneManagerRef.current.emergencyVehicles.toggleMute();
-      setIsSirenMuted(newMuted);
+    if (sceneManagerRef.current && sceneManagerRef.current.toggleEmergencySiren) {
+      const isAudible = sceneManagerRef.current.toggleEmergencySiren();
+      setIsSirenMuted(!isAudible);
+    } else if (sceneManagerRef.current && sceneManagerRef.current.emergencyVehicles) {
+      const isAudible = sceneManagerRef.current.emergencyVehicles.toggleMute();
+      setIsSirenMuted(!isAudible);
     } else {
       setIsSirenMuted(!isSirenMuted);
     }
@@ -560,6 +563,9 @@ export function App() {
     }
     if (sceneManagerRef.current) {
       if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
+      if (facadeMode === 'FULL') {
+        handleSetFacadeMode('CUTAWAY');
+      }
       const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
       if (result) {
         if (result.exitStats) setExits(result.exitStats);
@@ -577,6 +583,9 @@ export function App() {
   const handleStartEvacuation = () => {
     if (!sceneManagerRef.current) return;
     if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
+    if (facadeMode === 'FULL') {
+      handleSetFacadeMode('CUTAWAY');
+    }
     const result = sceneManagerRef.current.startEvacuation();
     if (!result && sceneManagerRef.current.evacuationCompleted) return;
     setIsSimulating(true);
@@ -931,6 +940,7 @@ export function App() {
                 handleSetFloorView(activeFloorView === 'EXPLODED' ? 'ALL' : 'EXPLODED')
               }
               onToggleGis={() => setIsGisOpen(!isGisOpen)}
+              onOpenBuildingInfo={() => handleSelectTab('BUILDING_INFO')}
               onToggleFullscreen={handleToggleFullscreen}
               isGisOpen={isGisOpen}
               rooms={rooms}
