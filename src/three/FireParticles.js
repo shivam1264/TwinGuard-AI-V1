@@ -915,13 +915,28 @@ export class FireParticles {
     const timeNow = performance.now() * 0.001;
 
     this.activeFires.forEach(fire => {
-      fire.elapsedTime += delta;
+      // Scenario Studio tuning: growthSpeed scales the t² state progression
+      // (Rapid Flashover > 1, Smoldering Slow < 1). Default 1.0.
+      fire.elapsedTime += delta * (fire.growthSpeed || 1);
 
       // 1. Fire State Metrics (Continuous & Smooth)
       const metrics = this.getFireStateMetrics(fire.elapsedTime);
       fire.state = metrics.stateName;
       fire.intensityStateNum = metrics.stateNum;
       fire.intensityFactor = metrics.factor;
+
+      // Scenario Studio tuning: heatReleaseRate → flame/light intensity,
+      // smokeGenerationRate → active smoke particle count. Defaults 1.0.
+      const _heatMul = fire.intensityScale || 1;
+      const _smokeRateMul = fire.smokeRateScale || 1;
+      if (_heatMul !== 1) {
+        metrics.factor = Math.min(1.8, metrics.factor * _heatMul);
+        metrics.flameScale *= _heatMul;
+        metrics.lightIntensity *= _heatMul;
+      }
+      if (_smokeRateMul !== 1) {
+        metrics.activeSmokeCount = Math.max(4, Math.round(metrics.activeSmokeCount * _smokeRateMul));
+      }
 
       if (metrics.readyToSpread && !fire.hasSpreadToAdjacentRoom && !fire.smokeOnly) {
         fire.hasSpreadToAdjacentRoom = true;

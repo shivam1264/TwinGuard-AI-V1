@@ -13,6 +13,11 @@ export class AgentCrowd {
     this.scene = scene;
     this.group = new THREE.Group();
     this.scene.add(this.group);
+    this.instancedCrowdMeshes = [];
+    this.instancedCrowdRecords = [];
+    this._instancedParentInverse = new THREE.Matrix4();
+    this._instancedLocalMatrix = new THREE.Matrix4();
+    this._hiddenInstanceMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
     this.agents = [];
     this.floorMode = 'ALL';
@@ -129,7 +134,30 @@ export class AgentCrowd {
     this.pathLinesGroup = new THREE.Group();
     this.scene.add(this.pathLinesGroup);
     this.routeLines = new Map(); // agentId -> { line, path, exitId }
+    this._routeMaterialsMap = new Map();
+    this.pendingRouteLineIds = [];
+    this.pendingRouteLineIdSet = new Set();
     this.cachedStats = null;
+  }
+
+  _getRouteMaterial(colorHex) {
+    if (!this._routeMaterialsMap) this._routeMaterialsMap = new Map();
+    const key = colorHex || "#00f0ff";
+    if (!this._routeMaterialsMap.has(key)) {
+      const mat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(key),
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false
+      });
+      mat.userData = { isShared: true };
+      this._routeMaterialsMap.set(key, mat);
+    }
+    return this._routeMaterialsMap.get(key);
+  }
+
+  warmUpRouteMaterials() {
+    return ["#00ff88", "#00f0ff", "#9d4edd"].map((color) => this._getRouteMaterial(color));
   }
 
   spawnAgentsForRooms(rooms) {
@@ -170,6 +198,8 @@ export class AgentCrowd {
     if (this.floorMode && this.floorMode !== 'ALL') {
       this.setFloorMode(this.floorMode);
     }
+
+    this._buildInstancedCrowd();
 
     return this.agents;
   }
@@ -438,6 +468,77 @@ export class AgentCrowd {
     return agent;
   }
 
+  _buildInstancedCrowd() {
+    if (!this.agents.length || !THREE.InstancedMesh) return;
+
+    const buckets = new Map();
+    // Refresh only the parent world transform here; each agent subtree is
+    // updated once below. Recursing the full group first and then updating
+    // every agent again duplicated thousands of matrix operations.
+    this.group.updateWorldMatrix(true, false);
+
+    this.agents.forEach((agent) => {
+      agent.mesh.updateMatrixWorld(true);
+      agent.mesh.traverse((object) => {
+        // Keep transparent ground shadows individually sorted. Batch the body
+        // parts by their existing geometry/material so the rendered characters
+        // retain the same articulated shape and palette.
+        if (!object.isMesh || !object.visible || object.geometry === this.shadowGeo) return;
+        if (Array.isArray(object.material)) return;
+
+        const key = `${object.geometry.uuid}:${object.material.uuid}`;
+        let bucket = buckets.get(key);
+        if (!bucket) {
+          bucket = { geometry: object.geometry, material: object.material, entries: [] };
+          buckets.set(key, bucket);
+        }
+        bucket.entries.push({ agent, source: object });
+      });
+    });
+
+    for (const bucket of buckets.values()) {
+      const batch = new THREE.InstancedMesh(bucket.geometry, bucket.material, bucket.entries.length);
+      batch.name = 'articulated-crowd-batch';
+      batch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      batch.frustumCulled = false;
+      batch.count = bucket.entries.length;
+      this.group.add(batch);
+
+      bucket.entries.forEach(({ agent, source }, instanceId) => {
+        source.userData.crowdBatchSourceVisible = source.visible;
+        source.visible = false;
+        this.instancedCrowdRecords.push({ agent, source, batch, instanceId });
+      });
+      this.instancedCrowdMeshes.push(batch);
+    }
+
+    this._syncInstancedCrowd();
+  }
+
+  _syncInstancedCrowd() {
+    if (!this.instancedCrowdRecords.length) return;
+
+    // The agent subtree update below refreshes all source part matrices. A
+    // recursive group update here would traverse the same articulated meshes
+    // once more on every simulation frame.
+    this.group.updateWorldMatrix(true, false);
+    this.agents.forEach((agent) => agent.mesh.updateMatrixWorld(true));
+    this._instancedParentInverse.copy(this.group.matrixWorld).invert();
+
+    for (const { agent, source, batch, instanceId } of this.instancedCrowdRecords) {
+      if (agent.mesh.visible && source.userData.crowdBatchSourceVisible !== false) {
+        this._instancedLocalMatrix.multiplyMatrices(this._instancedParentInverse, source.matrixWorld);
+        batch.setMatrixAt(instanceId, this._instancedLocalMatrix);
+      } else {
+        batch.setMatrixAt(instanceId, this._hiddenInstanceMatrix);
+      }
+    }
+
+    this.instancedCrowdMeshes.forEach((batch) => {
+      batch.instanceMatrix.needsUpdate = true;
+    });
+  }
+
   standUpAgent(agent) {
     if (!agent.isSeated) return;
     agent.isSeated = false;
@@ -462,7 +563,7 @@ export class AgentCrowd {
     agent.rightElbow.rotation.x = 0;
   }
 
-  assignRoutes(assignments) {
+  assignRoutes(assignments, { deferRouteLines = false } = {}) {
     const assignmentMap = new Map();
     assignments.forEach(a => assignmentMap.set(a.agentId, a));
 
@@ -470,8 +571,43 @@ export class AgentCrowd {
       const assignment = assignmentMap.get(agent.id);
       if (assignment) {
         this.standUpAgent(agent);
-        agent.path = assignment.path || [];
-        agent.currentWaypointIdx = 0;
+        const newPath = assignment.path || [];
+        const isEvacuating = agent.state === 'EVACUATING' && agent.path && agent.path.length > 0;
+
+        if (isEvacuating) {
+          // If already actively evacuating: do NOT reset waypoint index back to 0 (which causes
+          // the agent to turn around and walk back into the room).
+          const exitUnchanged = agent.currentExitId === assignment.exitId;
+          if (exitUnchanged) {
+            // Unchanged exit: preserve forward progress
+            if (newPath.length >= agent.path.length) {
+              agent.path = newPath;
+            }
+          } else {
+            // Rerouted to different exit: pick nearest forward waypoint so agent steers smoothly forward
+            let bestIdx = 0;
+            let minDistSq = Infinity;
+            // Never target interior desk waypoints (index 0) if agent has already begun transiting
+            const minAllowedIdx = Math.min(2, Math.max(0, newPath.length - 1));
+            for (let i = minAllowedIdx; i < newPath.length; i++) {
+              const pt = newPath[i];
+              if (pt.y <= agent.y + 0.5) {
+                const dSq = (pt.x - agent.x) ** 2 + (pt.y - agent.y) ** 2 + (pt.z - agent.z) ** 2;
+                if (dSq < minDistSq) {
+                  minDistSq = dSq;
+                  bestIdx = i;
+                }
+              }
+            }
+            agent.path = newPath;
+            agent.currentWaypointIdx = Math.max(bestIdx, minAllowedIdx);
+          }
+        } else {
+          // Initial assignment or waiting agent starting from desk
+          agent.path = newPath;
+          agent.currentWaypointIdx = 0;
+        }
+
         const delayTimer = assignment.delayTimer || 0;
         const nextDelayPolicy = phasedDelayPolicy(delayTimer);
         const sameWaitingAssignment = agent.state === 'WAITING'
@@ -498,7 +634,48 @@ export class AgentCrowd {
       }
     });
 
-    this.syncRouteLines();
+    if (deferRouteLines) this.queueRouteLineBuilds(assignmentMap.keys());
+    else this.syncRouteLines();
+  }
+
+  queueRouteLineBuilds(agentIds = this.agents.map((agent) => agent.id)) {
+    for (const agentId of agentIds) {
+      if (this.pendingRouteLineIdSet.has(agentId)) continue;
+      const agent = this.agents.find((item) => item.id === agentId);
+      if (!agent) continue;
+      if (agent.state === 'EVACUATING' && Array.isArray(agent.path) && agent.path.length > 1) {
+        this.pendingRouteLineIds.push(agent.id);
+        this.pendingRouteLineIdSet.add(agent.id);
+      }
+    }
+  }
+
+  processRouteLineBuilds(maxCount = 12) {
+    let processed = 0;
+    while (this.pendingRouteLineIds.length && processed < maxCount) {
+      const agentId = this.pendingRouteLineIds.shift();
+      this.pendingRouteLineIdSet.delete(agentId);
+      const agent = this.agents.find((item) => item.id === agentId);
+      const isActive = agent && agent.state === 'EVACUATING' && Array.isArray(agent.path) && agent.path.length > 1;
+      const entry = this.routeLines.get(agentId);
+      if (!isActive) {
+        if (entry) {
+          this._disposeRouteEntry(entry);
+          this.routeLines.delete(agentId);
+        }
+        processed++;
+        continue;
+      }
+
+      const needsRebuild = !entry || entry.path !== agent.path || entry.exitId !== agent.currentExitId;
+      if (needsRebuild) {
+        if (entry) this._disposeRouteEntry(entry);
+        this.routeLines.set(agentId, this._createRouteEntry(agent, agent.path));
+      }
+      processed++;
+    }
+    this.pathLinesGroup.visible = true;
+    return this.pendingRouteLineIds.length > 0;
   }
 
   /**
@@ -606,12 +783,7 @@ export class AgentCrowd {
   _createRouteEntry(agent, path) {
     const points = path.map(p => new THREE.Vector3(p.x, (p.y ?? 0) + 0.12, p.z));
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({
-      color: new THREE.Color(agent.assignedExitColor || 0x00f0ff),
-      transparent: true,
-      opacity: 0.5,
-      depthWrite: false
-    });
+    const material = this._getRouteMaterial(agent.assignedExitColor);
     const line = new THREE.Line(geometry, material);
     line.userData = {
       agentId: agent.id,
@@ -627,7 +799,7 @@ export class AgentCrowd {
     const line = entry.line;
     if (line.parent) line.parent.remove(line);
     if (line.geometry) line.geometry.dispose();
-    if (line.material) line.material.dispose();
+    if (line.material && !line.material.userData?.isShared) line.material.dispose();
   }
 
   update(delta, simSpeed = 1.0) {
@@ -807,6 +979,7 @@ export class AgentCrowd {
       inTransit: this.agents.length - evacuatedCount,
       isCompleted: evacuatedCount === this.agents.length && this.agents.length > 0
     };
+    this._syncInstancedCrowd();
     this.cachedStats = currentStats;
     return currentStats;
   }
@@ -854,6 +1027,7 @@ export class AgentCrowd {
       }
     });
 
+    this._syncInstancedCrowd();
     this.syncRouteLines();
   }
 
@@ -866,23 +1040,33 @@ export class AgentCrowd {
     while (this.pathLinesGroup.children.length > 0) {
       const obj = this.pathLinesGroup.children[0];
       if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
+      if (obj.material && !obj.material.userData?.isShared) obj.material.dispose();
       this.pathLinesGroup.remove(obj);
     }
   }
 
   clear() {
     this.clearPathLines();
+    this.pendingRouteLineIds = [];
+    this.pendingRouteLineIdSet.clear();
     this.phasedEvacuationDelays.clear();
     while (this.group.children.length > 0) {
       const obj = this.group.children[0];
       this.group.remove(obj);
     }
+    this.instancedCrowdMeshes = [];
+    this.instancedCrowdRecords = [];
     this.agents = [];
   }
 
   dispose() {
     this.clear();
+    if (this._routeMaterialsMap) {
+      for (const mat of this._routeMaterialsMap.values()) {
+        mat.dispose();
+      }
+      this._routeMaterialsMap.clear();
+    }
     if (this.pathLinesGroup && this.pathLinesGroup.parent) {
       this.pathLinesGroup.parent.remove(this.pathLinesGroup);
     }

@@ -89,10 +89,20 @@ export class SceneManager {
 
     this.simSpeed = 1.0;
     this.isSimulating = false;
+    this.evacuationCompleted = false;
     this.elapsedSeconds = 0;
     this.routingHazardContext = null;
     this.activeStrategyType = null;
     this.activeStrategy = null;
+    this._evacuationRunToken = 0;
+    this._evacuationStartPromise = null;
+    this._routePlannerWarmWorker = null;
+    this._routePlannerWorker = null;
+    this._pendingInitialPlan = null;
+    this._pendingWorkerReeval = null;
+    this._queuedWorkerReeval = null;
+    this._routingVersion = 0;
+    this._latestAppliedRoutingVersion = 0;
 
     // Module 7F: aggregated reroute events and strategy indicator
     this.pendingRerouteEvents = [];
@@ -107,6 +117,16 @@ export class SceneManager {
     this.lastRoutingContextHash = null;
     this.reevaluationCooldown = 0;
     this.minReevaluationInterval = 2.0; // Minimum seconds between reevaluations
+    // Hazard/routing and live congestion work are intentionally decoupled from
+    // the render loop; these operations touch whole grids and crowds.
+    this._hazardWorkAccumulator = 0;
+    this._liveRoutingAccumulator = 0;
+    this._hazardWorkInterval = 0.25;
+    this._liveRoutingInterval = 0.2;
+    this._initialRoutePlanPending = false;
+    this._evacuationViewPreparation = null;
+    this._evacuationViewPrepared = false;
+    this._renderPreparationPending = false;
 
     // Deterministic simulation clock with proper pause/resume
     this._clock = new SimulationClock();
@@ -343,6 +363,7 @@ export class SceneManager {
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
+    this._primeEvacuationPlannerWorker();
 
     // Navigation graph for topological routing and live congestion tracking
     this.navigationGraph = new NavigationGraph(10, 3.8);
@@ -354,6 +375,15 @@ export class SceneManager {
       floorHeight: this.buildingGraph.data.floorHeightM
     });
     this.exitCongestionVisualizer = new ExitCongestionVisualizer(this.scene);
+
+    // Pre-build visualizer geometries so first evacuation does not incur geometry creation hitch
+    if (this.hazardVisualizer && this.buildingGraph) {
+      this.hazardVisualizer._build(this.buildingGraph);
+    }
+    if (this.exitCongestionVisualizer && this.navigationGraph) {
+      this.exitCongestionVisualizer._buildEdges(this.navigationGraph);
+      this.exitCongestionVisualizer.clear();
+    }
 
     // Phase 5D: Initialize zone-to-grid mapper for grid-level hazard integration
     this._zoneToGridMapper = new ZoneToGridMapper(this.navGrid);
@@ -512,6 +542,68 @@ export class SceneManager {
       return mode;
     }
     return 'CUTAWAY';
+  }
+
+  async prepareEvacuationView({ switchToCutaway = false } = {}) {
+    if (switchToCutaway) this.setFacadeModeDirect('CUTAWAY');
+    if (this._evacuationViewPreparation) return this._evacuationViewPreparation;
+    if (this._evacuationViewPrepared) return;
+
+    // Compile the newly visible building materials and all route-line material
+    // variants before starting the crowd. Route lines do not exist yet during
+    // the first scene compile, so compile representative temporary lines too.
+    this._renderPreparationPending = true;
+    const warmupGroup = new THREE.Group();
+    const warmupMaterials = this.agentCrowd?.warmUpRouteMaterials?.() || [];
+    const routeTarget = this.controls?.target || new THREE.Vector3(0, 4, 0);
+    warmupMaterials.forEach((material, index) => {
+      const offset = index * 0.12;
+      const geometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(routeTarget.x - 0.6, routeTarget.y + offset, routeTarget.z),
+        new THREE.Vector3(routeTarget.x + 0.6, routeTarget.y + offset, routeTarget.z)
+      ]);
+      const line = new THREE.Line(geometry, material);
+      line.frustumCulled = false;
+      warmupGroup.add(line);
+    });
+    this.scene?.add(warmupGroup);
+
+    this._evacuationViewPreparation = (async () => {
+      let prepared = false;
+      try {
+        if (this.renderer && this.scene && this.camera) {
+          if (typeof this.renderer.compileAsync === 'function') {
+            await this.renderer.compileAsync(this.scene, this.camera);
+          } else if (typeof this.renderer.compile === 'function') {
+            this.renderer.compile(this.scene, this.camera);
+          }
+          prepared = true;
+        }
+      } catch (error) {
+        console.warn('[SceneManager] Evacuation view shader preparation failed:', error);
+      } finally {
+        this.scene?.remove(warmupGroup);
+        warmupGroup.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+        });
+        if (prepared) this._evacuationViewPrepared = true;
+        this._renderPreparationPending = false;
+        this._evacuationViewPreparation = null;
+        if (this.renderer && this.scene && this.camera) {
+          // The FULL -> CUTAWAY switch changes the visible shadow casters.
+          // Refresh the cached shadow map here, while evacuation is still
+          // waiting to start, instead of charging its first moving frame with
+          // the full-building shadow pass.
+          if (this._shadowNeedsUpdate && this.renderer.shadowMap) {
+            this.renderer.shadowMap.needsUpdate = true;
+          }
+          this.renderer.render(this.scene, this.camera);
+          this._shadowNeedsUpdate = false;
+        }
+      }
+    })();
+
+    return this._evacuationViewPreparation;
   }
 
   toggleFacadeMode() {
@@ -1205,12 +1297,13 @@ export class SceneManager {
     reason = 'Route reevaluation',
     reasons = [],
     severity = 'Info',
-    isInitial = false
+    isInitial = false,
+    deferRouteLines = false
   } = {}) {
     if (!assignments || assignments.length === 0) return [];
 
     const previousExits = isInitial ? null : captureExitSnapshot(this.agentCrowd.agents);
-    this.agentCrowd.assignRoutes(assignments);
+    this.agentCrowd.assignRoutes(assignments, { deferRouteLines });
 
     if (!previousExits) return [];
 
@@ -1244,38 +1337,144 @@ export class SceneManager {
     return changes;
   }
 
-  // Phase 5C: Check for urgent reevaluation - returns true if routes were updated
+  // Non-blocking off-thread route reevaluation via dedicated Web Worker
+  requestOffThreadReevaluation({ reason = 'Route reevaluation', reasons = [], severity = 'Info' } = {}) {
+    if (!this.isSimulating || !this.routingHazardContext?.availability?.available || !this.agentCrowd) {
+      return false;
+    }
+
+    const currentVersion = ++this._routingVersion;
+    if (this._pendingWorkerReeval && this._pendingWorkerReeval.version === currentVersion) {
+      return false;
+    }
+
+    const worker = this._getRoutePlannerWorker();
+    if (!worker) {
+      // Graceful fallback to UI thread only if Web Worker is truly unavailable in environment
+      if (this.crowdOptimizer) {
+        const fireLocations = [];
+        if (this.fireSystem && this.fireSystem.activeFires) {
+          this.fireSystem.activeFires.forEach(f => {
+            if (f.basePos) fireLocations.push(f.basePos);
+          });
+        }
+        const optimizationResult = this.crowdOptimizer.reevaluateRoutes(
+          this.agentCrowd.agents,
+          this.agentCrowd.agents.map(a => ({
+            agentId: a.id,
+            exitId: a.currentExitId,
+            routeCondition: a.currentRouteCondition,
+            path: a.path,
+            currentWaypointIdx: a.currentWaypointIdx
+          })),
+          fireLocations,
+          { routingContext: this.routingHazardContext }
+        );
+        this._applyAssignments(optimizationResult.assignments, { reason, reasons, severity });
+        this.applyHazardStateToGrid();
+      }
+      return true;
+    }
+
+    const runToken = this._evacuationRunToken;
+    const requestId = `reeval_${runToken}_${currentVersion}_${Date.now()}`;
+    const fireLocations = [];
+    if (this.fireSystem && this.fireSystem.activeFires) {
+      this.fireSystem.activeFires.forEach(f => {
+        if (f.basePos) fireLocations.push(f.basePos);
+      });
+    }
+
+    const plainAgents = this.agentCrowd.agents.map(agent => ({
+      id: agent.id,
+      roomId: agent.roomId,
+      floor: agent.floor,
+      x: agent.x,
+      y: agent.y,
+      z: agent.z,
+      state: agent.state,
+      isEvacuated: agent.isEvacuated,
+      currentExitId: agent.currentExitId,
+      currentRouteCondition: agent.currentRouteCondition,
+      currentWaypointIdx: agent.currentWaypointIdx || 0
+    }));
+
+    const plainAssignments = this.agentCrowd.agents
+      .filter(a => a.state !== 'SAFE' && !a.isEvacuated)
+      .map(a => ({
+        agentId: a.id,
+        exitId: a.currentExitId,
+        routeCondition: a.currentRouteCondition,
+        path: a.path,
+        currentWaypointIdx: a.currentWaypointIdx || 0
+      }));
+
+    const now = performance.now();
+    // Concurrency control: if a reevaluation request is already in-flight, coalesce this update
+    // so we don't spam the worker's FIFO queue, while ensuring the latest hazard state is processed.
+    if (this._pendingWorkerReeval) {
+      if (now - (this._pendingWorkerReeval.timestamp || 0) > 5000) {
+        console.warn('[EvacPlanner] In-flight worker reevaluation timed out; clearing stale request');
+        this._pendingWorkerReeval = null;
+      } else {
+        this._queuedWorkerReeval = {
+          reason: options.reason || this._queuedWorkerReeval?.reason || 'Dynamic reevaluation',
+          reasons: [...new Set([...(options.reasons || []), ...(this._queuedWorkerReeval?.reasons || [])])],
+          severity: (options.severity === 'Critical' || this._queuedWorkerReeval?.severity === 'Critical')
+            ? 'Critical'
+            : (options.severity || this._queuedWorkerReeval?.severity || 'Medium'),
+          version: currentVersion
+        };
+        return false;
+      }
+    }
+
+    this._pendingWorkerReeval = {
+      id: requestId,
+      runToken,
+      version: currentVersion,
+      reason,
+      reasons,
+      severity,
+      timestamp: now
+    };
+
+    try {
+      worker.postMessage({
+        id: requestId,
+        type: 'reevaluate',
+        runToken,
+        contextVersion: currentVersion,
+        agents: plainAgents,
+        currentAssignments: plainAssignments,
+        fireLocations,
+        routingContext: this.routingHazardContext,
+        blockedExitIds: [],
+        exits: this.crowdOptimizer.exits.map(exit => ({ ...exit })),
+        grid: this.navGrid.grid,
+        hazardCosts: this.navGrid.hazardCosts,
+        congestionCosts: this.navGrid.congestionCosts,
+        structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries())
+      });
+      return true;
+    } catch (err) {
+      console.warn('[EvacPlanner] Worker postMessage reevaluation failed', err);
+      this._pendingWorkerReeval = null;
+      return false;
+    }
+  }
+
+  // Phase 5C: Check for urgent reevaluation - non-blocking off-thread reevaluation
   checkUrgentReevaluation() {
     if (!this.isSimulating || !this.hazardState || !this.routingHazardContext?.availability?.available) {
       return false;
     }
 
-    // Get current fire locations
-    const fireLocations = [];
-    this.fireSystem.activeFires.forEach(f => {
-      fireLocations.push(f.basePos);
-    });
-
-    // Get current assignments from agent crowd
-    const currentAssignments = this.agentCrowd.agents
-      .filter(a => a.state !== 'SAFE') // Skip completed agents
-      .map(a => {
-        const assignment = this.agentCrowd.assignments?.get?.(a.id) || a.currentAssignment;
-        // Find the assignment by looking at agent's current route
-        return {
-          agentId: a.id,
-          exitId: a.currentExitId,
-          routeCondition: a.currentRouteCondition,
-          currentWaypointIdx: a.currentWaypointIdx || 0,
-          pathLength: a.path?.length || 0
-        };
-      });
-
     // Check if any active agent's current route has become prohibited
     let hasUrgentChange = false;
     let prohibitedReasons = [];
     for (const agent of this.agentCrowd.agents) {
-      if (agent.state === 'SAFE') continue;
+      if (agent.state === 'SAFE' || agent.isEvacuated) continue;
       const currentExitId = agent.currentExitId;
       if (!currentExitId) continue;
 
@@ -1284,45 +1483,24 @@ export class SceneManager {
       if (route && route.condition === ROUTE_CONDITIONS.PROHIBITED) {
         hasUrgentChange = true;
         prohibitedReasons = route.reasons || [];
-        break;
+        // Halt agent briefly so they do not continue advancing toward the prohibited zone
+        agent.reroutePause = Math.max(agent.reroutePause || 0, 0.6);
       }
     }
 
     if (hasUrgentChange) {
-      // Get current fire locations
-      const fireLocations = [];
-      this.fireSystem.activeFires.forEach(f => {
-        fireLocations.push(f.basePos);
-      });
-
-      // Reevaluate with current assignments to preserve progress
-      const optimizationResult = this.crowdOptimizer.reevaluateRoutes(
-        this.agentCrowd.agents,
-        this.agentCrowd.agents.map(a => ({
-          agentId: a.id,
-          exitId: a.currentExitId,
-          routeCondition: a.currentRouteCondition,
-          path: a.path,
-          currentWaypointIdx: a.currentWaypointIdx
-        })),
-        fireLocations,
-        { routingContext: this.routingHazardContext }
-      );
-
-      this._applyAssignments(optimizationResult.assignments, {
+      this.requestOffThreadReevaluation({
         reason: 'Current route prohibited',
         reasons: prohibitedReasons,
         severity: 'Medium'
       });
-      // Update grid with latest hazard state after urgent reevaluation
-      this.applyHazardStateToGrid();
       return true;
     }
 
     return false;
   }
 
-  // Phase 5C: Route reevaluation - returns true if routes were updated
+  // Phase 5C: Route reevaluation - non-blocking off-thread reevaluation
   reevaluateRoutes() {
     if (!this.isSimulating || !this.hazardState || !this.routingHazardContext?.availability?.available) {
       return false;
@@ -1341,26 +1519,10 @@ export class SceneManager {
     }
 
     this.lastRoutingContextHash = contextHash;
-
-    // Get current fire locations from fire system
-    const fireLocations = [];
-    this.fireSystem.activeFires.forEach(f => {
-      fireLocations.push(f.basePos);
-    });
-
-    // Reevaluate routes with current agent positions and evacuation state
-    const optimizationResult = this.crowdOptimizer.optimizeRoutes(
-      this.agentCrowd.agents,
-      fireLocations,
-      { routingContext: this.routingHazardContext, strategyType: this.activeStrategyType }
-    );
-
-    this._applyAssignments(optimizationResult.assignments, {
+    this.requestOffThreadReevaluation({
       reason: 'Routine route reevaluation',
       severity: 'Info'
     });
-    // Update grid with latest hazard state after reevaluation
-    this.applyHazardStateToGrid();
     return true;
   }
 
@@ -1477,6 +1639,18 @@ export class SceneManager {
       if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
       }
     }
+  }
+
+  // Scenario Studio: apply Heat Release Rate / Smoke Generation / Propagation
+  // Model tuning to an already-spawned fire (called right after triggerFire).
+  setFireTuning(roomId, tuning = {}) {
+    if (!this.fireSystem || !this.fireSystem.activeFires) return false;
+    const fire = this.fireSystem.activeFires.get(roomId);
+    if (!fire) return false;
+    if (typeof tuning.intensityScale === 'number') fire.intensityScale = tuning.intensityScale;
+    if (typeof tuning.smokeRateScale === 'number') fire.smokeRateScale = tuning.smokeRateScale;
+    if (typeof tuning.growthSpeed === 'number') fire.growthSpeed = tuning.growthSpeed;
+    return true;
   }
 
   extinguishFire(roomId) {
@@ -1730,7 +1904,7 @@ export class SceneManager {
   // COMMAND CENTER: smoke-only incident (heavy smoke, no flames)
   // Works for a real room id (f7_r3) or a real corridor segment (corr_f7_west)
   // ============================================================================
-  spawnSmoke(locationId) {
+  spawnSmoke(locationId, opts = {}) {
     let room = null;
     const seg = this.parseSegId(locationId);
     const floorH = this.building ? this.building.floorHeight : 3.8;
@@ -1782,9 +1956,13 @@ export class SceneManager {
       if (fire.floorCharMesh) fire.floorCharMesh.visible = false;
       if (fire.sparkPoints) fire.sparkPoints.visible = false;
       if (fire.light) {
-        fire.light.color.setHex(0x5a616b);
+        // opts.tint → toxic-gas cloud color (default: grey smoke)
+        fire.light.color.setHex(opts.tint || 0x5a616b);
         fire.light.intensity = 0.35;
         fire.light.distance = 9;
+      }
+      if (opts.gasTint && fire.smokeInstanceOpacity) {
+        fire.gasTint = opts.gasTint;
       }
     }
 
@@ -2306,22 +2484,39 @@ export class SceneManager {
   }
 
   startEvacuation(scenario = null, strategy = null) {
+    if (this._evacuationStartPromise) return this._evacuationStartPromise;
+    const pendingStart = this._startEvacuation(scenario, strategy);
+    this._evacuationStartPromise = pendingStart;
+    return pendingStart.finally(() => {
+      if (this._evacuationStartPromise === pendingStart) {
+        this._evacuationStartPromise = null;
+      }
+    });
+  }
+
+  async _startEvacuation(scenario = null, strategy = null) {
     if (this.evacuationCompleted) {
       // Evacuation strictly runs once per scenario until Reset is clicked
       return null;
     }
-    this.isSimulating = true;
+    // Keep the scene responsive and occupants stationary while the initial
+    // worker plan is being calculated. Movement and elapsed time begin once
+    // every occupant has an assigned route.
+    this.isSimulating = false;
+    if (this._clock.running) this._clock.stop();
     this.elapsedSeconds = 0;
     this.pausedElapsedSeconds = 0;
     this.lastRoutingContextHash = null;
-    this.reevaluationCooldown = 0;
+    // Let the initial worker plan settle before any routine full-crowd replan.
+    // Starting at zero used to run a duplicate optimizer on the main thread
+    // during the first animation frame while the worker was planning routes.
+    this.reevaluationCooldown = this.minReevaluationInterval;
+    this._hazardWorkAccumulator = 0;
+    this._liveRoutingAccumulator = 0;
+    this._initialRoutePlanPending = true;
     this.pendingRerouteEvents = [];
     this._lastRerouteAt = 0;
-
-    // Start the clock
-    if (!this._clock.running) {
-      this._clock.start();
-    }
+    const runToken = ++this._evacuationRunToken;
 
     // Phase 5C: Initialize hazard state from active scenario if not already initialized
     if (!this.hazardState && this.activeScenario) {
@@ -2356,16 +2551,43 @@ export class SceneManager {
 
     let optimizationResult;
     if (this.crowdOptimizer) {
-      optimizationResult = this.crowdOptimizer.optimizeRoutes(this.agentCrowd.agents, fireLocations, blockedExitIds, strategyType, floorBlockedMap, this.structuralCollapseZones.length ? this.structuralCollapseZones : (this.structuralCollapseZones.length ? this.structuralCollapseZones : this.manualStructuralCollapse));
+      const structuralCollapse = this.structuralCollapseZones.length
+        ? this.structuralCollapseZones
+        : this.manualStructuralCollapse;
+      optimizationResult = await this.optimizeEvacuationRoutesOffThread({
+        agents: this.agentCrowd.agents,
+        fireLocations,
+        blockedExitIds,
+        strategyType,
+        floorBlockedMap,
+        structuralCollapse
+      });
+      if (runToken !== this._evacuationRunToken) return null;
     } else if (this.routeOptimizer) {
       optimizationResult = this.routeOptimizer.optimizeEvacuationRoutes(this.agentCrowd.agents, blockedExitIds, floorBlockedMap || {});
     }
 
     if (optimizationResult && optimizationResult.assignments) {
-      this._applyAssignments(optimizationResult.assignments, { isInitial: true });
-      if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
+      if (optimizationResult.assignments.length) {
+        this._applyAssignments(optimizationResult.assignments, { isInitial: true, deferRouteLines: true });
+      }
+      if (optimizationResult.exitStats && this.crowdOptimizer) {
+        const exitStatsById = new Map(optimizationResult.exitStats.map((exit) => [exit.id, exit]));
+        this.crowdOptimizer.exits.forEach((exit) => {
+          const updatedExit = exitStatsById.get(exit.id);
+          if (updatedExit) Object.assign(exit, updatedExit);
+        });
+      }
       if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
     }
+
+    this._initialRoutePlanPending = false;
+    this.reevaluationCooldown = this.minReevaluationInterval;
+
+    this.isSimulating = true;
+    this._clock.reset();
+    this._clock.start();
+    this.elapsedSeconds = 0;
 
     if (this.emergencyManager && !this.emergencyManager.isActive) {
       this.emergencyManager.dispatch(null, fireLocations);
@@ -2374,7 +2596,216 @@ export class SceneManager {
     return optimizationResult;
   }
 
+  _getRoutePlannerWorker() {
+    if (typeof Worker === 'undefined') return null;
+    if (!this._routePlannerWorker) {
+      if (this._routePlannerWarmWorker) {
+        this._routePlannerWorker = this._routePlannerWarmWorker;
+        this._routePlannerWarmWorker = null;
+      } else {
+        try {
+          this._routePlannerWorker = new Worker(
+            new URL('../simulation/evacuationPlanner.worker.js', import.meta.url),
+            { type: 'module' }
+          );
+        } catch (err) {
+          console.warn('[EvacPlanner] Worker creation failed', err);
+          return null;
+        }
+      }
+
+      this._routePlannerWorker.onmessage = this._onRoutePlannerMessage.bind(this);
+      this._routePlannerWorker.onerror = (err) => {
+        console.warn('[EvacPlanner] Worker error event', err);
+        if (this._routePlannerWorker) {
+          try { this._routePlannerWorker.terminate(); } catch {}
+          this._routePlannerWorker = null;
+        }
+      };
+    }
+    return this._routePlannerWorker;
+  }
+
+  _onRoutePlannerMessage({ data }) {
+    if (!data) return;
+
+    // Check simulation run token (reject response from prior run or after Reset)
+    if (data.runToken !== undefined && data.runToken !== this._evacuationRunToken) {
+      return;
+    }
+
+    // Initial route planning response
+    if (this._pendingInitialPlan && this._pendingInitialPlan.id === data.id) {
+      const { finish } = this._pendingInitialPlan;
+      this._pendingInitialPlan = null;
+      if (data.error) {
+        finish(null, data.error);
+      } else {
+        finish(data.result);
+      }
+      return;
+    }
+
+    // Dynamic route reevaluation response
+    if (this._pendingWorkerReeval && this._pendingWorkerReeval.id === data.id) {
+      const pending = this._pendingWorkerReeval;
+      this._pendingWorkerReeval = null;
+
+      // Reject stale version if a newer hazard context was already applied
+      const isStale = data.contextVersion !== undefined && data.contextVersion < this._latestAppliedRoutingVersion;
+      if (!isStale && data.contextVersion !== undefined) {
+        this._latestAppliedRoutingVersion = data.contextVersion;
+      }
+
+      if (data.error) {
+        console.warn('[EvacPlanner] Worker reevaluation error:', data.error);
+      } else if (!isStale && data.result && data.result.assignments && this.isSimulating) {
+        this._applyAssignments(data.result.assignments, {
+          reason: pending.reason,
+          reasons: pending.reasons,
+          severity: pending.severity
+        });
+        this.applyHazardStateToGrid();
+      }
+
+      // Trailing-edge execution: if a newer hazard context arrived while this request
+      // was executing off-thread, dispatch the coalesced request now.
+      if (this.isSimulating && this._queuedWorkerReeval && !this._initialRoutePlanPending) {
+        const next = this._queuedWorkerReeval;
+        this._queuedWorkerReeval = null;
+        this.requestOffThreadReevaluation(next);
+      }
+    }
+  }
+
+  optimizeEvacuationRoutesOffThread(options) {
+    if (!this.crowdOptimizer || !this.navGrid) {
+      return Promise.resolve(null);
+    }
+
+    const worker = this._getRoutePlannerWorker();
+    if (!worker) {
+      console.warn('[EvacPlanner] Worker unavailable; planning on UI thread.');
+      return Promise.resolve(this.crowdOptimizer.optimizeRoutes(
+        options.agents,
+        options.fireLocations,
+        options.blockedExitIds,
+        options.strategyType,
+        options.floorBlockedMap,
+        options.structuralCollapse
+      ));
+    }
+
+    const requestId = `evac_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const runToken = this._evacuationRunToken;
+
+    const plainAgents = options.agents.map((agent) => ({
+      id: agent.id,
+      roomId: agent.roomId,
+      floor: agent.floor,
+      x: agent.x,
+      y: agent.y,
+      z: agent.z,
+      state: agent.state,
+      isEvacuated: agent.isEvacuated,
+      currentExitId: agent.currentExitId
+    }));
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (result, error) => {
+        if (settled) return;
+        settled = true;
+        this._pendingInitialPlan = null;
+        if (error || !result) {
+          console.warn('[EvacPlanner] Worker initial plan failed, fallback to UI thread', error);
+          resolve(this.crowdOptimizer.optimizeRoutes(
+            options.agents,
+            options.fireLocations,
+            options.blockedExitIds,
+            options.strategyType,
+            options.floorBlockedMap,
+            options.structuralCollapse
+          ));
+        } else {
+          resolve(result);
+        }
+      };
+
+      this._pendingInitialPlan = { id: requestId, finish };
+
+      try {
+        worker.postMessage({
+          id: requestId,
+          type: 'optimize',
+          runToken,
+          agents: plainAgents,
+          fireLocations: options.fireLocations,
+          blockedExitIds: options.blockedExitIds,
+          strategyType: options.strategyType,
+          floorBlockedMap: options.floorBlockedMap,
+          structuralCollapse: options.structuralCollapse,
+          exits: this.crowdOptimizer.exits.map((exit) => ({ ...exit })),
+          grid: this.navGrid.grid,
+          hazardCosts: this.navGrid.hazardCosts,
+          congestionCosts: this.navGrid.congestionCosts,
+          structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries())
+        });
+      } catch (error) {
+        finish(null, error);
+      }
+    });
+  }
+
+  _terminateRoutePlannerWorker() {
+    if (this._routePlannerWorker) {
+      try {
+        this._routePlannerWorker.onmessage = null;
+        this._routePlannerWorker.onerror = null;
+        this._routePlannerWorker.terminate();
+      } catch {}
+      this._routePlannerWorker = null;
+    }
+    if (this._routePlannerWarmWorker) {
+      try {
+        this._routePlannerWarmWorker.onerror = null;
+        this._routePlannerWarmWorker.terminate();
+      } catch {}
+      this._routePlannerWarmWorker = null;
+    }
+    if (this._pendingInitialPlan) {
+      const { finish } = this._pendingInitialPlan;
+      this._pendingInitialPlan = null;
+      if (finish) finish(null, new Error('Worker terminated on reset'));
+    }
+    this._pendingWorkerReeval = null;
+    this._queuedWorkerReeval = null;
+  }
+
+  _primeEvacuationPlannerWorker() {
+    if (typeof Worker === 'undefined') return;
+    try {
+      this._routePlannerWarmWorker = new Worker(
+        new URL('../simulation/evacuationPlanner.worker.js', import.meta.url),
+        { type: 'module' }
+      );
+      const warmWorker = this._routePlannerWarmWorker;
+      warmWorker.onerror = () => {
+        if (this._routePlannerWarmWorker === warmWorker) {
+          warmWorker.terminate();
+          this._routePlannerWarmWorker = null;
+        }
+      };
+    } catch {
+      this._routePlannerWarmWorker = null;
+    }
+  }
+
   pauseSimulation() {
+    if (this._initialRoutePlanPending) {
+      this._evacuationRunToken++;
+      this._initialRoutePlanPending = false;
+    }
     this.isSimulating = false;
     if (this._clock.running) {
       this._clock.stop();
@@ -2389,6 +2820,16 @@ export class SceneManager {
   }
 
   reset(rooms = null) {
+    this._evacuationRunToken++;
+    this._evacuationStartPromise = null;
+    this._pendingInitialPlan = null;
+    this._pendingWorkerReeval = null;
+    this._queuedWorkerReeval = null;
+    this._terminateRoutePlannerWorker();
+    this._primeEvacuationPlannerWorker();
+    this.evacuationCompleted = false;
+    this._routingVersion++;
+    this._latestAppliedRoutingVersion = this._routingVersion;
     this.isSimulating = false;
     this.elapsedSeconds = 0;
     this._lastStatsUpdate = 0;
@@ -2412,6 +2853,9 @@ export class SceneManager {
     this.riskAssessment = null;
     this.lastRoutingContextHash = null;
     this.reevaluationCooldown = 0;
+    this._hazardWorkAccumulator = 0;
+    this._liveRoutingAccumulator = 0;
+    this._initialRoutePlanPending = false;
     this._clock.reset();
     // Phase 5D: Clear zone-to-grid mapper
     if (this._zoneToGridMapper) {
@@ -2509,6 +2953,48 @@ export class SceneManager {
       if (this.emergencyLightGroup) this.emergencyLightGroup.visible = false;
       this.emergencyPulseLights.forEach((l) => { l.visible = false; l.intensity = 0; });
       this.powerFailureState.active = false;
+    }
+    return true;
+  }
+
+  // ── Scenario Studio: building-wide (global) environment toggles ──────────
+  // Global blackout across every floor slab (not a localized zone).
+  setGlobalPowerFailure(active) {
+    const enabled = !!active;
+    if (!this.building || !this.building.setZonePowerOff) return false;
+    const totalFloors = this.building.totalFloors || 10;
+    for (let f = 1; f <= totalFloors; f++) {
+      // bounds=null → full-floor slab (Building3D default bounds)
+      this.building.setZonePowerOff(f, null, enabled);
+    }
+    if (enabled) {
+      this.ensureEmergencyLighting();
+      if (this.emergencyLightGroup) this.emergencyLightGroup.visible = true;
+      this.emergencyPulseLights.forEach((l) => { l.visible = true; });
+      this.powerFailureState.active = true;
+    } else {
+      if (this.emergencyLightGroup) this.emergencyLightGroup.visible = false;
+      this.emergencyPulseLights.forEach((l) => { l.visible = false; l.intensity = 0; });
+      this.powerFailureState.active = false;
+    }
+    return true;
+  }
+
+  // Global HVAC pressurization loss → smoke spreads across ALL floors.
+  setGlobalHvacFailure(active) {
+    const enabled = !!active;
+    if (this.fireSystem && this.fireSystem.setHvacFailure) {
+      // empty affected-floors array → FireParticles treats it as ALL floors
+      this.fireSystem.setHvacFailure(enabled, []);
+    }
+    if (this.crowd && this.crowd.setHvacFailure) this.crowd.setHvacFailure(enabled);
+    return true;
+  }
+
+  // Elevator bank grounding: recall & park every cab at Level 1 (L1).
+  setElevatorLocked(locked) {
+    if (this.building && this.building.setElevatorLocked) {
+      this.building.setElevatorLocked(!!locked);
     }
     return true;
   }
@@ -3139,6 +3625,10 @@ export class SceneManager {
     }
 
     if (this.agentCrowd) {
+      if (this.agentCrowd.processRouteLineBuilds) {
+        // Creating many BufferGeometries in one frame can stall the first run.
+        this.agentCrowd.processRouteLineBuilds(3);
+      }
       // Calculate simulation delta scaled by simulation speed
       const effectiveSimDelta = simDelta * this.simSpeed;
 
@@ -3146,40 +3636,55 @@ export class SceneManager {
       if (this.isSimulating && this.hazardState && this.buildingGraph) {
         // 1. Advance simulation time
         this.elapsedSeconds += effectiveSimDelta;
-
-        // 2. Advance hazard propagation (includes updateRoutingContext + applyHazardStateToGrid)
-        this.advanceHazardState(effectiveSimDelta);
+        this._hazardWorkAccumulator += effectiveSimDelta;
         this.reevaluationCooldown -= effectiveSimDelta;
 
-        // 3. Check for urgent reevaluation (newly prohibited current routes)
-        const urgentReeval = this.checkUrgentReevaluation();
-        if (urgentReeval) {
-          this.reevaluationCooldown = this.minReevaluationInterval;
-        } else if (this.reevaluationCooldown <= 0 && this.routingHazardContext?.availability?.available) {
-          // 4. Regular cooldown-based reevaluation (includes applyHazardStateToGrid)
-          this.reevaluateRoutes();
+        // Propagation, risk assessment, grid remapping and route checks operate
+        // on the whole building/crowd. Run them at 4 Hz instead of every RAF.
+        if (this._hazardWorkAccumulator >= this._hazardWorkInterval) {
+          const hazardDelta = this._hazardWorkAccumulator;
+          this._hazardWorkAccumulator = 0;
+          this.advanceHazardState(hazardDelta);
+
+          // Check newly prohibited routes only after the hazard context changes.
+          if (!this._initialRoutePlanPending) {
+            const urgentReeval = this.checkUrgentReevaluation();
+            if (urgentReeval) {
+              this.reevaluationCooldown = this.minReevaluationInterval;
+            } else if (
+              this.reevaluationCooldown <= 0 &&
+              this.routingHazardContext?.availability?.available
+            ) {
+              this.reevaluateRoutes();
+              this.reevaluationCooldown = this.minReevaluationInterval;
+            }
+          }
         }
       }
 
       // 6. Update agents with current valid routes (after hazard/routing updates)
       const stats = this.agentCrowd.update(renderDelta, this.isSimulating ? this.simSpeed : 0);
 
-      // Update live edge occupancy from agent positions (for congestion-aware routing)
-      if (this.navigationGraph && this.isSimulating) {
-        this.navigationGraph.updateLiveOccupancy(this.agentCrowd.agents);
-      }
-
-      // Update live grid congestion from agent positions (for pathfinding)
-      if (this.navGrid && this.isSimulating) {
-        this.navGrid.updateAgentCongestion(this.agentCrowd.agents);
-      }
-
-      if (this.exitCongestionVisualizer) {
-        this.exitCongestionVisualizer.update({
-          exits: this.crowdOptimizer.exits,
-          agents: this.agentCrowd.agents,
-          navigationGraph: this.navigationGraph
-        });
+      // Occupancy, grid congestion and its visualization are crowd-wide work.
+      // Refresh at 5 Hz; agent movement and rendering remain frame-smooth.
+      if (this.isSimulating) {
+        this._liveRoutingAccumulator += renderDelta;
+        if (this._liveRoutingAccumulator >= this._liveRoutingInterval) {
+          this._liveRoutingAccumulator = 0;
+          if (this.navigationGraph) {
+            this.navigationGraph.updateLiveOccupancy(this.agentCrowd.agents);
+          }
+          if (this.navGrid) {
+            this.navGrid.updateAgentCongestion(this.agentCrowd.agents);
+          }
+          if (this.exitCongestionVisualizer) {
+            this.exitCongestionVisualizer.update({
+              exits: this.crowdOptimizer.exits,
+              agents: this.agentCrowd.agents,
+              navigationGraph: this.navigationGraph
+            });
+          }
+        }
       }
 
       if (this.isSimulating) {
@@ -3204,6 +3709,7 @@ export class SceneManager {
             else if (agent.state === 'EVACUATING') evacuating++;
           }
 
+          const isDone = stats.inTransit === 0 && stats.total > 0;
           this.onStatsUpdate({
             ...stats,
             waiting,
@@ -3211,8 +3717,12 @@ export class SceneManager {
             strategy: resolveStrategyInfo(this.activeStrategyType, this.activeStrategy),
             rerouteEvents: this.pendingRerouteEvents.splice(0),
             elapsedSeconds: currentFloorSec,
-            isCompleted: stats.inTransit === 0 && stats.total > 0
+            isCompleted: isDone
           });
+          if (isDone) {
+            this.isSimulating = false;
+            this.evacuationCompleted = true;
+          }
         }
       }
     }
@@ -3227,7 +3737,7 @@ export class SceneManager {
       }
     }
 
-    if (this.renderer && this.scene && this.camera) {
+    if (!this._renderPreparationPending && this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);
     }
   };
@@ -3341,6 +3851,7 @@ export class SceneManager {
   }
 
   dispose() {
+    this._evacuationRunToken++;
     this.isDisposed = true;
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
@@ -3397,6 +3908,7 @@ export class SceneManager {
       if (this._collapseDustMat) this._collapseDustMat.dispose();
       this.structuralRubbleGroup = null;
     }
+    this._terminateRoutePlannerWorker();
     if (this.renderer && this.renderer.domElement && this.container && this.container.contains(this.renderer.domElement)) {
       this.renderer.dispose();
       this.container.removeChild(this.renderer.domElement);

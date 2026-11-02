@@ -2267,6 +2267,19 @@ export class Building3D {
     });
   }
   // === Digital Twin Presentation Modes & Layer Filters ===
+  // Elevator bank grounding (Fire Safety Code): recall every cab to Level 1
+  // and freeze it there while locked.
+  setElevatorLocked(locked) {
+    this.elevatorsLocked = !!locked;
+    if (this.elevatorsLocked && this.elevatorCars && this.elevatorCars.length > 0) {
+      this.elevatorCars.forEach((car) => {
+        car.y = car.minY;
+        if (car.mesh) car.mesh.position.y = car.y;
+      });
+    }
+    return this.elevatorsLocked;
+  }
+
   getElevatorStatus() {
     if (!this.elevatorCars || this.elevatorCars.length === 0) {
       return [
@@ -2530,6 +2543,7 @@ export class Building3D {
     }
     if (this.elevatorCars && this.elevatorCars.length > 0) {
       this.elevatorCars.forEach(car => {
+        if (this.elevatorsLocked) return; // grounded at L1 — no travel
         car.y += car.speed * car.direction * delta;
         if (car.y >= car.maxY) {
           car.y = car.maxY;

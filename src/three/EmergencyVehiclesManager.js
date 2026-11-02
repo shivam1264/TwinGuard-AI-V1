@@ -624,8 +624,16 @@ export class EmergencyVehiclesManager {
 
     this.updateVehiclePositions(0.0);
 
-    // Turn emergency siren alarm ON by default when dispatched
-    this.startSirenAudio();
+    // Turn emergency siren alarm ON by default when dispatched (asynchronous to eliminate frame hitch)
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        if (this.isActive && !this.isSirenMuted) {
+          this.startSirenAudio();
+        }
+      }, 0);
+    } else {
+      this.startSirenAudio();
+    }
   }
 
   setVehiclesVisibility(visible) {
@@ -869,7 +877,7 @@ export class EmergencyVehiclesManager {
       // Fundamental frequencies are an octave lower, deep, warm, and authoritative
       const now = this.audioCtx.currentTime;
       const cycleLength = 2.4; // 2.4s smooth authentic emergency cadence
-      for (let i = 0; i < 60; i++) {
+      for (let i = 0; i < 8; i++) {
         const t0 = now + i * cycleLength;
         this.sirenOsc.frequency.setValueAtTime(415, t0);
         this.sirenOsc.frequency.exponentialRampToValueAtTime(550, t0 + cycleLength * 0.5);

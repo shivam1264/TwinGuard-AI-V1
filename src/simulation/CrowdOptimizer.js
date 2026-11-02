@@ -20,7 +20,7 @@ export class CrowdOptimizer {
     };
   }
 
-  optimizeRoutes(agents, fireLocations = [], blockedExitIds = [], strategyType = 'LOAD_BALANCED', floorBlockedMap = null, structuralCollapse = null) {
+  optimizeRoutes(agents, fireLocations = [], blockedExitIds = [], strategyType = 'LOAD_BALANCED', floorBlockedMap = null, structuralCollapse = null, onAssignmentBatch = null) {
     // Backward-compatible: support options-object calling convention
     // optimizeRoutes(agents, fireLocations, { blockedExitIds, strategyType, routingContext, floorBlockedMap })
     let routingContext = null;
@@ -217,12 +217,17 @@ export class CrowdOptimizer {
 
     const bottlenecks = [];
     const assignments = [];
+    const progressBatch = [];
     const hazardAware = routingContext?.availability?.available === true;
     let requiresOperatorReview = false;
 
     // Initialize tentative loads from live exit loads (updated each frame by SceneManager)
     const tentativeLoads = new Map();
+    // Route caches live only for this planning pass. Grid hazards and
+    // structural blocks can change between passes, so retaining these paths
+    // would make later plans reuse stale routes.
     const corridorPathCache = new Map();
+    const roomPathCache = new Map();
     this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
     agents.forEach((agent, index) => {
@@ -398,12 +403,19 @@ let fallbackAssignment = false;
         if (agent.roomId) {
           const doorway = getRoomDoorway(agent.roomId);
 
-          // Path 1: From agent's position inside room to inside doorway staging point
-          const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
+          // Path 1: From agent's position inside room to inside doorway staging point (cached)
+          const roomCacheKey = `${agentFloor}:${agent.x.toFixed(1)},${agent.z.toFixed(1)}->${doorway.inside.x},${doorway.inside.z}`;
+          let pathInsideRoom = roomPathCache.get(roomCacheKey);
+          if (!pathInsideRoom) {
+            pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
+            if (pathInsideRoom && pathInsideRoom.length > 0) {
+              roomPathCache.set(roomCacheKey, pathInsideRoom);
+            }
+          }
 
           // Path 2: From corridor staging point along central corridor to stairwell/exit entry
           let effectiveStairEntry = stairEntry;
-          const corridorCacheKey = `${doorway.corridor.x},${doorway.corridor.z}->${effectiveStairEntry.x},${effectiveStairEntry.z}`;
+          const corridorCacheKey = `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${effectiveStairEntry.x},${effectiveStairEntry.z}`;
           let pathInCorridor = corridorPathCache.get(corridorCacheKey);
           if (!pathInCorridor) {
             pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
@@ -570,7 +582,7 @@ let fallbackAssignment = false;
           full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
         }
 
-        assignments.push({
+        const assignment = {
           agentId: agent.id,
           exitId: actualExit.id,
           exitName: actualExit.name,
@@ -584,9 +596,16 @@ let fallbackAssignment = false;
           noPermittedCandidate: fallbackAssignment,
           requiresOperatorReview: fallbackAssignment,
           delayTimer: delayTimer
-        });
+        };
+        assignments.push(assignment);
+        if (onAssignmentBatch) {
+          progressBatch.push(assignment);
+          if (progressBatch.length >= 8) onAssignmentBatch(progressBatch.splice(0));
+        }
       }
     });
+
+    if (onAssignmentBatch && progressBatch.length) onAssignmentBatch(progressBatch.splice(0));
 
     // Recalculate loads on operational exits from assignments
     this.exits.forEach(e => {
@@ -670,6 +689,10 @@ let fallbackAssignment = false;
     const tentativeLoads = new Map();
     this.exits.forEach(e => tentativeLoads.set(e.id, e.load || 0));
 
+    // Scoped sub-path caches for this reevaluation pass to avoid repeated graph searches
+    const corridorPathCache = new Map();
+    const roomPathCache = new Map();
+
     // Build a map of current assignments for quick lookup
     const currentAssignmentMap = new Map();
     if (currentAssignments) {
@@ -707,11 +730,11 @@ let fallbackAssignment = false;
 
       const candidates = [];
 
-      // Check if current route is still valid and agent has made significant progress
+      // Check if current route is still valid
+      // Keep route stable from the very first step so agents do not flip exits at the room doorway
       const currentRouteStillValid = currentExitId &&
         availableExits.some(e => e.id === currentExitId) &&
-        currentRouteCondition !== ROUTE_CONDITIONS.PROHIBITED &&
-        progressRatio > 0.1; // Keep route if agent has made >10% progress
+        currentRouteCondition !== ROUTE_CONDITIONS.PROHIBITED;
 
       for (const exit of availableExits) {
         const stairEntry = this.stairwellEntries[exit.id];
@@ -814,7 +837,7 @@ bestScore = score;
         const doorway = getRoomDoorway(agent.roomId);
         const stairEntry = this.stairwellEntries[bestExit.id];
         const seed = agent.id ? agent.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) : 1;
-        const full3DPath = this.buildFull3DPath(agent, bestExit, doorway, stairEntry, seed);
+        const full3DPath = this.buildFull3DPath(agent, bestExit, doorway, stairEntry, seed, corridorPathCache, roomPathCache);
 
         assignments.push({
           agentId: agent.id,
@@ -833,7 +856,7 @@ bestScore = score;
           alternatives: candidatePool
             .filter(c => c.exit.id !== bestExit.id)
             .map(c => {
-              const altPath = this.buildFull3DPath(agent, c.exit, doorway, this.stairwellEntries[c.exit.id], seed);
+              const altPath = this.buildFull3DPath(agent, c.exit, doorway, this.stairwellEntries[c.exit.id], seed, corridorPathCache, roomPathCache);
               return {
                 exitId: c.exit.id,
                 exitName: c.exit.name,
@@ -899,12 +922,40 @@ bestScore = score;
    * Build a complete 3D evacuation path for an agent to a specific exit.
    * Includes: room interior → doorway → corridor → stairwell descent → exit portal → muster zone.
    */
-  buildFull3DPath(agent, exit, doorway, stairEntry, seed) {
-    // Path 1: From agent's position inside room to inside doorway staging point
-    const pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
+  buildFull3DPath(agent, exit, doorway, stairEntry, seed, corridorCache = null, roomCache = null) {
+    const agentFloor = agent.floor || (agent.y !== undefined ? Math.floor(agent.y / this.floorHeight) + 1 : 1);
 
-    // Path 2: From corridor staging point along central corridor to stairwell
-    const pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z);
+    // Path 1: From agent's position inside room to inside doorway staging point
+    let pathInsideRoom;
+    if (doorway && doorway.inside) {
+      const roomKey = roomCache ? `${agentFloor}:${agent.x.toFixed(1)},${agent.z.toFixed(1)}->${doorway.inside.x},${doorway.inside.z}` : null;
+      if (roomKey && roomCache.has(roomKey)) {
+        pathInsideRoom = roomCache.get(roomKey);
+      } else {
+        pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z) || [];
+        if (roomKey && roomCache && pathInsideRoom.length > 0) {
+          roomCache.set(roomKey, pathInsideRoom);
+        }
+      }
+    } else {
+      pathInsideRoom = [];
+    }
+
+    // Path 2: From corridor staging point along central corridor to stairwell (cached per floor/corridor/stair)
+    let pathInCorridor;
+    if (doorway && doorway.corridor && stairEntry) {
+      const corridorKey = corridorCache ? `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${stairEntry.x},${stairEntry.z}` : null;
+      if (corridorKey && corridorCache.has(corridorKey)) {
+        pathInCorridor = corridorCache.get(corridorKey);
+      } else {
+        pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z) || [];
+        if (corridorKey && corridorCache && pathInCorridor.length > 0) {
+          corridorCache.set(corridorKey, pathInCorridor);
+        }
+      }
+    } else {
+      pathInCorridor = [];
+    }
 
     // Stitch together seamlessly
     const full3DPath = [];
@@ -913,10 +964,12 @@ bestScore = score;
       full3DPath.push({ x: pt.x, y: agent.y, z: pt.z });
     });
 
-    // Exact physical door transit (guaranteed zero wall clipping)
-    full3DPath.push({ x: doorway.inside.x, y: agent.y, z: doorway.inside.z });
-    full3DPath.push({ x: doorway.door.x, y: agent.y, z: doorway.door.z });
-    full3DPath.push({ x: doorway.corridor.x, y: agent.y, z: doorway.corridor.z });
+    if (doorway && doorway.inside && doorway.door && doorway.corridor) {
+      // Exact physical door transit (guaranteed zero wall clipping)
+      full3DPath.push({ x: doorway.inside.x, y: agent.y, z: doorway.inside.z });
+      full3DPath.push({ x: doorway.door.x, y: agent.y, z: doorway.door.z });
+      full3DPath.push({ x: doorway.corridor.x, y: agent.y, z: doorway.corridor.z });
+    }
 
     pathInCorridor.forEach((pt, idx) => {
       if (idx > 0) {

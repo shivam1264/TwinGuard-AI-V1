@@ -23,6 +23,7 @@ import { EvacueeQrModal } from './components/EvacueeQrModal';
 import { SosAlertModal } from './components/SosAlertModal';
 import GisMapDrawer from './components/gis/GisMapDrawer';
 import { LoginModal } from './components/LoginModal';
+import { DEMO_LOGIN, LoginPage } from './components/LoginPage';
 import { ScenariosView } from './components/ScenariosView';
 import { StrategyRankerView } from './components/StrategyRankerView';
 import { IncidentsView } from './components/IncidentsView';
@@ -126,6 +127,14 @@ export function App() {
   const [bottlenecks, setBottlenecks] = useState([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simSpeed, setSimSpeed] = useState(1.0);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return localStorage.getItem('twinguard_demo_auth') === 'remembered'
+        || sessionStorage.getItem('twinguard_demo_auth') === 'session';
+    } catch {
+      return false;
+    }
+  });
   const [facadeMode, setFacadeMode] = useState('FULL');
   const [activeFloorView, setActiveFloorView] = useState('ALL');
   const [activeCameraPreset, setActiveCameraPreset] = useState('HERO_VIEW');
@@ -209,6 +218,7 @@ export function App() {
   });
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!threeCanvasRef.current) return;
 
     const manager = new SceneManager(
@@ -273,7 +283,7 @@ export function App() {
       if (sceneManagerRef.current === manager) sceneManagerRef.current = null;
       if (window.__sceneManager === manager) delete window.__sceneManager;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Force 3D resize when switching to LIVE_VIEW so canvas immediately adapts
   useEffect(() => {
@@ -403,6 +413,7 @@ export function App() {
 
   // Socket.io backend sync
   useEffect(() => {
+    if (!isAuthenticated) return;
     const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
     const socket = io(`http://${backendHost}:5000`, {
       transports: ['websocket', 'polling'],
@@ -448,7 +459,7 @@ export function App() {
       clearPendingFireTriggers(pendingFireTriggersRef.current);
       socket.disconnect();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   // Trigger Fire in a room
   const handleTriggerFire = (roomId, emitToServer = true, createIncident = true) => {
@@ -544,10 +555,78 @@ export function App() {
       const updatedExits = AIEngine.applyScenarioToExits ? AIEngine.applyScenarioToExits(INITIAL_EXITS) : INITIAL_EXITS;
       setExits(updatedExits);
 
-      if (newScenario.hazard && newScenario.hazard.roomId) {
+      const sm = sceneManagerRef.current;
+      const hazard = newScenario.hazard;
+
+      // ── 1. Hazard dispatch: spawn the RIGHT 3D effect per hazard type ──
+      if (hazard && hazard.roomId && sm) {
         setSystemStatus('ALARM');
-        if (sceneManagerRef.current) {
-          sceneManagerRef.current.triggerFire(newScenario.hazard.roomId);
+        const hzType = String(hazard.type || 'FIRE').toUpperCase();
+        if (hzType === 'SMOKE') {
+          sm.spawnSmoke(hazard.roomId);
+        } else if (hzType === 'CHEMICAL') {
+          // Toxic gas → smoke-only cloud with sickly green tint
+          sm.spawnSmoke(hazard.roomId, { tint: 0x6fae5a, gasTint: true });
+        } else if (hzType === 'COLLAPSE') {
+          // Structural failure → localized collapse at the hazard room
+          const loc = sm.getRoomMapping
+            ? sm.getRoomMapping(hazard.roomId)
+            : { id: hazard.roomId, floor: hazard.floor, category: 'ROOM' };
+          if (sm.setStructuralCollapse) sm.setStructuralCollapse(true, loc || { id: hazard.roomId, floor: hazard.floor, category: 'ROOM' });
+        } else {
+          // FIRE / ELECTRICAL ARC → live fire with spark emphasis
+          sm.triggerFire(hazard.roomId);
+        }
+
+        // ── 2. Fire tuning: Heat Release Rate + Smoke Generation + Propagation ──
+        if (sm.setFireTuning) {
+          const hrr = Number(hazard.heatReleaseRate) || 5500;
+          const sgr = Number(hazard.smokeGenRate) || 4.5;
+          const growthModel = String(newScenario.propagationModel || 'Standard (t² Growth)');
+          const growthSpeed =
+            growthModel === 'Rapid Flashover' ? 2.0 :
+            growthModel === 'Smoldering Slow' ? 0.4 : 1.0;
+          // Sprinkler suppression factor: AUTO damps growth, DELAYED lags, OFF uncontrolled
+          const sprinklerFactor =
+            hazard.sprinklers === 'AUTO' ? 0.8 :
+            hazard.sprinklers === 'DELAYED' ? 0.95 : 1.15;
+          sm.setFireTuning(hazard.roomId, {
+            intensityScale: Math.min(2.2, Math.max(0.3, (hrr / 5500) * sprinklerFactor)),
+            smokeRateScale: Math.min(2.6, Math.max(0.3, (sgr / 4.5) * (sprinklerFactor < 1 ? 1.1 : 1.0))),
+            growthSpeed: growthSpeed * (hazard.sprinklers === 'AUTO' ? 0.85 : hazard.sprinklers === 'DELAYED' ? 1.0 : 1.3)
+          });
+        }
+      }
+
+      // ── 3. Environment: Power Grid + HVAC → real 3D building systems ──
+      const cond = newScenario.conditions || {};
+      if (sm) {
+        if (typeof cond.powerGridFailure === 'boolean') {
+          AIEngine.togglePowerFailure?.(cond.powerGridFailure);
+          if (sm.setGlobalPowerFailure) sm.setGlobalPowerFailure(cond.powerGridFailure);
+        }
+        if (typeof cond.hvacFailure === 'boolean') {
+          AIEngine.toggleHvacFailure?.(cond.hvacFailure);
+          if (sm.setGlobalHvacFailure) sm.setGlobalHvacFailure(cond.hvacFailure);
+        }
+      }
+
+      // ── 4. Structural: elevator grounding + corridor blockages ──
+      const sf = newScenario.structuralFailures || {};
+      if (sm) {
+        if (typeof sf.elevatorLocked === 'boolean' && sm.setElevatorLocked) {
+          sm.setElevatorLocked(sf.elevatorLocked);
+        }
+        if (Array.isArray(sf.damagedCorridors) && sm.setStructuralCollapse) {
+          sf.damagedCorridors.forEach((corrId) => {
+            // Accept both 'f2_west' (studio) and 'corr_f2_west' (engine) forms
+            const segId = String(corrId).startsWith('corr_')
+              ? String(corrId)
+              : `corr_${String(corrId).startsWith('f') ? '' : 'f'}${corrId}`;
+            const m = /^corr_f(\d+)_/.exec(segId);
+            const floor = m ? parseInt(m[1], 10) : (hazard?.floor || 2);
+            sm.setStructuralCollapse(true, { id: segId, floor, category: 'CORRIDOR' });
+          });
         }
       }
 
@@ -557,22 +636,25 @@ export function App() {
     }
   };
 
-  const handleApplyStrategyToSimulation = (selectedStrategy) => {
+  const handleApplyStrategyToSimulation = async (selectedStrategy) => {
     if (AIEngine && AIEngine.setActiveStrategy) {
       AIEngine.setActiveStrategy(selectedStrategy);
     }
     if (sceneManagerRef.current) {
       if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
-      if (facadeMode === 'FULL') {
+      if (sceneManagerRef.current.prepareEvacuationView) {
+        await sceneManagerRef.current.prepareEvacuationView({ switchToCutaway: facadeMode === 'FULL' });
+      } else if (facadeMode === 'FULL') {
         handleSetFacadeMode('CUTAWAY');
       }
-      const result = sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
+      setIsSimulating(true);
+      setSystemStatus('EVACUATING');
+      const result = await sceneManagerRef.current.startEvacuation(activeScenario, selectedStrategy);
+      if (!result) return;
       if (result) {
         if (result.exitStats) setExits(result.exitStats);
         if (result.bottlenecks) setBottlenecks(result.bottlenecks);
       }
-      setIsSimulating(true);
-      setSystemStatus('EVACUATING');
       const appliedStrategy = selectedStrategy || AIEngine.getActiveStrategy?.();
       setActiveStrategyInfo(resolveStrategyInfo(appliedStrategy?.type, appliedStrategy));
       setLastReroute(null);
@@ -580,16 +662,18 @@ export function App() {
   };
 
   // Start Evacuation Simulation
-  const handleStartEvacuation = () => {
+  const handleStartEvacuation = async () => {
     if (!sceneManagerRef.current) return;
     if (systemStatus === 'COMPLETED' || sceneManagerRef.current.evacuationCompleted) return;
-    if (facadeMode === 'FULL') {
+    if (sceneManagerRef.current.prepareEvacuationView) {
+      await sceneManagerRef.current.prepareEvacuationView({ switchToCutaway: facadeMode === 'FULL' });
+    } else if (facadeMode === 'FULL') {
       handleSetFacadeMode('CUTAWAY');
     }
-    const result = sceneManagerRef.current.startEvacuation();
-    if (!result && sceneManagerRef.current.evacuationCompleted) return;
     setIsSimulating(true);
     setSystemStatus('EVACUATING');
+    const result = await sceneManagerRef.current.startEvacuation();
+    if (!result) return;
     const appliedStrategy = AIEngine.getActiveStrategy?.();
     setActiveStrategyInfo(resolveStrategyInfo(appliedStrategy?.type, appliedStrategy));
     setLastReroute(null);
@@ -614,6 +698,15 @@ export function App() {
       severity: 'Medium'
     };
     setIncidents((prev) => [evacIncident, ...prev]);
+  };
+
+  // Scenario Studio "Run Simulation": apply scenario → open 3D → auto-start
+  // evacuation (one-click full run; reuses handleStartEvacuation logic).
+  const handleRunFullSimulation = async () => {
+    handleSelectTab('LIVE_VIEW');
+    // Let the 3D canvas resize + scenario state settle before starting
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    await handleStartEvacuation();
   };
 
   const handlePauseResume = () => {
@@ -769,7 +862,31 @@ export function App() {
     handleSelectTab('LIVE_VIEW');
   }, [handleSelectTab]);
 
+  const handleDemoAuthenticate = ({ email, password, rememberMe }) => {
+    const isValid = email.toLowerCase() === DEMO_LOGIN.email && password === DEMO_LOGIN.password;
+    if (!isValid) return false;
+
+    try {
+      if (rememberMe) {
+        localStorage.setItem('twinguard_demo_auth', 'remembered');
+        sessionStorage.removeItem('twinguard_demo_auth');
+      } else {
+        localStorage.removeItem('twinguard_demo_auth');
+        sessionStorage.setItem('twinguard_demo_auth', 'session');
+      }
+    } catch {
+      // The current tab can still continue if browser storage is disabled.
+    }
+
+    setIsAuthenticated(true);
+    return true;
+  };
+
   const hasAnyFire = rooms.some((r) => r.hasFire);
+
+  if (!isAuthenticated) {
+    return <LoginPage onAuthenticate={handleDemoAuthenticate} />;
+  }
 
   return (
     <div
@@ -860,6 +977,7 @@ export function App() {
               currentScenario={activeScenario}
               onApplyScenario={handleApplyScenario}
               onSwitchToLive={handleSwitchToLive}
+              onRunFullSimulation={handleRunFullSimulation}
             />
           )}
 

@@ -108,34 +108,34 @@ export const TopHeader = ({
             <Menu className="w-4 h-4" />
           </button>
         )}
-        <div
-          className="flex items-center justify-center shrink-0 cursor-pointer transition-transform hover:scale-105"
+        <button
+          type="button"
+          className="flex items-center justify-center shrink-0 cursor-pointer transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
           onClick={() => onSelectTab && onSelectTab('LIVE_VIEW')}
           style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '11px',
-            background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.25) 0%, rgba(56, 189, 248, 0.15) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.35)',
-            boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)'
+            width: '46px',
+            height: '46px',
+            padding: 0,
+            border: 0,
+            background: 'transparent'
           }}
+          aria-label="Return to 3D Digital Twin"
           title="Return to 3D Digital Twin"
         >
-          {/* Cyan Glowing 3-Bar Tower Icon */}
-          <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 sm:w-6 sm:h-6">
-            <path
-              d="M3 20V12L8 8V20M8 20V4L16 4V20M16 20V9L21 13V20"
-              stroke="#38bdf8"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
+          <img
+            src="/assets/branding/twinguard-logo.png"
+            alt=""
+            width="46"
+            height="46"
+            draggable="false"
+            className="h-[46px] w-[46px] object-contain"
+          />
+        </button>
         <div>
           <div className="flex items-center gap-1.5">
             <span
               style={{
+                fontFamily: '"Times New Roman", Times, serif',
                 fontSize: '15px',
                 fontWeight: 900,
                 color: theme === 'dark' ? '#f8fafc' : '#0f172a',
@@ -149,6 +149,7 @@ export const TopHeader = ({
           <div
             className="hidden min-[420px]:block"
             style={{
+              fontFamily: '"Times New Roman", Times, serif',
               fontSize: '10px',
               fontWeight: 600,
               color: '#94a3b8',
