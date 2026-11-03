@@ -585,13 +585,14 @@ export class AgentCrowd {
             }
           } else {
             // Rerouted to different exit: pick nearest forward waypoint so agent steers smoothly forward
-            let bestIdx = 0;
+            let bestIdx = -1;
             let minDistSq = Infinity;
-            // Never target interior desk waypoints (index 0) if agent has already begun transiting
-            const minAllowedIdx = Math.min(2, Math.max(0, newPath.length - 1));
-            for (let i = minAllowedIdx; i < newPath.length; i++) {
+            const isAtGround = agent.y <= 0.45;
+            const maxAllowedY = isAtGround ? 0.35 : (agent.y + 0.2);
+
+            for (let i = 0; i < newPath.length; i++) {
               const pt = newPath[i];
-              if (pt.y <= agent.y + 0.5) {
+              if (pt.y <= maxAllowedY) {
                 const dSq = (pt.x - agent.x) ** 2 + (pt.y - agent.y) ** 2 + (pt.z - agent.z) ** 2;
                 if (dSq < minDistSq) {
                   minDistSq = dSq;
@@ -599,8 +600,11 @@ export class AgentCrowd {
                 }
               }
             }
+            if (bestIdx === -1) {
+              bestIdx = Math.max(0, newPath.length - 1);
+            }
             agent.path = newPath;
-            agent.currentWaypointIdx = Math.max(bestIdx, minAllowedIdx);
+            agent.currentWaypointIdx = bestIdx;
           }
         } else {
           // Initial assignment or waiting agent starting from desk
@@ -735,13 +739,16 @@ export class AgentCrowd {
         agent.state = 'EVACUATING';
         agent.assignedExitColor = assignment.exitColor;
       } else if (agent.state === 'EVACUATING') {
-        // Find nearest forward waypoint on same or lower altitude
+        // Find nearest forward waypoint on same or lower altitude (unidirectional downward flow)
         const newPath = assignment.path;
-        let bestIdx = 0;
+        let bestIdx = -1;
         let minDistSq = Infinity;
+        const isAtGround = agent.y <= 0.45;
+        const maxAllowedY = isAtGround ? 0.35 : (agent.y + 0.2);
+
         for (let i = 0; i < newPath.length; i++) {
           const pt = newPath[i];
-          if (pt.y <= agent.y + 0.5) {
+          if (pt.y <= maxAllowedY) {
             const dSq = (pt.x - agent.x) ** 2 + (pt.y - agent.y) ** 2 + (pt.z - agent.z) ** 2;
             if (dSq < minDistSq) {
               minDistSq = dSq;
@@ -749,7 +756,9 @@ export class AgentCrowd {
             }
           }
         }
-        if (bestIdx < newPath.length - 1 && minDistSq < 1.0) {
+        if (bestIdx === -1) {
+          bestIdx = Math.max(0, newPath.length - 1);
+        } else if (bestIdx < newPath.length - 1 && minDistSq < 1.0) {
           bestIdx++;
         }
         agent.path = newPath;
@@ -821,6 +830,7 @@ export class AgentCrowd {
     this.cachedStats = null;
     const effectiveDelta = delta * simSpeed;
     let evacuatedCount = 0;
+    const activeFires = this.getActiveFireList();
 
     const isSingleFloor = this.floorMode && this.floorMode !== 'ALL' && this.floorMode !== 'EXPLODED';
     const targetFloorNum = isSingleFloor ? parseInt(this.floorMode, 10) : null;
@@ -878,8 +888,16 @@ export class AgentCrowd {
 
       // Evacuating Human Locomotion
       if (agent.state === 'EVACUATING' && agent.path.length > 0) {
+        // Dynamically track agent's active floor level as they descend
+        agent.floor = Math.max(1, Math.floor((agent.y + 0.5) / this.floorHeight) + 1);
+
         if (agent.isSeated) {
           this.standUpAgent(agent);
+        }
+
+        // Live Dynamic Fire Avoidance: if fire is in front of or directly on agent's path, avoid and reroute immediately
+        if (this.checkAndAvoidFire(agent, activeFires)) {
+          continue;
         }
 
         const targetWaypoint = agent.path[agent.currentWaypointIdx];
@@ -960,7 +978,14 @@ export class AgentCrowd {
             const moveRatio = Math.min(1.0, step / totalDist);
 
             agent.x += dx * moveRatio;
-            agent.y += dy * moveRatio;
+            // STRICT UNIDIRECTIONAL DOWNWARD FLOW:
+            // Occupants evacuating must NEVER climb upward in altitude.
+            if (dy < -0.001) {
+              agent.y += dy * moveRatio;
+            } else if (dy > 0.05) {
+              // Target waypoint is above agent's current altitude - skip upward waypoint
+              agent.currentWaypointIdx++;
+            }
             agent.z += dz * moveRatio;
 
             // Canonical Navigation Coordinates: No vertical explosion offset
@@ -985,24 +1010,312 @@ export class AgentCrowd {
   }
 
   /**
+   * Extract all active fires into a normalized array regardless of whether
+   * activeFires is a Map, an Array, or object.
+   */
+  getActiveFireList() {
+    if (!this.fireSystem || !this.fireSystem.activeFires) return [];
+    const list = [];
+    if (this.fireSystem.activeFires instanceof Map) {
+      for (const [rId, f] of this.fireSystem.activeFires.entries()) {
+        if (!f) continue;
+        const fl = f.floor !== undefined ? f.floor : (f.basePos && f.basePos.floor !== undefined ? f.basePos.floor : null);
+        if (f.basePos) list.push({ ...f.basePos, roomId: rId, floor: fl, radius: f.radius || 5.0 });
+        else if (f.primarySource) list.push({ ...f.primarySource, roomId: rId, floor: fl, radius: f.radius || 5.0 });
+        if (f.secondarySource) list.push({ ...f.secondarySource, roomId: rId, floor: fl, radius: f.radius || 4.0 });
+      }
+    } else if (Array.isArray(this.fireSystem.activeFires)) {
+      for (const f of this.fireSystem.activeFires) {
+        if (!f) continue;
+        if (f.basePos) list.push({ ...f.basePos, floor: f.floor, radius: f.radius || 5.0 });
+        else list.push({ ...f, radius: f.radius || 5.0 });
+      }
+    }
+    return list;
+  }
+
+  /**
+   * Real-time Fire Avoidance Check:
+   * Inspects active fires on this agent's floor to verify whether any fire is directly
+   * in front of the agent or lying across the upcoming waypoints of their evacuation route.
+   * If detected, triggers immediate avoidance and safe rerouting away from the fire.
+   */
+  checkAndAvoidFire(agent, activeFires) {
+    if (!activeFires || activeFires.length === 0) return false;
+    if (agent.state !== 'EVACUATING' || !agent.path || agent.path.length === 0) return false;
+    if (agent.reroutePause > 0) return false;
+
+    const agentFloor = agent.floor || Math.max(1, Math.floor((agent.y + 0.5) / this.floorHeight) + 1);
+
+    // Filter fires active on this agent's floor
+    const floorFires = activeFires.filter(f => {
+      const fFloor = f.floor !== undefined ? Number(f.floor) : (f.y !== undefined ? Math.floor(f.y / this.floorHeight) + 1 : null);
+      if (fFloor !== null && fFloor === agentFloor) return true;
+      if (f.y !== undefined && Math.abs(agent.y - f.y) < 2.5) return true;
+      return false;
+    });
+
+    if (floorFires.length === 0) return false;
+
+    // Cooldown check: prevent rapid thrashing / re-pausing if agent was already rerouted recently
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (agent.lastRerouteTime && (now - agent.lastRerouteTime) < 1200) {
+      const isFatal = floorFires.some(f => Math.hypot((f.x || 0) - agent.x, (f.z || 0) - agent.z) < 3.0);
+      if (!isFatal) return false;
+    }
+
+    let fireInPath = false;
+    let threatFire = null;
+
+    // Helper: squared distance from point (px, pz) to segment (x1, z1) -> (x2, z2)
+    const distToSegmentSq = (px, pz, x1, z1, x2, z2) => {
+      const l2 = (x2 - x1) * (x2 - x1) + (z2 - z1) * (z2 - z1);
+      if (l2 === 0) return (px - x1) * (px - x1) + (pz - z1) * (pz - z1);
+      let t = ((px - x1) * (x2 - x1) + (pz - z1) * (z2 - z1)) / l2;
+      t = Math.max(0, Math.min(1, t));
+      const projX = x1 + t * (x2 - x1);
+      const projZ = z1 + t * (z2 - z1);
+      return (px - projX) * (px - projX) + (pz - projZ) * (pz - projZ);
+    };
+
+    for (const fire of floorFires) {
+      const fX = fire.x || 0;
+      const fZ = fire.z || 0;
+      const dangerRadius = Math.max(fire.radius || 4.2, 3.8);
+      const dangerRadiusSq = dangerRadius * dangerRadius;
+
+      // 1. Direct fatal proximity: fire is right on top of agent
+      const toFireDistSq = (fX - agent.x) * (fX - agent.x) + (fZ - agent.z) * (fZ - agent.z);
+      if (toFireDistSq < dangerRadiusSq) {
+        fireInPath = true;
+        threatFire = fire;
+        break;
+      }
+
+      // 2. Path trajectory intersection on current floor:
+      // Check segment from agent's current position to current waypoint
+      const curWp = agent.path[agent.currentWaypointIdx];
+      if (curWp && (curWp.y === undefined || Math.abs(curWp.y - agent.y) < 1.0)) {
+        if (distToSegmentSq(fX, fZ, agent.x, agent.z, curWp.x, curWp.z) < dangerRadiusSq) {
+          fireInPath = true;
+          threatFire = fire;
+          break;
+        }
+      }
+
+      // Check upcoming segments along the path on this floor (up to 8 waypoints ahead)
+      const maxWp = Math.min(agent.path.length - 1, agent.currentWaypointIdx + 8);
+      for (let w = agent.currentWaypointIdx; w < maxWp; w++) {
+        const p1 = agent.path[w];
+        const p2 = agent.path[w + 1];
+        if (p1.y !== undefined && Math.abs(p1.y - agent.y) > 1.0) break;
+        if (p2.y !== undefined && Math.abs(p2.y - agent.y) > 1.0) break;
+        if (distToSegmentSq(fX, fZ, p1.x, p1.z, p2.x, p2.z) < dangerRadiusSq) {
+          fireInPath = true;
+          threatFire = fire;
+          break;
+        }
+      }
+      if (fireInPath) break;
+
+      // 3. Central corridor direct heading check (only when agent is actually inside the corridor)
+      const isCorridorFire = Math.abs(fZ) <= 3.5;
+      const isInCorridor = Math.abs(agent.z) <= 3.5;
+      if (isCorridorFire && isInCorridor) {
+        const targetWp = agent.path[agent.currentWaypointIdx] || agent.path[agent.path.length - 1];
+        const headingX = targetWp ? (targetWp.x - agent.x) : 0;
+        const isHeadingWest = headingX < -0.3;
+        const isHeadingEast = headingX > 0.3;
+
+        // Only threatened if agent is walking TOWARDS the fire along the corridor
+        if (isHeadingWest && agent.x > fX && (agent.x - fX) < 30.0) {
+          fireInPath = true;
+          threatFire = fire;
+          break;
+        } else if (isHeadingEast && agent.x < fX && (fX - agent.x) < 30.0) {
+          fireInPath = true;
+          threatFire = fire;
+          break;
+        }
+      }
+    }
+
+    if (!fireInPath || !threatFire) return false;
+
+    // Fire in route: execute safe diversion reroute
+    this.rerouteAgentAwayFromFire(agent, threatFire, floorFires, agentFloor);
+    return true;
+  }
+
+  /**
+   * Reroute agent away from fire to a safe alternative exit.
+   */
+  rerouteAgentAwayFromFire(agent, threatFire, floorFires, agentFloor) {
+    const isGround = agentFloor === 1;
+
+    const isExitBlocked = (exitId) => {
+      const targetX = exitId === 'exit_west' ? -26.0 : (exitId === 'exit_east' ? 26.0 : 0.0);
+      return floorFires.some(f => {
+        const fX = f.x || 0;
+        const fZ = f.z || 0;
+        if (exitId === 'exit_south') {
+          const corridorBlocked = Math.abs(fZ) <= 3.5 && (fX >= Math.min(agent.x, 0.0) - 1.2 && fX <= Math.max(agent.x, 0.0) + 1.2);
+          const foyerBlocked = Math.hypot(fX, fZ - 20.0) < 14.0;
+          return corridorBlocked || foyerBlocked;
+        }
+        const nearExit = Math.hypot(targetX - fX, 0 - fZ) < 9.0;
+        const minX = Math.min(agent.x, targetX) - 1.2;
+        const maxX = Math.max(agent.x, targetX) + 1.2;
+        const inCorridorBetween = Math.abs(fZ) <= 3.5 && (fX >= minX && fX <= maxX);
+        return nearExit || inCorridorBetween;
+      });
+    };
+
+    let targetExitId = null;
+    let targetColor = null;
+
+    if (isGround) {
+      const candidates = [
+        { id: 'exit_east', color: '#00f0ff', x: 26.0 },
+        { id: 'exit_west', color: '#00ff88', x: -26.0 },
+        { id: 'exit_south', color: '#9d4edd', x: 0.0 }
+      ];
+      const viable = candidates.filter(c => !isExitBlocked(c.id));
+      if (viable.length > 0) {
+        const diffFromCurrent = viable.filter(c => c.id !== agent.currentExitId);
+        const pool = diffFromCurrent.length > 0 ? diffFromCurrent : viable;
+        pool.sort((a, b) => Math.hypot(agent.x - a.x, agent.z - 0) - Math.hypot(agent.x - b.x, agent.z - 0));
+        targetExitId = pool[0].id;
+        targetColor = pool[0].color;
+      } else {
+        targetExitId = threatFire.x > agent.x ? 'exit_west' : 'exit_east';
+        targetColor = targetExitId === 'exit_west' ? '#00ff88' : '#00f0ff';
+      }
+    } else {
+      const westBlocked = isExitBlocked('exit_west');
+      const eastBlocked = isExitBlocked('exit_east');
+      if (westBlocked && !eastBlocked) {
+        targetExitId = 'exit_east';
+        targetColor = '#00f0ff';
+      } else if (eastBlocked && !westBlocked) {
+        targetExitId = 'exit_west';
+        targetColor = '#00ff88';
+      } else {
+        targetExitId = threatFire.x > agent.x ? 'exit_west' : 'exit_east';
+        targetColor = targetExitId === 'exit_west' ? '#00ff88' : '#00f0ff';
+      }
+    }
+
+    const newPath = [];
+    const seed = agent.id ? agent.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) : 1;
+    const jAngle = (seed % 100) * (Math.PI * 2 / 100);
+    const jDist = 1.0 + ((seed * 7) % 35) * 0.1;
+    const jitterX = Math.cos(jAngle) * jDist;
+    const jitterZ = Math.sin(jAngle) * jDist;
+
+    if (isGround) {
+      newPath.push({ x: agent.x, y: 0.15, z: agent.z });
+      if (Math.abs(agent.z) > 2.5) {
+        newPath.push({ x: agent.x, y: 0.15, z: agent.z < 0 ? -2.6 : 2.6 });
+      }
+      if (Math.abs(agent.z) > 0.6) {
+        newPath.push({ x: agent.x, y: 0.15, z: 0.0 });
+      }
+      if (targetExitId === 'exit_east') {
+        newPath.push({ x: 26.4, y: 0.15, z: 0.0 });
+        newPath.push({ x: 29.2, y: 0.15, z: 0.0 });
+        newPath.push({ x: 33.5, y: 0.15, z: 0.0 });
+        newPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      } else if (targetExitId === 'exit_west') {
+        newPath.push({ x: -26.4, y: 0.15, z: 0.0 });
+        newPath.push({ x: -29.2, y: 0.15, z: 0.0 });
+        newPath.push({ x: -33.5, y: 0.15, z: 0.0 });
+        newPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      } else if (targetExitId === 'exit_south') {
+        newPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+        newPath.push({ x: 0.0, y: 0.15, z: 2.6 });
+        newPath.push({ x: 0.0, y: 0.15, z: 18.0 });
+        newPath.push({ x: 0.0, y: 0.15, z: 23.0 });
+        newPath.push({ x: 0.0, y: 0.15, z: 28.5 });
+        newPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
+      }
+    } else {
+      const flY = agent.y;
+      newPath.push({ x: agent.x, y: flY, z: agent.z });
+      if (Math.abs(agent.z) > 2.5) {
+        newPath.push({ x: agent.x, y: flY, z: agent.z < 0 ? -2.6 : 2.6 });
+      }
+      if (Math.abs(agent.z) > 0.6) {
+        newPath.push({ x: agent.x, y: flY, z: 0.0 });
+      }
+      const isWestStair = targetExitId === 'exit_west';
+      const stairLandingX = isWestStair ? -26.4 : 26.4;
+      newPath.push({ x: stairLandingX, y: flY, z: 0.0 });
+
+      const flight1X = isWestStair ? -27.05 : 27.05;
+      const flight2X = isWestStair ? -28.95 : 28.95;
+      for (let fl = agentFloor; fl > 1; fl--) {
+        const flBaseY = (fl - 1) * this.floorHeight;
+        newPath.push({ x: flight1X, y: flBaseY + 3.1, z: 0.5 });
+        newPath.push({ x: flight1X, y: flBaseY + 1.9, z: 1.4 });
+        newPath.push({ x: flight2X, y: flBaseY + 1.9, z: 1.4 });
+        newPath.push({ x: flight2X, y: flBaseY + 0.7, z: 0.5 });
+        newPath.push({ x: stairLandingX, y: (fl - 2) * this.floorHeight + 0.15, z: 0.0 });
+      }
+
+      if (isWestStair) {
+        newPath.push({ x: -29.2, y: 0.15, z: 0.0 });
+        newPath.push({ x: -33.5, y: 0.15, z: 0.0 });
+        newPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      } else {
+        newPath.push({ x: 29.2, y: 0.15, z: 0.0 });
+        newPath.push({ x: 33.5, y: 0.15, z: 0.0 });
+        newPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      }
+    }
+
+    agent.path = newPath;
+    agent.currentWaypointIdx = Math.min(1, newPath.length - 1);
+    agent.currentExitId = targetExitId;
+    agent.assignedExitColor = targetColor;
+    agent.reroutePause = 0.5;
+    agent.lastRerouteTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    agent.rerouteCount = (agent.rerouteCount || 0) + 1;
+
+    const nextWp = newPath[agent.currentWaypointIdx];
+    if (nextWp && agent.mesh) {
+      const tdx = nextWp.x - agent.x;
+      const tdz = nextWp.z - agent.z;
+      if (tdx * tdx + tdz * tdz > 0.001) {
+        agent.rerouteTurnTarget = Math.atan2(tdx, tdz);
+      }
+    }
+
+    this.syncRouteLines();
+  }
+
+  /**
    * Check if an agent's current waiting zone has become dangerous due to fire/smoke.
    * Returns true if the agent should emergency-evacuate despite their delay timer.
    */
   isWaitingZoneDangerous(agent) {
-    if (!this.fireSystem || !this.fireSystem.activeFires) return false;
     if (!Number.isFinite(agent.x) || !Number.isFinite(agent.z)) return false;
+    const activeFires = this.getActiveFireList();
+    if (activeFires.length === 0) return false;
 
-    const agentFloor = agent.floor;
     const DANGER_RADIUS = 8.0; // meters
 
-    for (const fire of this.fireSystem.activeFires) {
-      if (!fire.basePos) continue;
+    for (const fire of activeFires) {
+      if (!fire) continue;
+      const fireY = fire.y !== undefined ? fire.y : (fire.basePos ? fire.basePos.y : 0);
+      const fireX = fire.x !== undefined ? fire.x : (fire.basePos ? fire.basePos.x : 0);
+      const fireZ = fire.z !== undefined ? fire.z : (fire.basePos ? fire.basePos.z : 0);
 
       // Check if fire is on the same floor
-      if (Math.abs(agent.y - fire.basePos.y) > 2.5) continue;
+      if (Math.abs(agent.y - fireY) > 2.5) continue;
 
       // Check distance to fire
-      const dist = Math.hypot(agent.x - fire.basePos.x, agent.z - fire.basePos.z);
+      const dist = Math.hypot(agent.x - fireX, agent.z - fireZ);
       if (dist < DANGER_RADIUS) {
         return true;
       }

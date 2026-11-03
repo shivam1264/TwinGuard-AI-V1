@@ -489,11 +489,11 @@ export function MobileFloor3DMap({
       return group;
     };
 
-    const isWestBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6')));
+    const isWestBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6') || (f.roomId.includes('stair') && f.roomId.includes('west'))));
     const stairWest = createStairPortal(-28.5, 0, isWestBlocked ? 'CORE A BLOCKED' : 'CORE A (WEST)', targetStairCode === 'CORE_A', isWestBlocked);
     scene.add(stairWest);
 
-    const isEastBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10')));
+    const isEastBlocked = activeFires.some((f) => f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10') || (f.roomId.includes('stair') && f.roomId.includes('east'))));
     const stairEast = createStairPortal(28.5, 0, isEastBlocked ? 'CORE B BLOCKED' : 'CORE B (EAST)', targetStairCode === 'CORE_B', isEastBlocked);
     scene.add(stairEast);
 
@@ -583,11 +583,27 @@ export function MobileFloor3DMap({
     flameMeshesRef.current = [];
 
     floorFires.forEach((fire) => {
-      const tmplId = fire.roomId.split('_')[1] || 'r1';
-      const tmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId) || ROOM_TEMPLATES[0];
+      let fireX = 0;
+      let fireZ = 0;
+
+      if (typeof fire.x === 'number' && typeof fire.z === 'number') {
+        fireX = fire.x;
+        fireZ = fire.z;
+      } else if (fire.roomId && fire.roomId.startsWith('corr_')) {
+        fireX = fire.roomId.includes('_west') ? -12.5 : 12.5;
+        fireZ = 0.0;
+      } else if (fire.roomId && fire.roomId.startsWith('stair_')) {
+        fireX = fire.roomId.includes('_west') ? -28.5 : 28.5;
+        fireZ = 0.0;
+      } else {
+        const tmplId = (fire.roomId && fire.roomId.split('_')[1]) || 'r1';
+        const tmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId) || ROOM_TEMPLATES[0];
+        fireX = tmpl.centerX;
+        fireZ = tmpl.centerZ;
+      }
 
       const fireLight = new THREE.PointLight(0xff4500, 3.5, 22);
-      fireLight.position.set(tmpl.centerX, 2.2, tmpl.centerZ);
+      fireLight.position.set(fireX, 2.2, fireZ);
       scene.add(fireLight);
 
       const dangerRing = new THREE.Mesh(
@@ -595,11 +611,11 @@ export function MobileFloor3DMap({
         new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
       );
       dangerRing.rotation.x = -Math.PI / 2;
-      dangerRing.position.set(tmpl.centerX, 0.05, tmpl.centerZ);
+      dangerRing.position.set(fireX, 0.05, fireZ);
       scene.add(dangerRing);
 
       const flameGroup = new THREE.Group();
-      flameGroup.position.set(tmpl.centerX, 0.2, tmpl.centerZ);
+      flameGroup.position.set(fireX, 0.2, fireZ);
 
       const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 8), new THREE.MeshBasicMaterial({ color: 0xff3b30, transparent: true, opacity: 0.85 }));
       cone1.position.y = 1.6;
@@ -856,6 +872,14 @@ export function MobileFloor3DMap({
       setHasReachedExit(true);
     }
   };
+
+  // Auto-start dynamic evacuation locomotion when emergency occurs
+  useEffect(() => {
+    if (hasActiveEmergency) {
+      setHasReachedExit(false);
+      setIsAutoWalking(true);
+    }
+  }, [hasActiveEmergency]);
 
   // Auto-Walk Progression
   useEffect(() => {

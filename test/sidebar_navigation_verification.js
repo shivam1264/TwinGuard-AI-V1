@@ -2,7 +2,7 @@ import assert from 'assert';
 import fs from 'fs';
 
 console.log('=======================================================');
-console.log('🧪 TESTING LEFT SIDEBAR 8-MODULE NAVIGATION & ROUTING');
+console.log('🧪 TESTING LEFT SIDEBAR CORE MODULE NAVIGATION & ROUTING');
 console.log('=======================================================');
 
 // 1. Verify DynamicLeftSidebar.jsx contains the 8 items
@@ -14,7 +14,6 @@ const requiredModules = [
   { id: 'BUILDING_INFO', label: 'Building Info' },
   { id: 'SCENARIOS', label: 'AI Scenarios' },
   { id: 'STRATEGY_RANKER', label: 'Strategy Ranker' },
-  { id: 'INCIDENTS', label: 'Incidents' },
   { id: 'ANALYTICS', label: 'Analytics' }
 ];
 
@@ -22,7 +21,7 @@ requiredModules.forEach(({ id, label }) => {
   assert(sidebar.includes(`id: '${id}'`), `DynamicLeftSidebar must contain module ID: ${id}`);
   assert(sidebar.includes(`'${label}'`), `DynamicLeftSidebar must contain label: ${label}`);
 });
-console.log('✅ PASS: All 7 core navigation items exist in DynamicLeftSidebar.jsx with exact labels & IDs');
+console.log('✅ PASS: All core navigation items exist in DynamicLeftSidebar.jsx with exact labels & IDs');
 
 // 2. Verify Collapsed and Expanded States in DynamicLeftSidebar.jsx
 assert(sidebar.includes('isCollapsed ?'), 'DynamicLeftSidebar must support isCollapsed state');
@@ -40,10 +39,9 @@ assert(!app.includes("{activeTab === 'LIVE_VIEW' && activeSidebarMode !== 'INFO'
   'DynamicLeftSidebar must be persistent and not hidden outside LIVE_VIEW');
 console.log('✅ PASS: DynamicLeftSidebar is persistently rendered across all views in App.jsx');
 
-// 4. Verify all 8 Views are mounted in the central workspace where 3D is shown
+// 4. Verify core Views are mounted in the central workspace where 3D is shown
 assert(app.includes("activeTab === 'SCENARIOS' && (\n            <ScenariosView"), 'Central area must render ScenariosView for SCENARIOS');
 assert(app.includes("activeTab === 'STRATEGY_RANKER' && (\n            <StrategyRankerView"), 'Central area must render StrategyRankerView for STRATEGY_RANKER');
-assert(app.includes("activeTab === 'INCIDENTS' && (\n            <IncidentsView"), 'Central area must render IncidentsView for INCIDENTS');
 assert(app.includes("activeTab === 'ANALYTICS' && (\n            <AnalyticsView"), 'Central area must render AnalyticsView for ANALYTICS');
 // Reports page integrated into AnalyticsView with PDF/Print export
 assert(app.includes("activeTab === 'ANALYTICS' && (\n            <AnalyticsView"), 'Central area must render AnalyticsView');
@@ -60,7 +58,7 @@ assert(app.includes('const handleSelectTab = (tab) => {'), 'App.jsx must define 
 assert(app.includes("setActiveSidebarMode('INFO')"), 'handleSelectTab must set INFO mode for BUILDING_INFO');
 assert(app.includes("setActiveSidebarMode('COMMAND_CENTER')"), 'handleSelectTab must set COMMAND_CENTER mode');
 assert(app.includes("setActiveSidebarMode('3D_VIEW')"), 'handleSelectTab must set 3D_VIEW mode for live view');
-console.log('✅ PASS: handleSelectTab smoothly switches between all 8 view states');
+console.log('✅ PASS: handleSelectTab smoothly switches between view states');
 
 // 6. Verify TopHeader.jsx is streamlined
 const topHeader = fs.readFileSync('src/components/TopHeader.jsx', 'utf8');

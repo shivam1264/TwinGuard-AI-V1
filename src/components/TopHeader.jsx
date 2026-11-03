@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   Compass,
-  AlertTriangle,
   FileText,
   Settings,
   Sparkles,
@@ -24,12 +23,10 @@ export const TopHeader = ({
   isSidebarCollapsed = true,
   activeTab = 'LIVE_VIEW',
   onSelectTab,
-  incidentCount = 3,
   theme = 'dark',
   onToggleTheme,
   onOpenCctv,
   onOpenAnalytics,
-  onOpenIncidents,
   onOpenReports,
   onOpenScenarioStudio,
   onOpenStrategyRanker,
@@ -71,7 +68,6 @@ export const TopHeader = ({
     BUILDING_INFO: { label: 'Building Info', icon: Building2 },
     SCENARIOS: { label: 'AI Scenarios', icon: Sparkles },
     STRATEGY_RANKER: { label: 'Strategy Ranker', icon: Trophy },
-    INCIDENTS: { label: 'Incidents', icon: AlertTriangle },
     ANALYTICS: { label: 'Analytics', icon: LineChart },
     REPORTS: { label: 'Reports', icon: FileText }
   };

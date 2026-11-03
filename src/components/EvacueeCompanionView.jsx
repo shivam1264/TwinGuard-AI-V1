@@ -119,17 +119,36 @@ export function EvacueeCompanionView() {
     }
   };
 
-  // Connect to backend Socket.IO
+  const floorRef = useRef(floor);
+  floorRef.current = floor;
+  const roomIdRef = useRef(roomId);
+  roomIdRef.current = roomId;
+
+  // Helper to safely merge incoming fire alerts without duplicates
+  const mergeFires = (newFires) => {
+    if (!newFires || newFires.length === 0) return;
+    setActiveFires((prev) => {
+      const next = [...prev];
+      newFires.forEach((nf) => {
+        if (!next.some((f) => f.roomId === nf.roomId)) {
+          next.push(nf);
+        }
+      });
+      return next;
+    });
+  };
+
+  // Connect to backend Socket.IO with multi-device network support
   useEffect(() => {
     const socketHost = window.location.hostname || 'localhost';
-    const isCustomPort = window.location.port === '5173';
+    // When accessing from mobile on LAN, port 5000 is directly reachable on laptop's IP
+    const serverUrl = window.location.port === '5173'
+      ? `http://${socketHost}:5000`
+      : window.location.origin;
     
-    // Primary URL: Vite proxy through origin or direct port 5000
-    const primaryUrl = isCustomPort ? window.location.origin : `http://${socketHost}:5000`;
-    
-    const socket = io(primaryUrl, {
+    const socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
-      timeout: 3000
+      timeout: 4000
     });
     socketRef.current = socket;
 
@@ -141,27 +160,45 @@ export function EvacueeCompanionView() {
       setConnected(false);
     });
 
-    // Listen for fire detected in building
-    socket.on('fire-detected', (data) => {
-      setActiveFires((prev) => {
-        if (!prev.some((f) => f.roomId === data.roomId)) {
-          return [...prev, data];
+    // 1. Initial & real-time simulation state synchronization (crucial for mobile connecting after fire triggered)
+    socket.on('state-update', (serverState) => {
+      if (serverState && serverState.rooms) {
+        const fireRooms = serverState.rooms.filter((r) => r.hasFire);
+        if (fireRooms.length > 0) {
+          const mapped = fireRooms.map((fr) => ({
+            roomId: fr.id,
+            roomName: fr.name,
+            floor: fr.floor,
+            x: fr.x,
+            z: fr.z
+          }));
+          mergeFires(mapped);
+          setIsAlarmActive(true);
+          const currentFloor = floorRef.current;
+          const currentRoom = roomIdRef.current;
+          const hasLocalFire = fireRooms.some((fr) => fr.floor === currentFloor || fr.id === currentRoom);
+          setOccupantStatus((prev) => (prev === 'SAFE_MUSTER' || prev === 'SOS_ACTIVE' ? prev : (hasLocalFire ? 'REROUTED' : 'EVACUATING')));
         }
-        return prev;
-      });
+      }
+    });
+
+    // 2. Real-time fire detected broadcast
+    socket.on('fire-detected', (data) => {
+      mergeFires([data]);
       setIsAlarmActive(true);
       playAlertChime();
       triggerHaptic();
 
-      // If fire is on user's floor, mark rerouted or evacuating
-      if (data.floor === floor || data.roomId === roomId) {
+      const currentFloor = floorRef.current;
+      const currentRoom = roomIdRef.current;
+      if (data.floor === currentFloor || data.roomId === currentRoom) {
         setOccupantStatus((prev) => (prev === 'SAFE_MUSTER' || prev === 'SOS_ACTIVE' ? prev : 'REROUTED'));
       } else {
         setOccupantStatus((prev) => (prev === 'SAFE_MUSTER' || prev === 'SOS_ACTIVE' ? prev : 'EVACUATING'));
       }
     });
 
-    // Listen for evacuation started
+    // 3. Listen for evacuation started
     socket.on('evacuation-started', () => {
       setIsAlarmActive(true);
       playAlertChime();
@@ -169,7 +206,7 @@ export function EvacueeCompanionView() {
       setOccupantStatus((prev) => (prev === 'SAFE_MUSTER' || prev === 'SOS_ACTIVE' ? prev : 'EVACUATING'));
     });
 
-    // Listen for stairwell blockage
+    // 4. Listen for stairwell blockage
     socket.on('stairwell-blocked', (data) => {
       if (data.core === 'coreA' || data.core === 'exit_west') {
         setBlockedStairs((prev) => ({ ...prev, coreA: true }));
@@ -181,7 +218,7 @@ export function EvacueeCompanionView() {
       setOccupantStatus((prev) => (prev === 'SAFE_MUSTER' || prev === 'SOS_ACTIVE' ? prev : 'REROUTED'));
     });
 
-    // Listen for global simulation reset
+    // 5. Listen for global simulation reset
     socket.on('simulation-reset', () => {
       setActiveFires([]);
       setBlockedStairs({ coreA: false, coreB: false });
@@ -193,9 +230,9 @@ export function EvacueeCompanionView() {
       setVerifiedHeadcount(null);
     });
 
-    // Listen for safe confirmation feedback from Command Center
+    // 6. Listen for safe confirmation feedback from Command Center
     socket.on('evacuee-safe-confirmed', (data) => {
-      if (data && data.roomId === roomId) {
+      if (data && data.roomId === roomIdRef.current) {
         setSafeConfirmed(true);
         if (data.evacuatedCount) {
           setVerifiedHeadcount(data.evacuatedCount);
@@ -203,10 +240,84 @@ export function EvacueeCompanionView() {
       }
     });
 
+    // 7. Initial REST state fetch fallback on component mount
+    const fetchCurrentState = async () => {
+      try {
+        let res = await fetch('/api/state').catch(() => null);
+        if (!res || !res.ok) {
+          res = await fetch(`http://${socketHost}:5000/api/state`).catch(() => null);
+        }
+        if (res && res.ok) {
+          const data = await res.json();
+          if (data && data.rooms) {
+            const fireRooms = data.rooms.filter((r) => r.hasFire);
+            if (fireRooms.length > 0) {
+              const mapped = fireRooms.map((fr) => ({
+                roomId: fr.id,
+                roomName: fr.name,
+                floor: fr.floor,
+                x: fr.x,
+                z: fr.z
+              }));
+              mergeFires(mapped);
+              setIsAlarmActive(true);
+              const currentFloor = floorRef.current;
+              const currentRoom = roomIdRef.current;
+              const hasLocalFire = fireRooms.some((fr) => fr.floor === currentFloor || fr.id === currentRoom);
+              setOccupantStatus((prev) => (hasLocalFire ? 'REROUTED' : 'EVACUATING'));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Initial state fetch error:', err);
+      }
+    };
+    fetchCurrentState();
+
     return () => {
       socket.disconnect();
     };
-  }, [floor, roomId, isSoundMuted]);
+  }, []);
+
+  // Corridor Fire Simulation on Mobile (triggers local hazard + dispatches to backend & laptop twin)
+  const handleSimulateCorridorFire = (zone = 'west') => {
+    const isWest = zone === 'west';
+    const corrId = `corr_f${floor}_${zone}`;
+    const hazard = {
+      roomId: corrId,
+      roomName: `${isWest ? 'West' : 'East'} Corridor (Level ${floor})`,
+      floor: floor,
+      x: isWest ? -12.5 : 12.5,
+      z: 0.0
+    };
+
+    setActiveFires((prev) => {
+      if (!prev.some((f) => f.roomId === corrId)) {
+        return [...prev, hazard];
+      }
+      return prev;
+    });
+    setIsAlarmActive(true);
+    setOccupantStatus('REROUTED');
+    playAlertChime();
+    triggerHaptic();
+
+    if (socketRef.current) {
+      socketRef.current.emit('client-trigger-fire', { roomId: corrId });
+    }
+    const socketHost = window.location.hostname || 'localhost';
+    fetch('/api/trigger-fire', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: corrId })
+    }).catch(() => {
+      fetch(`http://${socketHost}:5000/api/trigger-fire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId: corrId })
+      }).catch(() => {});
+    });
+  };
 
   // Find room template for occupant to compute exact physical doorway coordinates
   const currentRoomTemplate = useMemo(() => {
@@ -237,17 +348,36 @@ export function EvacueeCompanionView() {
     return activeFires.some((f) => f.floor === floor);
   }, [activeFires, floor]);
 
+  // Resolve fire coordinates whether from structured rooms, corridor segments, or socket coordinates
+  const getFirePosition = (f) => {
+    if (typeof f.x === 'number') return { x: f.x, z: f.z || 0 };
+    if (f.roomId) {
+      if (f.roomId.startsWith('corr_')) {
+        return { x: f.roomId.includes('_west') ? -12.5 : 12.5, z: 0.0 };
+      }
+      if (f.roomId.startsWith('stair_')) {
+        return { x: f.roomId.includes('_west') ? -28.5 : 28.5, z: 0.0 };
+      }
+      const tmplId = f.roomId.split('_')[1];
+      const tmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === tmplId);
+      if (tmpl) return { x: tmpl.doorX, z: tmpl.doorZ };
+    }
+    return { x: 0, z: 0 };
+  };
+
   const isWestStairCompromised = useMemo(() => {
     if (blockedStairs.coreA) return true;
     return activeFires.some((f) => {
-      return f.floor === floor && (f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6'));
+      if (f.floor !== floor) return false;
+      return f.roomId.endsWith('_r1') || f.roomId.endsWith('_r6') || (f.roomId.includes('stair') && f.roomId.includes('west'));
     });
   }, [blockedStairs, activeFires, floor]);
 
   const isEastStairCompromised = useMemo(() => {
     if (blockedStairs.coreB) return true;
     return activeFires.some((f) => {
-      return f.floor === floor && (f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10'));
+      if (f.floor !== floor) return false;
+      return f.roomId.endsWith('_r5') || f.roomId.endsWith('_r10') || (f.roomId.includes('stair') && f.roomId.includes('east'));
     });
   }, [blockedStairs, activeFires, floor]);
 
@@ -257,10 +387,9 @@ export function EvacueeCompanionView() {
     const doorX = currentRoomTemplate.doorX;
     return activeFires.some((f) => {
       if (f.floor !== floor) return false;
-      const fTmplId = f.roomId.split('_')[1];
-      const fTmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === fTmplId);
-      if (!fTmpl) return false;
-      return fTmpl.doorX < doorX; // Fire sits between room and West exit
+      const pos = getFirePosition(f);
+      // Fire sits between room doorway and West exit (-28.5)
+      return pos.x < doorX - 1.0;
     });
   }, [isWestStairCompromised, currentRoomTemplate, activeFires, floor]);
 
@@ -269,10 +398,9 @@ export function EvacueeCompanionView() {
     const doorX = currentRoomTemplate.doorX;
     return activeFires.some((f) => {
       if (f.floor !== floor) return false;
-      const fTmplId = f.roomId.split('_')[1];
-      const fTmpl = ROOM_TEMPLATES.find((t) => t.idSuffix === fTmplId);
-      if (!fTmpl) return false;
-      return fTmpl.doorX > doorX; // Fire sits between room and East exit
+      const pos = getFirePosition(f);
+      // Fire sits between room doorway and East exit (+28.5)
+      return pos.x > doorX + 1.0;
     });
   }, [isEastStairCompromised, currentRoomTemplate, activeFires, floor]);
 
@@ -752,6 +880,72 @@ export function EvacueeCompanionView() {
             </div>
           </div>
         )}
+
+        {/* Global Building Fire Notification Banner if fire is active on another level */}
+        {activeFires.length > 0 && !isFloorCompromised && (
+          <div className="p-2.5 rounded-2xl bg-amber-950/70 border border-amber-500/70 text-amber-200 flex items-center justify-between text-xs animate-in fade-in shadow-md">
+            <div className="flex items-center gap-2">
+              <Flame className="w-4 h-4 text-amber-400 shrink-0 animate-bounce" />
+              <div>
+                <span className="font-extrabold text-amber-100">Fire on Level ${activeFires[0].floor}: ${activeFires[0].roomName || 'Corridor'}</span>
+                <div className="text-[10px] text-amber-300">Level ${floor} currently on standby. Prepare for egress.</div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setFloor(activeFires[0].floor);
+                setRoomId(`f${activeFires[0].floor}_r1`);
+                setRoomName(`Room ${activeFires[0].floor}01`);
+              }}
+              className="px-2.5 py-1 rounded-xl bg-amber-600 hover:bg-amber-500 text-slate-950 text-[10.5px] font-black shrink-0 cursor-pointer shadow-md transition-all active:scale-95"
+            >
+              View L${activeFires[0].floor}
+            </button>
+          </div>
+        )}
+
+        {/* Local Corridor Fire Notification Banner on Current Level */}
+        {isFloorCompromised && (
+          <div className="p-3 rounded-2xl bg-red-950/80 border border-red-500/80 text-red-200 flex items-center justify-between animate-pulse shadow-lg shadow-red-950/50">
+            <div className="flex items-center gap-2.5">
+              <Flame className="w-5 h-5 text-red-400 shrink-0" />
+              <div>
+                <div className="text-xs font-black text-red-100 uppercase tracking-wide">
+                  CRITICAL: Active Fire on Level ${floor}
+                </div>
+                <div className="text-[10.5px] text-red-300">
+                  Corridor hazard detected. Follow dynamic neon egress route away from fire.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Corridor Fire Simulation Quick Actions Bar */}
+        <div className="flex items-center justify-between px-1 py-0.5">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <Activity className="w-3 h-3 text-indigo-400" />
+            Corridor Fire Sim:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => handleSimulateCorridorFire('west')}
+              className="px-2 py-1 rounded-lg bg-red-600/20 hover:bg-red-600/35 border border-red-500/40 text-[10.5px] font-bold text-red-300 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              title="Simulate fire in West Corridor on Level ${floor}"
+            >
+              <Flame className="w-3 h-3 text-red-400" />
+              <span>West Corridor</span>
+            </button>
+            <button
+              onClick={() => handleSimulateCorridorFire('east')}
+              className="px-2 py-1 rounded-lg bg-orange-600/20 hover:bg-orange-600/35 border border-orange-500/40 text-[10.5px] font-bold text-orange-300 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              title="Simulate fire in East Corridor on Level ${floor}"
+            >
+              <Flame className="w-3 h-3 text-orange-400" />
+              <span>East Corridor</span>
+            </button>
+          </div>
+        </div>
 
         {/* ── NAVIGATION MODE SELECTOR TABS (REQUIREMENT 5) ── */}
         <div className="p-1 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-1 shadow-inner">

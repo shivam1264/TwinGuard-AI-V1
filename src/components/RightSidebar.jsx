@@ -22,7 +22,6 @@ export const RightSidebar = ({
   lastReroute = null,
   hasFire = false,
   onOpenAnalytics,
-  onOpenIncidents
 }) => {
   const total = stats.total || 190;
   const evacuated = stats.evacuated || 0;

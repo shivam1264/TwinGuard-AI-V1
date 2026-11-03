@@ -157,12 +157,42 @@ app.post('/api/clear-incidents', (req, res) => {
 
 app.post('/api/trigger-fire', (req, res) => {
   const { roomId, intensity = 1.0, triggerId } = req.body;
-  const room = simulationState.rooms.find(r => r.id === roomId);
+  let room = simulationState.rooms.find(r => r.id === roomId);
+
+  if (!room) {
+    const segMatch = /^(corr|stair)_f(\d+)_([a-z]+)$/.exec(String(roomId || ''));
+    if (segMatch) {
+      const kind = segMatch[1];
+      const floor = parseInt(segMatch[2], 10);
+      const zone = segMatch[3];
+      const isWest = zone === 'west';
+      const posX = kind === 'corr' ? (isWest ? -12.5 : 12.5) : (isWest ? -28.5 : 28.5);
+      const posZ = 0.0;
+      const hazardName = `${isWest ? 'West' : 'East'} ${kind === 'corr' ? 'Corridor' : 'Stairwell'} (Level ${floor})`;
+
+      room = {
+        id: roomId,
+        name: hazardName,
+        floor: floor,
+        peopleCount: 0,
+        hasFire: true,
+        fireIntensity: intensity,
+        tempCelsius: 88,
+        smokeLevel: 92,
+        camId: `CAM-${kind.toUpperCase()}-L${floor}-${zone.toUpperCase().slice(0, 1)}`,
+        x: posX,
+        z: posZ,
+        category: kind === 'corr' ? 'CORRIDOR' : 'STAIR'
+      };
+      simulationState.rooms.push(room);
+    }
+  }
+
   if (room) {
     room.hasFire = true;
     room.fireIntensity = intensity;
-    room.tempCelsius = 84;
-    room.smokeLevel = 90;
+    room.tempCelsius = room.tempCelsius || 84;
+    room.smokeLevel = room.smokeLevel || 90;
     simulationState.status = 'ALARM';
     
     const fireEvent = {
@@ -171,7 +201,9 @@ app.post('/api/trigger-fire', (req, res) => {
       floor: room.floor,
       camId: room.camId,
       temp: room.tempCelsius,
-      smoke: room.smokeLevel
+      smoke: room.smokeLevel,
+      x: room.x,
+      z: room.z
     };
     if (typeof triggerId === 'string' && triggerId.length > 0) {
       fireEvent.triggerId = triggerId;
@@ -221,12 +253,36 @@ io.on('connection', (socket) => {
   socket.emit('state-update', simulationState);
 
   socket.on('client-trigger-fire', (data) => {
-    const room = simulationState.rooms.find(r => r.id === data.roomId);
+    let room = simulationState.rooms.find(r => r.id === data.roomId);
+    if (!room) {
+      const segMatch = /^(corr|stair)_f(\d+)_([a-z]+)$/.exec(String(data.roomId || ''));
+      if (segMatch) {
+        const kind = segMatch[1];
+        const floor = parseInt(segMatch[2], 10);
+        const zone = segMatch[3];
+        const isWest = zone === 'west';
+        const posX = kind === 'corr' ? (isWest ? -12.5 : 12.5) : (isWest ? -28.5 : 28.5);
+        room = {
+          id: data.roomId,
+          name: `${isWest ? 'West' : 'East'} ${kind === 'corr' ? 'Corridor' : 'Stairwell'} (Level ${floor})`,
+          floor,
+          peopleCount: 0,
+          hasFire: true,
+          tempCelsius: 88,
+          smokeLevel: 92,
+          camId: `CAM-${kind.toUpperCase()}-L${floor}-${zone.toUpperCase().slice(0, 1)}`,
+          x: posX,
+          z: 0.0,
+          category: kind === 'corr' ? 'CORRIDOR' : 'STAIR'
+        };
+        simulationState.rooms.push(room);
+      }
+    }
     if (room) {
       room.hasFire = true;
       room.tempCelsius = 85;
       simulationState.status = 'ALARM';
-      io.emit('fire-detected', { roomId: room.id, floor: room.floor });
+      io.emit('fire-detected', { roomId: room.id, roomName: room.name, floor: room.floor, x: room.x, z: room.z });
       io.emit('state-update', simulationState);
     }
   });

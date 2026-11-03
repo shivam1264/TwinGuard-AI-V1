@@ -12,7 +12,6 @@ export const TopKpiBar = ({
   stats = { total: 190, evacuated: 0, inTransit: 190, elapsedSeconds: 0 },
   exits = [],
   incidents = [],
-  onOpenIncidents,
   onOpenAnalytics,
   onOpenReports
 }) => {
@@ -115,14 +114,12 @@ export const TopKpiBar = ({
 
       {/* ── KPI 3: Live Hazard Status ── */}
       <div
-        onClick={onOpenIncidents}
-        className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl cursor-pointer transition-all hover:bg-slate-800/40"
+        className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl transition-all"
         style={{
           background: hasFire ? 'rgba(239, 68, 68, 0.12)' : 'rgba(15, 23, 42, 0.65)',
           border: hasFire ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(56, 189, 248, 0.18)',
           boxShadow: hasFire ? '0 0 12px rgba(239, 68, 68, 0.25)' : 'none'
         }}
-        title="View Live Incidents Log"
       >
         <div
           className="flex items-center justify-center shrink-0 w-8 h-8 rounded-lg"

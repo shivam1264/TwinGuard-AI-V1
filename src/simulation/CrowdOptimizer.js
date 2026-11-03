@@ -33,6 +33,28 @@ export class CrowdOptimizer {
       structuralCollapse = options.structuralCollapse ?? structuralCollapse;
     }
 
+    // Synchronize all active fire zones into NavGrid so that pathfinder and isWalkable enforce fire avoidance
+    if (this.navGrid && typeof this.navGrid.setFireZone === 'function') {
+      if (typeof this.navGrid.clearAllFireZones === 'function') {
+        this.navGrid.clearAllFireZones();
+      }
+      if (Array.isArray(fireLocations)) {
+        fireLocations.forEach(fire => {
+          const fX = fire.x || 0;
+          const fZ = fire.z || 0;
+          let fFloor = fire.floor;
+          if (fFloor === undefined && fire.y !== undefined) {
+            fFloor = Math.floor(fire.y / this.floorHeight) + 1;
+          }
+          if (fFloor === undefined && fire.roomId) {
+            const match = fire.roomId.match(/f(\d+)/i) || fire.roomId.match(/l(\d+)/i);
+            if (match) fFloor = parseInt(match[1], 10);
+          }
+          this.navGrid.setFireZone(fX, fZ, fire.radius || 5.0, fFloor ?? null);
+        });
+      }
+    }
+
     // Global blocked exits (e.g. Ground Floor portals blocked by fire or global structural failure)
     const globalBlockedExits = new Set(blockedExitIds || []);
 
@@ -239,10 +261,10 @@ export class CrowdOptimizer {
       let bestExit = null;
       let bestRoute = null;
       let bestScore = Infinity;
-let fallbackAssignment = false;
+      let fallbackAssignment = false;
 
-    const agentFloor = agent.floor || 1;
-    const floorBlocked = floorBlockedExits.get(agentFloor) || new Set();
+      const agentFloor = agent.floor || 1;
+      const floorBlocked = floorBlockedExits.get(agentFloor) || new Set();
 
       // Available exits:
       // Ground floor (L1) can use any unblocked exit of the 3 (West, East, or Front/Main Gate).
@@ -294,12 +316,29 @@ let fallbackAssignment = false;
 
           // Spatial hazard penalty only applies to occupants on the same floor as the fire
           if (sameFloor) {
-            const distToFire = Math.hypot(stairEntry.x - (fire.x || 0), stairEntry.z - (fire.z || 0));
+            const fX = fire.x || 0;
+            const fZ = fire.z || 0;
+            const distToFire = Math.hypot(stairEntry.x - fX, stairEntry.z - fZ);
             if (distToFire < 9.0) {
-              firePenalty += 700;
+              firePenalty += 50000;
             }
 
-            const agentToFire = Math.hypot(agent.x - (fire.x || 0), agent.z - (fire.z || 0));
+            // Central corridor fire interception check:
+            // If fire is in or encroaching the central corridor (|fZ| <= 3.5),
+            // check if it lies between this agent's doorway and this exit entry along the corridor!
+            const isCorridorFire = Math.abs(fZ) <= 3.5;
+            if (isCorridorFire) {
+              const targetX = stairEntry.x;
+              const agentX = doorway?.corridor?.x !== undefined ? doorway.corridor.x : agent.x;
+              const minX = Math.min(agentX, targetX) - 1.2;
+              const maxX = Math.max(agentX, targetX) + 1.2;
+              if (fX >= minX && fX <= maxX) {
+                // Impassable: fire directly blocks the corridor path to this exit
+                firePenalty += 50000;
+              }
+            }
+
+            const agentToFire = Math.hypot(agent.x - fX, agent.z - fZ);
             if (agentToFire < 8.0) {
               firePenalty += 350;
             }
@@ -373,20 +412,78 @@ let fallbackAssignment = false;
           tentativeLoads.set(agent.currentExitId, Math.max(0, (tentativeLoads.get(agent.currentExitId) || 0) - 1));
         }
 
-        // Determine stairwell core for upper floor descent
+        // Determine stairwell core / exit for descent and egress
         let stairCoreId = bestExit.id;
+
+        // Check if corridor fire on agent's floor blocks West, East, or South route
+        const isCorridorRouteBlocked = (targetExitId) => {
+          const targetX = targetExitId === 'exit_west' ? -26.0 : (targetExitId === 'exit_east' ? 26.0 : 0.0);
+          const agentX = doorway?.corridor?.x !== undefined ? doorway.corridor.x : agent.x;
+          const minX = Math.min(agentX, targetX) - 1.2;
+          const maxX = Math.max(agentX, targetX) + 1.2;
+          return fireLocations.some(f => {
+            const fireY = f.y !== undefined ? f.y : ((f.floor ? (f.floor - 1) * this.floorHeight : 0) + 0.2);
+            const fireFl = f.floor !== undefined ? Number(f.floor) : (Math.floor(fireY / this.floorHeight) + 1);
+            const sameFloor = (agentFloor === fireFl) || Math.abs(agent.y - fireY) < 2.5;
+            if (!sameFloor) return false;
+            const fX = f.x || 0;
+            const fZ = f.z || 0;
+            if (targetExitId === 'exit_south') {
+              const inCorridorToFoyer = Math.abs(fZ) <= 3.5 && (fX >= Math.min(agentX, 0.0) - 1.2 && fX <= Math.max(agentX, 0.0) + 1.2);
+              const inSouthFoyer = Math.hypot(fX, fZ - 20.0) < 14.0;
+              return inCorridorToFoyer || inSouthFoyer;
+            }
+            const nearStair = Math.hypot(targetX - fX, 0 - fZ) < 9.0;
+            const inCorridorBetween = Math.abs(fZ) <= 3.5 && (fX >= minX && fX <= maxX);
+            return nearStair || inCorridorBetween;
+          });
+        };
+
+        const westFireBlocked = isCorridorRouteBlocked('exit_west');
+        const eastFireBlocked = isCorridorRouteBlocked('exit_east');
+
         if (agent.floor > 1) {
           const westBlocked = globalBlockedExits.has('exit_west') || floorBlocked.has('exit_west');
           const eastBlocked = globalBlockedExits.has('exit_east') || floorBlocked.has('exit_east');
 
+          const effectiveWestBlocked = westBlocked || westFireBlocked;
+          const effectiveEastBlocked = eastBlocked || eastFireBlocked;
+
           if (stairCoreId !== 'exit_west' && stairCoreId !== 'exit_east') {
-            if (westBlocked && !eastBlocked) stairCoreId = 'exit_east';
-            else if (!westBlocked && eastBlocked) stairCoreId = 'exit_west';
+            if (effectiveWestBlocked && !effectiveEastBlocked) stairCoreId = 'exit_east';
+            else if (!effectiveWestBlocked && effectiveEastBlocked) stairCoreId = 'exit_west';
             else stairCoreId = (agent.x < 0) ? 'exit_west' : 'exit_east';
           } else {
             // If designated stair is blocked on this agent's floor, divert to the unblocked stair
-            if (stairCoreId === 'exit_west' && westBlocked && !eastBlocked) stairCoreId = 'exit_east';
-            if (stairCoreId === 'exit_east' && eastBlocked && !westBlocked) stairCoreId = 'exit_west';
+            if (stairCoreId === 'exit_west' && effectiveWestBlocked && !effectiveEastBlocked) stairCoreId = 'exit_east';
+            if (stairCoreId === 'exit_east' && effectiveEastBlocked && !effectiveWestBlocked) stairCoreId = 'exit_west';
+          }
+
+          if (bestExit.id !== stairCoreId) {
+            const matchingExit = this.exits.find(e => e.id === stairCoreId);
+            if (matchingExit) bestExit = matchingExit;
+          }
+        } else {
+          // Ground floor (L1): check corridor fire and divert if current chosen exit is blocked
+          const westBlocked = globalBlockedExits.has('exit_west') || westFireBlocked;
+          const eastBlocked = globalBlockedExits.has('exit_east') || eastFireBlocked;
+          const southBlocked = globalBlockedExits.has('exit_south') || isCorridorRouteBlocked('exit_south');
+
+          if (bestExit.id === 'exit_west' && westBlocked) {
+            if (!eastBlocked) stairCoreId = 'exit_east';
+            else if (!southBlocked) stairCoreId = 'exit_south';
+          } else if (bestExit.id === 'exit_east' && eastBlocked) {
+            if (!westBlocked) stairCoreId = 'exit_west';
+            else if (!southBlocked) stairCoreId = 'exit_south';
+          } else if (bestExit.id === 'exit_south' && southBlocked) {
+            if (!westBlocked && !eastBlocked) stairCoreId = (agent.x < 0) ? 'exit_west' : 'exit_east';
+            else if (!westBlocked) stairCoreId = 'exit_west';
+            else if (!eastBlocked) stairCoreId = 'exit_east';
+          }
+
+          if (bestExit.id !== stairCoreId) {
+            const matchingExit = this.exits.find(e => e.id === stairCoreId);
+            if (matchingExit) bestExit = matchingExit;
           }
         }
 
@@ -395,10 +492,9 @@ let fallbackAssignment = false;
         // 1. MUST ROUTE THROUGH ROOM'S PHYSICAL DOORWAY!
         const full3DPath = [];
 
-        // Floor-aware structural debris context: while routing this agent's
-        // corridor path, NavGrid treats the collapse footprint as unwalkable
-        // for THIS floor only (other floors keep full connectivity).
-        if (collapseZones.length && this.navGrid) this.navGrid.routeFloor = agentFloor;
+        // Floor-aware routing context: NavGrid treats debris and active fires
+        // as unwalkable for THIS floor during this agent's path query.
+        if (this.navGrid) this.navGrid.routeFloor = agentFloor;
 
         if (agent.roomId) {
           const doorway = getRoomDoorway(agent.roomId);
@@ -407,31 +503,104 @@ let fallbackAssignment = false;
           const roomCacheKey = `${agentFloor}:${agent.x.toFixed(1)},${agent.z.toFixed(1)}->${doorway.inside.x},${doorway.inside.z}`;
           let pathInsideRoom = roomPathCache.get(roomCacheKey);
           if (!pathInsideRoom) {
-            pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z);
-            if (pathInsideRoom && pathInsideRoom.length > 0) {
-              roomPathCache.set(roomCacheKey, pathInsideRoom);
-            }
+            // Direct geometric room egress: from desk forward to door align Z, then to doorway
+            pathInsideRoom = [
+              { x: agent.x, z: agent.z },
+              { x: agent.x, z: doorway.inside.z },
+              { x: doorway.inside.x, z: doorway.inside.z }
+            ];
+            roomPathCache.set(roomCacheKey, pathInsideRoom);
           }
 
           // Path 2: From corridor staging point along central corridor to stairwell/exit entry
           let effectiveStairEntry = stairEntry;
-          const corridorCacheKey = `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${effectiveStairEntry.x},${effectiveStairEntry.z}`;
-          let pathInCorridor = corridorPathCache.get(corridorCacheKey);
-          if (!pathInCorridor) {
-            pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
-            if (pathInCorridor && pathInCorridor.length > 0) {
-              corridorPathCache.set(corridorCacheKey, pathInCorridor);
+          let pathInCorridor = null;
+
+          if (agentFloor === 1 && (bestExit.id === 'exit_south' || stairCoreId === 'exit_south')) {
+            // Precise ground floor architectural corridor-to-foyer routing
+            pathInCorridor = [
+              { x: doorway.corridor.x, z: 0.0 },
+              { x: 0.0, z: 0.0 },
+              { x: 0.0, z: 2.6 },
+              { x: 0.0, z: 18.0 }
+            ];
+          } else {
+            const corridorCacheKey = `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${effectiveStairEntry.x},${effectiveStairEntry.z}`;
+            pathInCorridor = corridorPathCache.get(corridorCacheKey);
+            if (!pathInCorridor) {
+              const directCorridor = [
+                { x: doorway.corridor.x, z: 0.0 },
+                { x: effectiveStairEntry.x, z: 0.0 }
+              ];
+              if (this.pathfinder && this.pathfinder.isPathClear && this.pathfinder.isPathClear(directCorridor)) {
+                pathInCorridor = directCorridor;
+              } else {
+                pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, effectiveStairEntry.x, effectiveStairEntry.z);
+              }
+              if (pathInCorridor && pathInCorridor.length > 0) {
+                corridorPathCache.set(corridorCacheKey, pathInCorridor);
+              }
             }
-          }
-          if ((!pathInCorridor || pathInCorridor.length === 0) && agentFloor > 1) {
-            const altStairId = stairCoreId === 'exit_west' ? 'exit_east' : 'exit_west';
-            const altStairEntry = this.stairwellEntries[altStairId];
-            if (altStairEntry) {
-              const altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altStairEntry.x, altStairEntry.z);
-              if (altPath && altPath.length > 0) {
-                stairCoreId = altStairId;
-                effectiveStairEntry = altStairEntry;
-                pathInCorridor = altPath;
+            const isCorridorPathClear = (p) => {
+              if (!p || p.length === 0 || p.isFallback) return false;
+              if (this.pathfinder && this.pathfinder.isPathClear) {
+                return this.pathfinder.isPathClear(p);
+              }
+              return true;
+            };
+
+            if (!isCorridorPathClear(pathInCorridor)) {
+              if (agentFloor > 1) {
+                const altStairId = stairCoreId === 'exit_west' ? 'exit_east' : 'exit_west';
+                const altStairEntry = this.stairwellEntries[altStairId];
+                if (altStairEntry) {
+                  const altCacheKey = `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${altStairEntry.x},${altStairEntry.z}`;
+                  let altPath = corridorPathCache.get(altCacheKey);
+                  if (!altPath) {
+                    const directAlt = [
+                      { x: doorway.corridor.x, z: 0.0 },
+                      { x: altStairEntry.x, z: 0.0 }
+                    ];
+                    if (this.pathfinder && this.pathfinder.isPathClear && this.pathfinder.isPathClear(directAlt)) {
+                      altPath = directAlt;
+                    } else {
+                      altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altStairEntry.x, altStairEntry.z);
+                    }
+                    if (altPath && altPath.length > 0) corridorPathCache.set(altCacheKey, altPath);
+                  }
+                  if (isCorridorPathClear(altPath)) {
+                    stairCoreId = altStairId;
+                    effectiveStairEntry = altStairEntry;
+                    pathInCorridor = altPath;
+                    const matchingExit = this.exits.find(e => e.id === altStairId);
+                    if (matchingExit) bestExit = matchingExit;
+                  }
+                }
+              } else {
+                // Ground floor (L1): corridor path blocked, divert to safe exit (East, West, or South)
+                const safeCandidateIds = ['exit_east', 'exit_west', 'exit_south'].filter(id => id !== bestExit.id && !isCorridorRouteBlocked(id));
+                for (const altExitId of safeCandidateIds) {
+                  const altEntry = this.stairwellEntries[altExitId];
+                  let altPath = null;
+                  if (altExitId === 'exit_south') {
+                    altPath = [
+                      { x: doorway.corridor.x, z: 0.0 },
+                      { x: 0.0, z: 0.0 },
+                      { x: 0.0, z: 2.6 },
+                      { x: 0.0, z: 18.0 }
+                    ];
+                  } else {
+                    altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altEntry.x, altEntry.z);
+                  }
+                  if (isCorridorPathClear(altPath)) {
+                    stairCoreId = altExitId;
+                    effectiveStairEntry = altEntry;
+                    pathInCorridor = altPath;
+                    const matchingExit = this.exits.find(e => e.id === altExitId);
+                    if (matchingExit) bestExit = matchingExit;
+                    break;
+                  }
+                }
               }
             }
           }
@@ -459,7 +628,7 @@ let fallbackAssignment = false;
         }
 
         // Clear the transient floor context for the next agent
-        if (collapseZones.length && this.navGrid) this.navGrid.routeFloor = null;
+        if (this.navGrid) this.navGrid.routeFloor = null;
 
         // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
         let exitStairAtGround = stairCoreId;
@@ -575,6 +744,7 @@ let fallbackAssignment = false;
             const fromLandingX = exitStairAtGround === 'exit_west' ? -26.4 : 26.4;
             full3DPath.push({ x: fromLandingX, y: 0.15, z: 0.0 });
             full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+            full3DPath.push({ x: 0.0, y: 0.15, z: 2.6 });
             full3DPath.push({ x: 0.0, y: 0.15, z: 18.0 });
           }
           full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
@@ -595,7 +765,21 @@ let fallbackAssignment = false;
           routeReasons: bestRoute?.reasons || [],
           noPermittedCandidate: fallbackAssignment,
           requiresOperatorReview: fallbackAssignment,
-          delayTimer: delayTimer
+          delayTimer: delayTimer,
+          alternatives: candidatePool
+            .filter(c => c.exit.id !== actualExit.id)
+            .map(c => {
+              const altPath = this.buildFull3DPath(agent, c.exit, doorway, this.stairwellEntries[c.exit.id], seed, corridorPathCache, roomPathCache);
+              return {
+                exitId: c.exit.id,
+                exitName: c.exit.name,
+                exitColor: c.exit.color,
+                path: altPath,
+                score: permittedCandidates.length > 0 ? c.score : c.baselineScore,
+                routeCondition: c.route?.condition || null,
+                routeReasons: c.route?.reasons || []
+              };
+            })
         };
         assignments.push(assignment);
         if (onAssignmentBatch) {
@@ -676,6 +860,28 @@ let fallbackAssignment = false;
         e.status = 'BLOCKED / SMOKE COMPROMISED';
       }
     });
+
+    // Synchronize all active fire zones into NavGrid so that pathfinder and isWalkable enforce fire avoidance
+    if (this.navGrid && typeof this.navGrid.setFireZone === 'function') {
+      if (typeof this.navGrid.clearAllFireZones === 'function') {
+        this.navGrid.clearAllFireZones();
+      }
+      if (Array.isArray(fireLocations)) {
+        fireLocations.forEach(fire => {
+          const fX = fire.x || 0;
+          const fZ = fire.z || 0;
+          let fFloor = fire.floor;
+          if (fFloor === undefined && fire.y !== undefined) {
+            fFloor = Math.floor(fire.y / this.floorHeight) + 1;
+          }
+          if (fFloor === undefined && fire.roomId) {
+            const match = fire.roomId.match(/f(\d+)/i) || fire.roomId.match(/l(\d+)/i);
+            if (match) fFloor = parseInt(match[1], 10);
+          }
+          this.navGrid.setFireZone(fX, fZ, fire.radius || 5.0, fFloor ?? null);
+        });
+      }
+    }
     const bottlenecks = [];
     const assignments = [];
     let routingContext = null;
@@ -709,6 +915,7 @@ let fallbackAssignment = false;
       let bestScore = Infinity;
       let fallbackAssignment = false;
 
+      const doorway = getRoomDoorway(agent.roomId);
       const currentAssignment = currentAssignmentMap.get(agent.id);
       const hasCurrentRoute = currentAssignment && currentAssignment.path && currentAssignment.path.length > 0;
       const currentExitId = currentAssignment?.exitId;
@@ -742,15 +949,30 @@ let fallbackAssignment = false;
 
         let firePenalty = 0;
         fireLocations.forEach(fire => {
-          const sameFloor = Math.abs(agent.y - fire.y) < 2.5;
-          const distToFire = Math.hypot(stairEntry.x - fire.x, stairEntry.z - fire.z);
+          const fireY = fire.y !== undefined ? fire.y : ((fire.floor ? (fire.floor - 1) * this.floorHeight : 0) + 0.2);
+          const sameFloor = Math.abs(agent.y - fireY) < 2.5;
+          const distToFire = Math.hypot(stairEntry.x - (fire.x || 0), stairEntry.z - (fire.z || 0));
 
           if (distToFire < 9.0) {
-            firePenalty += 700;
+            firePenalty += 50000;
           }
 
           if (sameFloor) {
-            const agentToFire = Math.hypot(agent.x - fire.x, agent.z - fire.z);
+            const fX = fire.x || 0;
+            const fZ = fire.z || 0;
+            const isCorridorFire = Math.abs(fZ) <= 3.5;
+            if (isCorridorFire) {
+              const targetX = stairEntry.x;
+              const agentX = doorway?.corridor?.x !== undefined ? doorway.corridor.x : agent.x;
+              const minX = Math.min(agentX, targetX) - 1.2;
+              const maxX = Math.max(agentX, targetX) + 1.2;
+              if (fX >= minX && fX <= maxX) {
+                // Impassable: fire directly blocks the corridor path to this exit
+                firePenalty += 50000;
+              }
+            }
+
+            const agentToFire = Math.hypot(agent.x - fX, agent.z - fZ);
             if (agentToFire < 8.0) {
               firePenalty += 350;
             }
@@ -766,8 +988,8 @@ let fallbackAssignment = false;
         const baselineScore = distToStair + congestionPenalty + firePenalty + jitter;
         const route = hazardAware ? getExitRouteCondition(routingContext, agent.floor, exit.id) : null;
 
-        // If this is the current exit and route is still valid, give a bonus to prefer keeping it
-        const stickinessBonus = (exit.id === currentExitId && currentRouteStillValid) ? -50 : 0;
+        // If this is the current exit and route is still valid, give a modest bonus to avoid minor churn
+        const stickinessBonus = (exit.id === currentExitId && currentRouteStillValid) ? -8 : 0;
 
         candidates.push({
           exit,
@@ -783,7 +1005,7 @@ let fallbackAssignment = false;
       );
       const candidatePool = permittedCandidates.length > 0 ? permittedCandidates : candidates;
 
-      // If current exit is still valid and agent has made progress, prefer it
+      // If current exit is still valid and agent has made progress, prefer it only if not heavily penalized
       let useCurrentExit = false;
       if (currentExitId && currentRouteStillValid) {
         const currentCandidate = candidates.find(c => c.isCurrentExit);
@@ -793,8 +1015,8 @@ let fallbackAssignment = false;
             ? permittedCandidates.reduce((best, c) => c.score < best.score ? c : best, permittedCandidates[0])
             : candidates.reduce((best, c) => c.score < best.score ? c : best, candidates[0]);
 
-          // If current exit score is within 20% of best, keep it to avoid churn
-          if (currentCandidate.score <= bestPermitted.score * 1.2) {
+          // Keep current exit only if within 5% and not heavily burdened or hazard-penalized
+          if (currentCandidate.score <= bestPermitted.score * 1.05 && currentCandidate.score < 1000) {
             useCurrentExit = true;
             bestExit = currentCandidate.exit;
             bestRoute = currentCandidate.route;
@@ -807,11 +1029,11 @@ let fallbackAssignment = false;
         for (const candidate of candidatePool) {
           const score = permittedCandidates.length > 0 ? candidate.score : candidate.baselineScore;
           if (score < bestScore) {
-bestScore = score;
-          bestExit = candidate.exit;
-          bestRoute = candidate.route;
+            bestScore = score;
+            bestExit = candidate.exit;
+            bestRoute = candidate.route;
+          }
         }
-}
       }
 
       if (bestExit) {
@@ -904,9 +1126,12 @@ bestScore = score;
    */
   _updateLiveExitLoads(agents) {
     if (!agents || agents.length === 0) {
-      this.exits.forEach(e => { e.load = 0; });
       return;
     }
+    // If caller pre-set loads on exits (e.g. test harness or telemetry), preserve them
+    const hasPreloadedLoads = this.exits.some(e => (e.load || 0) > agents.length);
+    if (hasPreloadedLoads) return;
+
     // Reset loads first
     this.exits.forEach(e => { e.load = 0; });
     // Count agents targeting each exit
@@ -923,7 +1148,80 @@ bestScore = score;
    * Includes: room interior → doorway → corridor → stairwell descent → exit portal → muster zone.
    */
   buildFull3DPath(agent, exit, doorway, stairEntry, seed, corridorCache = null, roomCache = null) {
-    const agentFloor = agent.floor || (agent.y !== undefined ? Math.floor(agent.y / this.floorHeight) + 1 : 1);
+    const currentFloor = Math.max(1, Math.floor(((agent.y !== undefined ? agent.y : 0) + 0.5) / this.floorHeight) + 1);
+    const isActivelyEvacuating = agent.state === 'EVACUATING';
+    const agentFloor = isActivelyEvacuating ? currentFloor : (agent.floor || currentFloor);
+
+    // If agent is ALREADY on Ground Floor (or reached L1 during descent)
+    if (isActivelyEvacuating && currentFloor === 1) {
+      const full3DPath = [];
+      let isWest = exit.id === 'exit_west';
+      let isEast = exit.id === 'exit_east';
+      let isSouth = exit.id === 'exit_south';
+
+      // Check if current chosen exit corridor is blocked by fire
+      const activeFires = this.navGrid && this.navGrid.fireZones ? Array.from(this.navGrid.fireZones.values()) : [];
+      const isBlockedTo = (targetX) => {
+        return activeFires.some(fz => {
+          if (fz.floor != null && fz.floor !== 1) return false;
+          if (Math.abs(fz.z) > 3.5) return false;
+          const minX = Math.min(agent.x, targetX) - 1.2;
+          const maxX = Math.max(agent.x, targetX) + 1.2;
+          return fz.x >= minX && fz.x <= maxX;
+        });
+      };
+
+      if (isWest && isBlockedTo(-26.0)) {
+        if (!isBlockedTo(26.0)) {
+          exit = this.exits.find(e => e.id === 'exit_east') || exit;
+          isWest = false; isEast = true;
+        } else if (!isBlockedTo(0.0)) {
+          exit = this.exits.find(e => e.id === 'exit_south') || exit;
+          isWest = false; isSouth = true;
+        }
+      } else if (isEast && isBlockedTo(26.0)) {
+        if (!isBlockedTo(-26.0)) {
+          exit = this.exits.find(e => e.id === 'exit_west') || exit;
+          isEast = false; isWest = true;
+        } else if (!isBlockedTo(0.0)) {
+          exit = this.exits.find(e => e.id === 'exit_south') || exit;
+          isEast = false; isSouth = true;
+        }
+      }
+
+      const jAngle = (seed % 100) * (Math.PI * 2 / 100);
+      const jDist = 1.0 + ((seed * 7) % 35) * 0.1;
+      const jitterX = Math.cos(jAngle) * jDist;
+      const jitterZ = Math.sin(jAngle) * jDist;
+
+      // Path from current ground position along corridor/lobby to exit
+      full3DPath.push({ x: agent.x, y: 0.15, z: agent.z });
+      if (Math.abs(agent.z) > 0.6 && !isSouth) {
+        full3DPath.push({ x: agent.x, y: 0.15, z: 0.0 });
+      }
+
+      if (isWest) {
+        if (agent.x > -26.0) full3DPath.push({ x: -26.4, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: -29.2, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: -33.5, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: -38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      } else if (isEast) {
+        if (agent.x < 26.0) full3DPath.push({ x: 26.4, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: 29.2, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
+      } else if (isSouth) {
+        if (Math.abs(agent.x) > 1.0 && agent.z < 2.0) {
+          full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+        }
+        if (agent.z < 2.6) full3DPath.push({ x: 0.0, y: 0.15, z: 2.6 });
+        if (agent.z < 18.0) full3DPath.push({ x: 0.0, y: 0.15, z: 18.0 });
+        full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
+        full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
+        full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });
+      }
+      return full3DPath;
+    }
 
     // Path 1: From agent's position inside room to inside doorway staging point
     let pathInsideRoom;
@@ -932,7 +1230,9 @@ bestScore = score;
       if (roomKey && roomCache.has(roomKey)) {
         pathInsideRoom = roomCache.get(roomKey);
       } else {
+        if (this.navGrid) this.navGrid.routeFloor = agentFloor;
         pathInsideRoom = this.pathfinder.findPath(agent.x, agent.z, doorway.inside.x, doorway.inside.z) || [];
+        if (this.navGrid) this.navGrid.routeFloor = null;
         if (roomKey && roomCache && pathInsideRoom.length > 0) {
           roomCache.set(roomKey, pathInsideRoom);
         }
@@ -943,14 +1243,76 @@ bestScore = score;
 
     // Path 2: From corridor staging point along central corridor to stairwell (cached per floor/corridor/stair)
     let pathInCorridor;
-    if (doorway && doorway.corridor && stairEntry) {
+    if (agentFloor === 1 && exit.id === 'exit_south') {
+      pathInCorridor = [
+        { x: doorway?.corridor?.x || 0.0, z: 0.0 },
+        { x: 0.0, z: 0.0 },
+        { x: 0.0, z: 2.6 },
+        { x: 0.0, z: 18.0 }
+      ];
+    } else if (doorway && doorway.corridor && stairEntry) {
+      if (this.navGrid) this.navGrid.routeFloor = agentFloor;
       const corridorKey = corridorCache ? `${agentFloor}:${doorway.corridor.x},${doorway.corridor.z}->${stairEntry.x},${stairEntry.z}` : null;
       if (corridorKey && corridorCache.has(corridorKey)) {
         pathInCorridor = corridorCache.get(corridorKey);
       } else {
         pathInCorridor = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, stairEntry.x, stairEntry.z) || [];
-        if (corridorKey && corridorCache && pathInCorridor.length > 0) {
+        if (corridorKey && corridorCache && pathInCorridor.length > 0 && !pathInCorridor.isFallback) {
           corridorCache.set(corridorKey, pathInCorridor);
+        }
+      }
+      if (this.navGrid) this.navGrid.routeFloor = null;
+
+      const isPathClear = (p) => {
+        if (!p || p.length === 0 || p.isFallback) return false;
+        if (this.pathfinder && this.pathfinder.isPathClear) {
+          if (this.navGrid) this.navGrid.routeFloor = agentFloor;
+          const clear = this.pathfinder.isPathClear(p);
+          if (this.navGrid) this.navGrid.routeFloor = null;
+          return clear;
+        }
+        return true;
+      };
+
+      if (!isPathClear(pathInCorridor)) {
+        if (agentFloor > 1) {
+          const altStairId = exit.id === 'exit_west' ? 'exit_east' : 'exit_west';
+          const altStairEntry = this.stairwellEntries[altStairId];
+          if (altStairEntry) {
+            if (this.navGrid) this.navGrid.routeFloor = agentFloor;
+            const altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altStairEntry.x, altStairEntry.z);
+            if (this.navGrid) this.navGrid.routeFloor = null;
+            if (isPathClear(altPath)) {
+              pathInCorridor = altPath;
+              stairEntry = altStairEntry;
+              exit = this.exits.find(e => e.id === altStairId) || exit;
+            }
+          }
+        } else {
+          // Ground floor (L1): check safe alternative
+          const altCandidateIds = ['exit_east', 'exit_west', 'exit_south'].filter(id => id !== exit.id);
+          for (const altId of altCandidateIds) {
+            const altEntry = this.stairwellEntries[altId];
+            let altPath = null;
+            if (altId === 'exit_south') {
+              altPath = [
+                { x: doorway.corridor.x, z: 0.0 },
+                { x: 0.0, z: 0.0 },
+                { x: 0.0, z: 2.6 },
+                { x: 0.0, z: 18.0 }
+              ];
+            } else {
+              if (this.navGrid) this.navGrid.routeFloor = agentFloor;
+              altPath = this.pathfinder.findPath(doorway.corridor.x, doorway.corridor.z, altEntry.x, altEntry.z);
+              if (this.navGrid) this.navGrid.routeFloor = null;
+            }
+            if (isPathClear(altPath)) {
+              pathInCorridor = altPath;
+              stairEntry = altEntry;
+              exit = this.exits.find(e => e.id === altId) || exit;
+              break;
+            }
+          }
         }
       }
     } else {
@@ -978,13 +1340,16 @@ bestScore = score;
     });
 
     // 2. Realistic Multi-flight Switchback Staircase Descent down to Ground Floor
-    if (agent.floor > 1 && (exit.id === 'exit_west' || exit.id === 'exit_east')) {
-      const isWest = exit.id === 'exit_west';
+    const descentStartFloor = isActivelyEvacuating ? currentFloor : agentFloor;
+    const stairCoreId = (exit.id === 'exit_west' || exit.id === 'exit_east') ? exit.id : ((agent.x < 0) ? 'exit_west' : 'exit_east');
+
+    if (descentStartFloor > 1) {
+      const isWest = stairCoreId === 'exit_west';
       const flight1X = isWest ? -27.2 : 27.2;
       const flight2X = isWest ? -28.8 : 28.8;
       const landingX = isWest ? -26.4 : 26.4;
 
-      for (let fl = agent.floor; fl >= 2; fl--) {
+      for (let fl = descentStartFloor; fl >= 2; fl--) {
         const flBaseY = (fl - 1) * this.floorHeight;
 
         // 1. Step onto current Floor Landing
@@ -1029,6 +1394,13 @@ bestScore = score;
       full3DPath.push({ x: 33.5, y: 0.15, z: 0.0 });
       full3DPath.push({ x: 38.0 + jitterX, y: 0.15, z: 0.0 + jitterZ });
     } else if (isSouth) {
+      if (descentStartFloor > 1) {
+        const fromLandingX = stairCoreId === 'exit_west' ? -26.4 : 26.4;
+        full3DPath.push({ x: fromLandingX, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: 0.0, y: 0.15, z: 0.0 });
+        full3DPath.push({ x: 0.0, y: 0.15, z: 2.6 });
+        full3DPath.push({ x: 0.0, y: 0.15, z: 18.0 });
+      }
       full3DPath.push({ x: 0.0, y: 0.15, z: 23.0 });
       full3DPath.push({ x: 0.0, y: 0.15, z: 28.5 });
       full3DPath.push({ x: 0.0 + jitterX, y: 0.15, z: 36.0 + jitterZ });

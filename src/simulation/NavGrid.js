@@ -19,6 +19,7 @@ export class NavGrid {
     // floor); instead isWalkable() consults these boxes whenever a transient
     // `routeFloor` context is active for the floor currently being routed.
     this.structuralBoxes = new Map(); // id -> { minX, maxX, minZ, maxZ, floor }
+    this.fireZones = new Map(); // id -> { x, z, radius, floor }
     this.routeFloor = null; // transient floor context for path queries
 
     this.initGrid();
@@ -90,15 +91,15 @@ export class NavGrid {
   }
 
   markBuildingObstacles() {
-    // 1. Exterior Perimeter Walls
-    this.markBoxBlocked(-29.5, -28.0, -23.5, -2.5); // West Wall Top
-    this.markBoxBlocked(-29.5, -28.0, 2.5, 23.5);   // West Wall Bottom (Stairwell A at z: 0 is open)
-    this.markBoxBlocked(28.0, 29.5, -23.5, -2.5);   // East Wall Top
-    this.markBoxBlocked(28.0, 29.5, 2.5, 23.5);     // East Wall Bottom (Stairwell B at z: 0 is open)
+    // 1. Exterior Perimeter Walls & Airspace Envelope
+    this.markBoxBlocked(-30.0, -28.0, -24.0, -2.5); // West Wall Top
+    this.markBoxBlocked(-30.0, -28.0, 2.5, 25.0);   // West Wall Bottom (Stairwell A at z: 0 is open)
+    this.markBoxBlocked(28.0, 30.0, -24.0, -2.5);   // East Wall Top
+    this.markBoxBlocked(28.0, 30.0, 2.5, 25.0);     // East Wall Bottom (Stairwell B at z: 0 is open)
 
-    this.markBoxBlocked(-29.0, 29.0, -23.5, -22.2); // North Outer Wall
-    this.markBoxBlocked(-29.0, -3.5, 22.2, 23.5);   // South Outer Wall Left
-    this.markBoxBlocked(3.5, 29.0, 22.2, 23.5);    // South Outer Wall Right (South Exit C open at center)
+    this.markBoxBlocked(-30.0, 30.0, -24.0, -22.2); // North Outer Wall
+    this.markBoxBlocked(-30.0, -3.5, 22.2, 25.0);   // South Outer Wall Left
+    this.markBoxBlocked(3.5, 30.0, 22.2, 25.0);    // South Outer Wall Right (South Exit C open at center)
 
     // 2. Central Corridor Walls (Running along X axis)
     // Elevator Bank Core (North of corridor, x: 0.0 to 6.4, z: -2.7 to -0.95)
@@ -112,9 +113,9 @@ export class NavGrid {
     const dividers = [-15.0, -6.0, 3.0, 14.0];
     dividers.forEach(x => {
       // North wing dividers
-      this.markBoxBlocked(x - 0.25, x + 0.25, -22.0, -3.0);
+      this.markBoxBlocked(x - 0.35, x + 0.35, -22.2, -2.4);
       // South wing dividers
-      this.markBoxBlocked(x - 0.25, x + 0.25, 3.0, 22.0);
+      this.markBoxBlocked(x - 0.35, x + 0.35, 2.4, 22.2);
     });
 
     // 4. Carve out PRECISE 10 PHYSICAL DOORWAYS on corridor walls
@@ -130,13 +131,17 @@ export class NavGrid {
       this.markDoorWalkable(x, 2.6, 2.4, 1.8);
     });
 
-    // 5. Clear Stairwell Access Corridors
+    // 5. Clear Stairwell Access & Central Grand Foyer Corridors
     this.markDoorWalkable(-26.0, 0, 3.5, 3.5); // West Stairwell Core
     this.markDoorWalkable(26.0, 0, 3.5, 3.5);  // East Stairwell Core
-    this.markDoorWalkable(0, 22.8, 4.0, 2.5);  // South Main Lobby Exit
+    this.markDoorWalkable(0, 2.6, 5.0, 2.0);   // South Corridor to Central Grand Foyer / Lobby
+    this.markDoorWalkable(0, 22.8, 5.0, 2.5);  // South Main Lobby Exit Portal
   }
 
-  clearFireZone(centerX, centerZ, radius = 5.5) {
+  clearFireZone(centerX, centerZ, radius = 5.5, floor = null) {
+    const key = `${centerX.toFixed(1)},${centerZ.toFixed(1)},${floor ?? 'all'}`;
+    this.fireZones.delete(key);
+
     const center = this.worldToGrid(centerX, centerZ);
     const gridRadius = Math.round(radius / this.cellSize);
 
@@ -153,7 +158,10 @@ export class NavGrid {
     }
   }
 
-  setFireZone(centerX, centerZ, radius = 5.5) {
+  setFireZone(centerX, centerZ, radius = 5.5, floor = null) {
+    const key = `${centerX.toFixed(1)},${centerZ.toFixed(1)},${floor ?? 'all'}`;
+    this.fireZones.set(key, { x: centerX, z: centerZ, radius, floor });
+
     const center = this.worldToGrid(centerX, centerZ);
     const gridRadius = Math.round(radius / this.cellSize);
 
@@ -161,16 +169,23 @@ export class NavGrid {
       for (let c = Math.max(0, center.c - gridRadius); c <= Math.min(this.cols - 1, center.c + gridRadius); c++) {
         const dist = Math.hypot(c - center.c, r - center.r) * this.cellSize;
         if (dist <= radius) {
-          if (dist <= 2.8) {
-            this.grid[r][c] = 1; // Unwalkable core flames
-          }
           this.hazardCosts[r][c] = Math.max(this.hazardCosts[r][c] || 0, (radius - dist) * 35);
         }
       }
     }
   }
 
+  clearAllFireZones() {
+    if (this.fireZones) this.fireZones.clear();
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        this.hazardCosts[r][c] = 0;
+      }
+    }
+  }
+
   resetDynamicHazards() {
+    this.fireZones.clear();
     for (let r = 0; r < this.rows; r++) {
       for (let c = 0; c < this.cols; c++) {
         if (!this.blockedStatic[r][c]) {
@@ -249,6 +264,22 @@ export class NavGrid {
   isWalkable(c, r) {
     if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return false;
     if (this.grid[r][c] !== 0) return false;
+
+    // Floor-aware fire hazard blocking (corridors, stairs, rooms)
+    if (this.fireZones && this.fireZones.size > 0) {
+      const world = this.gridToWorld(c, r);
+      const currentFl = this.routeFloor != null ? (typeof this.routeFloor === 'string' ? parseInt(this.routeFloor.replace(/\D/g, ''), 10) : Number(this.routeFloor)) : null;
+      for (const fz of this.fireZones.values()) {
+        const fzFl = fz.floor != null ? (typeof fz.floor === 'string' ? parseInt(String(fz.floor).replace(/\D/g, ''), 10) : Number(fz.floor)) : null;
+        if (currentFl !== null && fzFl !== null && currentFl !== fzFl) {
+          continue;
+        }
+        const dist = Math.hypot(world.x - fz.x, world.z - fz.z);
+        if (dist <= fz.radius) {
+          return false; // Active fire zone: impassable on this floor
+        }
+      }
+    }
 
     // Floor-aware structural debris blocking (e.g. Corridor C-101 collapse)
     if (this.routeFloor !== null && this.routeFloor !== undefined && this.structuralBoxes.size > 0) {

@@ -7,7 +7,6 @@ import { BottomControlDock } from './components/BottomControlDock';
 import { ViewportOverlay } from './components/ViewportOverlay';
 import { CCTVMultiviewer } from './components/CCTVMultiviewer';
 import { BottleneckAnalytics } from './components/BottleneckAnalytics';
-import { IncidentsModal } from './components/IncidentsModal';
 import { ReportsModal } from './components/ReportsModal';
 import { RoomModal } from './components/RoomModal';
 import { FireTriggerBubble } from './components/FireTriggerBubble';
@@ -26,7 +25,6 @@ import { LoginModal } from './components/LoginModal';
 import { DEMO_LOGIN, LoginPage } from './components/LoginPage';
 import { ScenariosView } from './components/ScenariosView';
 import { StrategyRankerView } from './components/StrategyRankerView';
-import { IncidentsView } from './components/IncidentsView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { ReportsView } from './components/ReportsView';
 import { DynamicLeftSidebar } from './components/DynamicLeftSidebar';
@@ -176,7 +174,6 @@ export function App() {
   const [fireBubbleData, setFireBubbleData] = useState(null);
   const [isCctvOpen, setIsCctvOpen] = useState(false);
   const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
-  const [isIncidentsOpen, setIsIncidentsOpen] = useState(false);
   const [isReportsOpen, setIsReportsOpen] = useState(false);
   const [isBuildingInfoOpen, setIsBuildingInfoOpen] = useState(false);
   const [isEmergencyControlOpen, setIsEmergencyControlOpen] = useState(false);
@@ -239,6 +236,10 @@ export function App() {
           setIncidents((prev) => [...stats.rerouteEvents, ...prev]);
           setLastReroute(stats.rerouteEvents[0]);
         }
+        if (stats.isSimulating) {
+          setIsSimulating(true);
+          setSystemStatus('EVACUATING');
+        }
         if (stats.isCompleted) {
           setIsSimulating(false);
           setSystemStatus('COMPLETED');
@@ -267,6 +268,9 @@ export function App() {
     sceneManagerRef.current = manager;
     setSceneMgr(manager);
     window.__sceneManager = manager;
+    manager.onFireTriggered = (rId) => {
+      handleTriggerFire(rId, true, true);
+    };
     window.__twinguardApp = {
       startEvacuation: handleStartEvacuation,
       reset: handleReset,
@@ -464,26 +468,57 @@ export function App() {
   // Trigger Fire in a room
   const handleTriggerFire = (roomId, emitToServer = true, createIncident = true) => {
     const triggerId = emitToServer ? createFireTriggerId() : null;
-    const shouldSendToServer = Boolean(triggerId && socketRef.current?.connected);
+    const shouldSendToServer = Boolean(triggerId);
     if (shouldSendToServer) {
       rememberPendingFireTrigger(pendingFireTriggersRef.current, triggerId);
     }
 
     const targetRoom = rooms.find((r) => r.id === roomId);
+    const segMatch = /^(corr|stair)_f(\d+)_([a-z]+)$/.exec(String(roomId || ''));
+    const targetFloor = targetRoom?.floor || (segMatch ? parseInt(segMatch[2], 10) : 1);
+    const targetName = targetRoom
+      ? `${targetRoom.name} (${targetRoom.camId})`
+      : (segMatch
+          ? `${segMatch[3] === 'west' ? 'West' : 'East'} ${segMatch[1] === 'corr' ? 'Corridor' : 'Stairwell'} (Level ${segMatch[2]})`
+          : 'Active Fire Alert');
 
-    setRooms((prev) =>
-      prev.map((r) => {
-        if (r.id === roomId) {
-          return { ...r, hasFire: true, tempCelsius: 86 };
-        }
-        return r;
-      })
-    );
+    setRooms((prev) => {
+      const exists = prev.some((r) => r.id === roomId);
+      if (exists) {
+        return prev.map((r) => {
+          if (r.id === roomId) {
+            return { ...r, hasFire: true, tempCelsius: 86 };
+          }
+          return r;
+        });
+      }
+      if (segMatch) {
+        const kind = segMatch[1];
+        const fl = parseInt(segMatch[2], 10);
+        const zone = segMatch[3];
+        const isWest = zone === 'west';
+        return [
+          ...prev,
+          {
+            id: roomId,
+            name: `${isWest ? 'West' : 'East'} ${kind === 'corr' ? 'Corridor' : 'Stairwell'}`,
+            floor: fl,
+            hasFire: true,
+            tempCelsius: 88,
+            camId: `CAM-${kind.toUpperCase()}-L${fl}-${zone.toUpperCase().slice(0, 1)}`
+          }
+        ];
+      }
+      return prev;
+    });
 
-    setSystemStatus('ALARM');
+    setSystemStatus('EVACUATING');
+    setIsSimulating(true);
 
     if (sceneManagerRef.current) {
+      sceneManagerRef.current._suppressFireNotify = true;
       sceneManagerRef.current.triggerFire(roomId);
+      sceneManagerRef.current._suppressFireNotify = false;
     }
 
     if (createIncident) {
@@ -497,10 +532,10 @@ export function App() {
       const newIncident = {
         id: `inc_${Date.now()}`,
         time: nowTime,
-        title: `Smoke & Thermal Hazard - Level ${targetRoom?.floor || 1}`,
-        subtitle: targetRoom ? `${targetRoom.name} (${targetRoom.camId})` : 'Active Fire Alert',
+        title: `Smoke & Thermal Hazard - Level ${targetFloor}`,
+        subtitle: targetName,
         severity: 'High',
-        floor: targetRoom?.floor || 1,
+        floor: targetFloor,
         roomId
       };
 
@@ -508,17 +543,28 @@ export function App() {
     }
 
     if (shouldSendToServer) {
-      fetch('http://localhost:5000/api/trigger-fire', {
+      const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+
+      // 1. Direct Socket.IO emission
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('client-trigger-fire', { roomId, triggerId });
+      }
+
+      // 2. HTTP POST with fallback (Vite proxy relative path + direct backend IP:5000)
+      const postPayload = JSON.stringify({ roomId, triggerId });
+      fetch('/api/trigger-fire', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, triggerId })
-      }).then((response) => {
-        if (!response.ok) {
-          throw new Error(`Fire trigger request failed with status ${response.status}`);
-        }
+        body: postPayload
+      }).catch(() => {
+        return fetch(`http://${backendHost}:5000/api/trigger-fire`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: postPayload
+        });
       }).catch((error) => {
         forgetPendingFireTrigger(pendingFireTriggersRef.current, triggerId);
-        console.error('Failed to send fire trigger to the server:', error);
+        console.error('Failed to send fire trigger to server:', error);
       });
     }
   };
@@ -560,7 +606,8 @@ export function App() {
 
       // ── 1. Hazard dispatch: spawn the RIGHT 3D effect per hazard type ──
       if (hazard && hazard.roomId && sm) {
-        setSystemStatus('ALARM');
+        setSystemStatus('EVACUATING');
+    setIsSimulating(true);
         const hzType = String(hazard.type || 'FIRE').toUpperCase();
         if (hzType === 'SMOKE') {
           sm.spawnSmoke(hazard.roomId);
@@ -841,8 +888,12 @@ export function App() {
       handleSetCameraPreset('HERO_VIEW');
       setIsCctvOpen(false);
       setIsAnalyticsOpen(false);
-      setIsIncidentsOpen(false);
       setIsReportsOpen(false);
+      return;
+    }
+    if (tab === 'INCIDENTS') {
+      setActiveSidebarMode('3D_VIEW');
+      setActiveTab('LIVE_VIEW');
       return;
     }
     if (tab === 'REPORTS') {
@@ -902,10 +953,8 @@ export function App() {
         onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
-        incidentCount={incidents.length}
         onOpenCctv={() => setIsCctvOpen(true)}
         onOpenAnalytics={() => setIsAnalyticsOpen(true)}
-        onOpenIncidents={() => setIsIncidentsOpen(true)}
         onOpenReports={() => setIsReportsOpen(true)}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenScenarioStudio={() => setIsScenarioModalOpen(true)}
@@ -963,7 +1012,7 @@ export function App() {
           incidents={incidents}
         />
 
-        {/* Central Dynamic Workspace (Displays 3D Digital Twin, Command Center, Building Info, AI Scenarios, Strategy Ranker, Incidents, Analytics, or Reports) */}
+        {/* Central Dynamic Workspace (Displays 3D Digital Twin, Command Center, Building Info, AI Scenarios, Strategy Ranker, Analytics, or Reports) */}
         <div
           className={`flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden transition-colors duration-300 ${
             theme === 'dark' ? 'bg-[#070d18]' : 'bg-[#f1f5f9]'
@@ -989,18 +1038,6 @@ export function App() {
               rooms={rooms}
               exits={exits}
               onApplyStrategy={handleApplyStrategyToSimulation}
-              onSwitchToLive={handleSwitchToLive}
-            />
-          )}
-
-          {/* 3. INCIDENTS COMMAND CENTER VIEW */}
-          {activeTab === 'INCIDENTS' && (
-            <IncidentsView
-              theme={theme}
-              incidents={incidents}
-              onStartEvacuation={handleStartEvacuation}
-              onOpenGis={() => setIsGisOpen(true)}
-              onOpenCctv={() => setIsCctvOpen(true)}
               onSwitchToLive={handleSwitchToLive}
             />
           )}
@@ -1197,19 +1234,6 @@ export function App() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* MODAL 3: Live Incident Command Center */}
-      {isIncidentsOpen && (
-        <IncidentsModal
-          theme={theme}
-          incidents={incidents}
-          onClose={() => setIsIncidentsOpen(false)}
-          onFocusRoom={(roomId) => {
-            handleSetCameraPreset('ROOM_FOCUS', roomId);
-            setIsIncidentsOpen(false);
-          }}
-        />
       )}
 
       {/* MODAL 4: Safety Compliance Audit Report */}

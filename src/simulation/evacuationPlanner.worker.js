@@ -25,6 +25,7 @@ self.onmessage = ({ data }) => {
     if (data.hazardCosts) navGrid.hazardCosts = data.hazardCosts;
     if (data.congestionCosts) navGrid.congestionCosts = data.congestionCosts;
     if (data.structuralBoxes) navGrid.structuralBoxes = new Map(data.structuralBoxes);
+    if (data.fireZones) navGrid.fireZones = new Map(data.fireZones);
 
     if (data.exits) optimizer.exits = data.exits;
 

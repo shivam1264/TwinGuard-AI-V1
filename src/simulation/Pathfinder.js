@@ -99,10 +99,12 @@ export class Pathfinder {
     }
 
     // Direct fallback if completely trapped
-    return [
+    const fallbackPath = [
       { x: startX, z: startZ },
       { x: targetX, z: targetZ }
     ];
+    fallbackPath.isFallback = true;
+    return fallbackPath;
   }
 
   findNearestWalkable(c, r) {
@@ -177,6 +179,16 @@ export class Pathfinder {
       const z = p1.z + (p2.z - p1.z) * t;
       const g = this.navGrid.worldToGrid(x, z);
       if (!this.navGrid.isWalkable(g.c, g.r)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  isPathClear(path) {
+    if (!path || path.length < 2 || path.isFallback) return false;
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!this.hasLineOfSight(path[i], path[i + 1])) {
         return false;
       }
     }

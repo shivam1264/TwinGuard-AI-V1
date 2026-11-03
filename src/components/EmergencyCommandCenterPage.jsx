@@ -64,9 +64,8 @@ const TelemetryRow = ({ label, value, bad = false, warn = false, neutral = false
   <div className="flex items-center justify-between gap-1.5 min-w-0">
     <span className="text-[10px] text-slate-500 truncate">{label}</span>
     <span
-      className={`text-[10px] font-bold shrink-0 ${
-        neutral ? 'text-slate-800' : bad ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-600'
-      }`}
+      className={`text-[10px] font-bold shrink-0 ${neutral ? 'text-slate-800' : bad ? 'text-red-600' : warn ? 'text-amber-600' : 'text-emerald-600'
+        }`}
     >
       {value}
     </span>
@@ -428,7 +427,7 @@ export function EmergencyCommandCenterPage({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ corridorId: 'C101', blocked: evt.enabled })
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
     return () => {
@@ -481,7 +480,7 @@ export function EmergencyCommandCenterPage({
           rerouted: struct ? struct.reroutedAgents || 0 : 0
         },
         summary: {
-          activeHazards: ['fire','powerGridFailure','hvacPressurizationFailure','structuralCollapse'].filter((k) => !!haz[k]).length,
+          activeHazards: ['fire', 'powerGridFailure', 'hvacPressurizationFailure', 'structuralCollapse'].filter((k) => !!haz[k]).length,
           evacuating: agentStats ? agentStats.inTransit || 0 : null,
           blockedRoutes
         }
@@ -837,9 +836,11 @@ export function EmergencyCommandCenterPage({
 
     setHazards((prev) => [createEvent('FIRE', 'Fire — Active', currentLocation), ...prev]);
     focusLocation(currentLocation);
-    if (sceneManager && sceneManager.triggerFire) sceneManager.triggerFire(currentLocation.id);
-    if (onTriggerFire) onTriggerFire(currentLocation.id);
-    if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
+    if (onTriggerFire) {
+      onTriggerFire(currentLocation.id);
+    } else if (sceneManager && sceneManager.triggerFire) {
+      sceneManager.triggerFire(currentLocation.id);
+    }
     showToast(`Fire ignited in ${currentLocation.shortName}!`);
   };
 
@@ -853,8 +854,11 @@ export function EmergencyCommandCenterPage({
     recordHistory();
     setHazards((prev) => prev.filter((h) => h.id !== existing.id));
     focusLocation(currentLocation);
-    if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(currentLocation.id);
-    if (onExtinguishFire) onExtinguishFire(currentLocation.id);
+    if (onExtinguishFire) {
+      onExtinguishFire(currentLocation.id);
+    } else if (sceneManager && sceneManager.extinguishFire) {
+      sceneManager.extinguishFire(currentLocation.id);
+    }
     if (sceneManager && sceneManager.recalculateDynamicRoutes) sceneManager.recalculateDynamicRoutes();
     showToast(`Fire removed from ${currentLocation.shortName}.`);
   };
@@ -1220,8 +1224,11 @@ export function EmergencyCommandCenterPage({
     recordHistory();
 
     if (targetEvent.type === 'FIRE') {
-      if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(targetEvent.locationId);
-      if (onExtinguishFire) onExtinguishFire(targetEvent.locationId);
+      if (onExtinguishFire) {
+        onExtinguishFire(targetEvent.locationId);
+      } else if (sceneManager && sceneManager.extinguishFire) {
+        sceneManager.extinguishFire(targetEvent.locationId);
+      }
     } else if (targetEvent.type === 'SMOKE') {
       if (sceneManager && sceneManager.extinguishFire) sceneManager.extinguishFire(targetEvent.locationId);
     } else if (targetEvent.type === 'BLOCK_ROOM') {
@@ -1622,9 +1629,8 @@ export function EmergencyCommandCenterPage({
 
   return (
     <div
-      className={`w-full h-full p-2.5 md:p-3.5 font-sans select-none overflow-y-auto lg:overflow-hidden overflow-x-hidden relative flex flex-col transition-colors duration-300 ${
-        isDark ? 'theme-dark bg-[#070e1b] text-slate-100' : 'theme-light bg-[#f4f6fa] text-slate-800'
-      }`}
+      className={`w-full h-full p-2.5 md:p-3.5 font-sans select-none overflow-y-auto lg:overflow-hidden overflow-x-hidden relative flex flex-col transition-colors duration-300 ${isDark ? 'theme-dark bg-[#070e1b] text-slate-100' : 'theme-light bg-[#f4f6fa] text-slate-800'
+        }`}
       style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
     >
       {/* Toast Notification */}
@@ -1658,11 +1664,10 @@ export function EmergencyCommandCenterPage({
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <button
             onClick={handleSaveScenario}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${
-              isDark
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm border shrink-0 ${isDark
                 ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200'
                 : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-            }`}
+              }`}
           >
             <Save className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
             <span>Save Scenario</span>
@@ -1679,9 +1684,8 @@ export function EmergencyCommandCenterPage({
           {(onSwitchTo3D || onClose) && (
             <button
               onClick={onSwitchTo3D || onClose}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm text-white shrink-0 ml-1 ${
-                isDark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-900 hover:bg-slate-800'
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm text-white shrink-0 ml-1 ${isDark ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-900 hover:bg-slate-800'
+                }`}
               title="Return to Main 3D View"
             >
               <X className="w-3.5 h-3.5" />
@@ -1703,11 +1707,10 @@ export function EmergencyCommandCenterPage({
           <div className={`relative w-full rounded-2xl overflow-hidden border shadow-sm flex flex-col h-[270px] sm:h-[300px] md:h-[320px] lg:h-[335px] xl:h-[350px] shrink-0 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-900 border-slate-200/90'}`}>
             {/* Top Left: Main Academic Building Dropdown Pill */}
             <div className="absolute top-2.5 left-2.5 z-20 flex items-center gap-2">
-              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl backdrop-blur-md border text-[11px] font-semibold shadow-lg ${
-                isDark
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl backdrop-blur-md border text-[11px] font-semibold shadow-lg ${isDark
                   ? 'bg-slate-950/80 border-slate-700/80 text-white'
                   : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-sm'
-              }`}>
+                }`}>
                 <Building2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span className="truncate max-w-[160px] sm:max-w-none">{selectedBuilding}</span>
                 <ChevronDown className={`w-3 h-3 shrink-0 ml-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`} />
@@ -1715,9 +1718,8 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── FLOATING TACTICAL EVACUATION HUD (Top Center of 3D Canvas) ── */}
-            <div className={`absolute top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl backdrop-blur-md border shadow-2xl ${
-              isDark ? 'bg-slate-950/90 border-slate-700/80 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-md'
-            }`}>
+            <div className={`absolute top-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-2xl backdrop-blur-md border shadow-2xl ${isDark ? 'bg-slate-950/90 border-slate-700/80 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-800 shadow-md'
+              }`}>
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${isSimulating ? 'bg-red-500 animate-ping' : isCompleted ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 <span className={`text-[10px] font-black uppercase tracking-wider ${isDark ? 'text-slate-200' : 'text-slate-700'}`}>
@@ -1734,13 +1736,12 @@ export function EmergencyCommandCenterPage({
 
               <button
                 onClick={handleToggleEvacuation}
-                className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-                  isSimulating
+                className={`px-3 py-1 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${isSimulating
                     ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/30'
                     : isCompleted
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                       : 'bg-red-600 hover:bg-red-500 text-white shadow-red-500/40 animate-pulse'
-                }`}
+                  }`}
                 title={isSimulating ? 'Pause Evacuation Simulation' : 'Start Intelligent Building Evacuation Protocol'}
               >
                 {isSimulating ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
@@ -1750,9 +1751,8 @@ export function EmergencyCommandCenterPage({
               {(isSimulating || isCompleted) && (
                 <button
                   onClick={handleResetEvacuation}
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
-                  }`}
+                  className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200'
+                    }`}
                   title="Reset Evacuation"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -1762,21 +1762,19 @@ export function EmergencyCommandCenterPage({
 
             {/* Top Right: 2D View / 3D View Toggle + Fullscreen */}
             <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5">
-              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-lg text-[11px] font-bold ${
-                isDark ? 'bg-slate-950/80 border-slate-700/80' : 'bg-white/95 border-slate-200/90 text-slate-600'
-              }`}>
+              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-lg text-[11px] font-bold ${isDark ? 'bg-slate-950/80 border-slate-700/80' : 'bg-white/95 border-slate-200/90 text-slate-600'
+                }`}>
                 <button
                   onClick={() => {
                     setViewMode('2D');
                     if (sceneManager) sceneManager.setCameraPreset('TOP_DOWN');
                   }}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                    viewMode === '2D'
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${viewMode === '2D'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : isDark
                         ? 'text-slate-300 hover:text-white'
                         : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   2D View
                 </button>
@@ -1785,13 +1783,12 @@ export function EmergencyCommandCenterPage({
                     setViewMode('3D');
                     if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                   }}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
-                    viewMode === '3D'
+                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${viewMode === '3D'
                       ? 'bg-blue-600 text-white shadow-sm'
                       : isDark
                         ? 'text-slate-300 hover:text-white'
                         : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <Layers className="w-3 h-3 shrink-0" />
                   <span>3D View</span>
@@ -1803,11 +1800,10 @@ export function EmergencyCommandCenterPage({
                   setIsFullscreen(!isFullscreen);
                   if (sceneManager) setTimeout(() => sceneManager.handleResize(), 100);
                 }}
-                className={`w-7 h-7 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all cursor-pointer shadow-lg ${
-                  isDark
+                className={`w-7 h-7 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all cursor-pointer shadow-lg ${isDark
                     ? 'bg-slate-950/80 border-slate-700/80 text-slate-300 hover:text-white'
                     : 'bg-white/95 border-slate-200/90 text-slate-700 hover:text-slate-900 shadow-sm'
-                }`}
+                  }`}
                 title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -1822,13 +1818,12 @@ export function EmergencyCommandCenterPage({
                   <button
                     key={fl.num}
                     onClick={() => handleSelectFloor(fl.num)}
-                    className={`w-14 sm:w-16 py-1 px-1.5 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer shrink-0 ${
-                      isActive
+                    className={`w-14 sm:w-16 py-1 px-1.5 rounded-xl text-[11px] font-bold transition-all text-center cursor-pointer shrink-0 ${isActive
                         ? 'bg-blue-600 text-white ring-2 ring-blue-400/50 shadow-md shadow-blue-500/30'
                         : isDark
                           ? 'bg-slate-950/80 backdrop-blur-md text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80'
                           : 'bg-white/95 backdrop-blur-md text-slate-700 hover:text-slate-900 hover:bg-white border border-slate-200/90 shadow-sm'
-                    }`}
+                      }`}
                   >
                     {fl.label}
                   </button>
@@ -1844,9 +1839,8 @@ export function EmergencyCommandCenterPage({
             />
 
             {/* Viewport Legend (Top Right) */}
-            <div className={`absolute top-12 right-2.5 z-20 p-2.5 rounded-xl backdrop-blur-md border shadow-2xl flex flex-col gap-1.5 text-[10px] font-medium pointer-events-none ${
-              isDark ? 'bg-slate-950/85 border-slate-800 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
-            }`}>
+            <div className={`absolute top-12 right-2.5 z-20 p-2.5 rounded-xl backdrop-blur-md border shadow-2xl flex flex-col gap-1.5 text-[10px] font-medium pointer-events-none ${isDark ? 'bg-slate-950/85 border-slate-800 text-slate-200' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
+              }`}>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-red-500 shadow-xs shadow-red-500/50 shrink-0" />
                 <span>Fire</span>
@@ -1875,16 +1869,14 @@ export function EmergencyCommandCenterPage({
 
             {/* Viewport Bottom Controls: Nav Buttons + Compass */}
             <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-2xl ${
-                isDark ? 'bg-slate-950/85 border-slate-800 text-slate-300' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
-              }`}>
+              <div className={`flex items-center p-0.5 rounded-xl backdrop-blur-md border shadow-2xl ${isDark ? 'bg-slate-950/85 border-slate-800 text-slate-300' : 'bg-white/95 border-slate-200/90 text-slate-700 shadow-md'
+                }`}>
                 <button
                   onClick={() => {
                     if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                   }}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                   title="Recenter 3D View"
                 >
                   <Crosshair className="w-3.5 h-3.5" />
@@ -1893,9 +1885,8 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.rotateCamera) sceneManager.rotateCamera(45);
                   }}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                   title="Rotate 3D Camera (+45°)"
                 >
                   <RotateCw className="w-3.5 h-3.5" />
@@ -1904,9 +1895,8 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.zoomIn) sceneManager.zoomIn(6);
                   }}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                   title="Zoom In 3D"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1915,9 +1905,8 @@ export function EmergencyCommandCenterPage({
                   onClick={() => {
                     if (sceneManager && sceneManager.zoomOut) sceneManager.zoomOut(6);
                   }}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                    isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 hover:text-slate-900'
+                    }`}
                   title="Zoom Out 3D"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -1929,11 +1918,10 @@ export function EmergencyCommandCenterPage({
                 onClick={() => {
                   if (sceneManager) sceneManager.setCameraPreset('AXONOMETRIC');
                 }}
-                className={`w-9 h-9 rounded-full backdrop-blur-md border shadow-2xl flex items-center justify-center relative cursor-pointer transition-all shrink-0 ${
-                  isDark
+                className={`w-9 h-9 rounded-full backdrop-blur-md border shadow-2xl flex items-center justify-center relative cursor-pointer transition-all shrink-0 ${isDark
                     ? 'bg-slate-950/85 border-slate-700 hover:border-slate-500'
                     : 'bg-white/95 border-slate-200 hover:border-slate-400 shadow-md'
-                }`}
+                  }`}
                 title={`Orientation: ${compassYaw}° (Click to Reset North)`}
               >
                 <span className="absolute top-0.5 text-[7px] font-black text-red-500">N</span>
@@ -1951,19 +1939,16 @@ export function EmergencyCommandCenterPage({
           {/* ── BOTTOM DUAL SUB-CARDS (MATCHING REFERENCE DESIGN) ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 w-full min-w-0 shrink-0">
             {/* ── Sub-Card 1: Building Emergency Overview ── */}
-            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${
-              isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-            }`}>
+            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+              }`}>
               {/* Header Row */}
               <div className="flex items-center justify-between mb-2 gap-1.5 min-w-0">
-                <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${
-                  isDark ? 'text-white' : 'text-slate-900'
-                }`}>
+                <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'
+                  }`}>
                   Building Emergency Overview
                 </h2>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${
-                  isDark ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
-                }`}>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${isDark ? 'bg-red-950/60 text-red-400 border-red-800/60' : 'bg-red-50 text-red-600 border-red-200'
+                  }`}>
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse shrink-0" />
                   Active Simulation
                 </span>
@@ -1971,48 +1956,40 @@ export function EmergencyCommandCenterPage({
 
               {/* 4 Stat Badges */}
               <div className="grid grid-cols-4 gap-1.5 mb-2">
-                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
-                }`}>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
-                    isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
                   }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                    }`}>
                     <Flame className="w-3 h-3 fill-current" />
                   </div>
                   <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{fireCount}</span>
                   <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Fire Zones</span>
                 </div>
 
-                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
-                }`}>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
-                    isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/70 text-slate-600'
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
                   }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200/70 text-slate-600'
+                    }`}>
                     <Cloud className="w-3 h-3" />
                   </div>
                   <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{smokeCount}</span>
                   <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Smoke Zones</span>
                 </div>
 
-                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
-                }`}>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
-                    isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
                   }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${isDark ? 'bg-red-950/80 text-red-400' : 'bg-red-100/70 text-red-600'
+                    }`}>
                     <Ban className="w-3 h-3" />
                   </div>
                   <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{blockedAreasCount}</span>
                   <span className={`text-[9px] font-semibold mt-0.5 truncate w-full ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Blocked Areas</span>
                 </div>
 
-                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
-                }`}>
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${
-                    isDark ? 'bg-emerald-950/80 text-emerald-400' : 'bg-emerald-100/70 text-emerald-700'
+                <div className={`py-1 px-1 rounded-xl border flex flex-col items-center text-center min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-50 border-slate-100'
                   }`}>
+                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center mb-0.5 shrink-0 ${isDark ? 'bg-emerald-950/80 text-emerald-400' : 'bg-emerald-100/70 text-emerald-700'
+                    }`}>
                     <DoorClosed className="w-3 h-3" />
                   </div>
                   <span className={`text-sm font-black leading-none ${isDark ? 'text-white' : 'text-slate-900'}`}>{blockedExitsCount}</span>
@@ -2028,34 +2005,31 @@ export function EmergencyCommandCenterPage({
                       ? 'Floor-wise Occupancy'
                       : `Room-wise Occupancy — Floor ${roomOccupancyList[0]?.floorNum ?? selectedFloor}`}
                   </h3>
-                  <div className={`flex items-center p-0.5 rounded-lg border shrink-0 ${
-                    isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'
-                  }`}>
+                  <div className={`flex items-center p-0.5 rounded-lg border shrink-0 ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-slate-100 border-slate-200'
+                    }`}>
                     <button
                       onClick={() => setOccupancyView('floors')}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
-                        occupancyView === 'floors'
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${occupancyView === 'floors'
                           ? isDark
                             ? 'bg-slate-800 text-white shadow-sm'
                             : 'bg-white text-slate-900 shadow-sm'
                           : isDark
                             ? 'text-slate-400 hover:text-slate-200'
                             : 'text-slate-500 hover:text-slate-700'
-                      }`}
+                        }`}
                     >
                       Floors
                     </button>
                     <button
                       onClick={() => setOccupancyView('rooms')}
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
-                        occupancyView === 'rooms'
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${occupancyView === 'rooms'
                           ? isDark
                             ? 'bg-slate-800 text-white shadow-sm'
                             : 'bg-white text-slate-900 shadow-sm'
                           : isDark
                             ? 'text-slate-400 hover:text-slate-200'
                             : 'text-slate-500 hover:text-slate-700'
-                      }`}
+                        }`}
                     >
                       Rooms
                     </button>
@@ -2065,78 +2039,68 @@ export function EmergencyCommandCenterPage({
                 <div className="flex flex-col gap-0.5 max-h-[96px] overflow-y-auto pr-0.5">
                   {occupancyView === 'floors'
                     ? floorOccupancyList.map((item) => (
-                        <div
-                          key={item.floorName}
-                          onClick={() => {
-                            const flNum = Number(String(item.floorName).replace(/\D/g, ''));
-                            if (!isNaN(flNum)) {
-                              setSelectedFloor(flNum);
-                              const flRooms = rooms.filter((r) => Number(r.floor) === flNum);
-                              if (flRooms.length > 0) selectRoomFromAnalytics(flRooms[0].id);
-                            }
-                          }}
-                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${
-                            isDark ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
+                      <div
+                        key={item.floorName}
+                        onClick={() => {
+                          const flNum = Number(String(item.floorName).replace(/\D/g, ''));
+                          if (!isNaN(flNum)) {
+                            setSelectedFloor(flNum);
+                            const flRooms = rooms.filter((r) => Number(r.floor) === flNum);
+                            if (flRooms.length > 0) selectRoomFromAnalytics(flRooms[0].id);
+                          }
+                        }}
+                        className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${isDark ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
                           }`}
-                          title="Select this floor"
-                        >
-                          <span className={`font-semibold w-10 shrink-0 text-[11px] truncate ${
-                            isDark ? 'text-slate-300' : 'text-slate-600'
+                        title="Select this floor"
+                      >
+                        <span className={`font-semibold w-10 shrink-0 text-[11px] truncate ${isDark ? 'text-slate-300' : 'text-slate-600'
                           }`}>{item.floorName}</span>
-                          <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${
-                            isDark ? 'text-slate-200' : 'text-slate-800'
+                        <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${isDark ? 'text-slate-200' : 'text-slate-800'
                           }`}>{item.total} / {item.max}</span>
-                          <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
-                            isDark ? 'bg-slate-800' : 'bg-slate-100'
+                        <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${isDark ? 'bg-slate-800' : 'bg-slate-100'
                           }`}>
-                            <div
-                              className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
-                              style={{ width: `${item.pct}%` }}
-                            />
-                          </div>
-                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${
-                            item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
-                          }`}>
-                            {item.pct}%
-                          </span>
+                          <div
+                            className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${item.pct}%` }}
+                          />
                         </div>
-                      ))
+                        <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
+                          {item.pct}%
+                        </span>
+                      </div>
+                    ))
                     : roomOccupancyList.map((item) => (
-                        <div
-                          key={item.id}
-                          onClick={() => selectRoomFromAnalytics(item.id)}
-                          className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${
-                            item.id === selectedLocationId
-                              ? isDark
-                                ? 'bg-blue-950/60'
-                                : 'bg-blue-50/70'
-                              : isDark
-                                ? 'hover:bg-slate-800/60'
-                                : 'hover:bg-slate-50'
+                      <div
+                        key={item.id}
+                        onClick={() => selectRoomFromAnalytics(item.id)}
+                        className={`flex items-center text-xs py-0.5 min-w-0 cursor-pointer rounded px-0.5 transition-colors ${item.id === selectedLocationId
+                            ? isDark
+                              ? 'bg-blue-950/60'
+                              : 'bg-blue-50/70'
+                            : isDark
+                              ? 'hover:bg-slate-800/60'
+                              : 'hover:bg-slate-50'
                           }`}
-                          title={`${item.type} — click to select`}
-                        >
-                          <span className={`font-semibold w-16 shrink-0 text-[11px] truncate ${
-                            isDark ? 'text-slate-300' : 'text-slate-600'
+                        title={`${item.type} — click to select`}
+                      >
+                        <span className={`font-semibold w-16 shrink-0 text-[11px] truncate ${isDark ? 'text-slate-300' : 'text-slate-600'
                           }`}>{item.label}</span>
-                          <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${
-                            isDark ? 'text-slate-200' : 'text-slate-800'
+                        <span className={`font-bold w-14 shrink-0 text-center text-[10.5px] ${isDark ? 'text-slate-200' : 'text-slate-800'
                           }`}>{item.people} / {item.capacity}</span>
-                          <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
-                            isDark ? 'bg-slate-800' : 'bg-slate-100'
+                        <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${isDark ? 'bg-slate-800' : 'bg-slate-100'
                           }`}>
-                            <div
-                              className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
-                              style={{ width: `${item.pct}%` }}
-                            />
-                          </div>
-                          <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${
-                            item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
-                          }`}>
-                            {item.pct}%
-                          </span>
+                          <div
+                            className={`h-full rounded-full transition-all ${item.isRed ? 'bg-red-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${item.pct}%` }}
+                          />
                         </div>
-                      ))}
+                        <span className={`font-bold w-9 text-right shrink-0 text-[10.5px] ${item.isRed ? 'text-red-500' : isDark ? 'text-slate-400' : 'text-slate-500'
+                          }`}>
+                          {item.pct}%
+                        </span>
+                      </div>
+                    ))}
                 </div>
 
                 <div className={`mt-1 text-[9.5px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -2148,27 +2112,23 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* ── Sub-Card 2: Exit-wise Distribution ── */}
-            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${
-              isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-            }`}>
+            <div className={`p-3 rounded-2xl border shadow-sm flex flex-col justify-between w-full min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+              }`}>
               <div>
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-2 gap-1.5 min-w-0">
                   <div className="flex items-center gap-1 min-w-0 flex-1 truncate">
-                    <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${
-                      isDark ? 'text-white' : 'text-slate-900'
-                    }`}>
+                    <h2 className={`text-xs sm:text-[13px] font-bold tracking-tight whitespace-nowrap ${isDark ? 'text-white' : 'text-slate-900'
+                      }`}>
                       Exit-wise Distribution
                     </h2>
-                    <span className={`text-[10px] font-normal hidden sm:inline shrink-0 ${
-                      isDark ? 'text-slate-400' : 'text-slate-500'
-                    }`}>
+                    <span className={`text-[10px] font-normal hidden sm:inline shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
                       (AI Recommendation)
                     </span>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${
-                    isDark ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                  }`}>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${isDark ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    }`}>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                     Optimized
                   </span>
@@ -2189,36 +2149,31 @@ export function EmergencyCommandCenterPage({
                         ) : (
                           <DoorOpen className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                         )}
-                        <span className={`font-semibold text-[10.5px] truncate ${
-                          ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-300' : 'text-slate-700'
-                        }`}>
+                        <span className={`font-semibold text-[10.5px] truncate ${ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-300' : 'text-slate-700'
+                          }`}>
                           {ex.name}
                         </span>
                       </button>
 
                       {/* People count */}
-                      <span className={`font-medium text-[10px] w-14 text-center shrink-0 ${
-                        isDark ? 'text-slate-400' : 'text-slate-500'
-                      }`}>
+                      <span className={`font-medium text-[10px] w-14 text-center shrink-0 ${isDark ? 'text-slate-400' : 'text-slate-500'
+                        }`}>
                         {ex.people} people
                       </span>
 
                       {/* Progress bar */}
-                      <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${
-                        isDark ? 'bg-slate-800' : 'bg-slate-100'
-                      }`}>
+                      <div className={`flex-1 rounded-full h-2 overflow-hidden mx-1.5 min-w-[24px] ${isDark ? 'bg-slate-800' : 'bg-slate-100'
+                        }`}>
                         <div
-                          className={`h-full rounded-full transition-all ${
-                            ex.isBlocked ? (isDark ? 'bg-slate-700' : 'bg-slate-200') : 'bg-blue-600'
-                          }`}
+                          className={`h-full rounded-full transition-all ${ex.isBlocked ? (isDark ? 'bg-slate-700' : 'bg-slate-200') : 'bg-blue-600'
+                            }`}
                           style={{ width: `${Math.max(ex.pct, ex.isBlocked ? 0 : 2)}%` }}
                         />
                       </div>
 
                       {/* Percentage */}
-                      <span className={`font-bold text-right shrink-0 text-[10px] sm:text-[10.5px] min-w-[76px] whitespace-nowrap ${
-                        ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-400' : 'text-slate-500'
-                      }`}>
+                      <span className={`font-bold text-right shrink-0 text-[10px] sm:text-[10.5px] min-w-[76px] whitespace-nowrap ${ex.isBlocked ? 'text-red-500 font-bold' : isDark ? 'text-slate-400' : 'text-slate-500'
+                        }`}>
                         {ex.isBlocked ? '0% (Blocked)' : `${ex.pct}%`}
                       </span>
                     </div>
@@ -2227,17 +2182,14 @@ export function EmergencyCommandCenterPage({
               </div>
 
               {/* AI Suggestion Box */}
-              <div className={`p-2 rounded-xl border flex items-start gap-2 mt-1.5 min-w-0 ${
-                isDark ? 'bg-blue-950/40 border-blue-900/60' : 'bg-blue-50/70 border-blue-200/80'
-              }`}>
+              <div className={`p-2 rounded-xl border flex items-start gap-2 mt-1.5 min-w-0 ${isDark ? 'bg-blue-950/40 border-blue-900/60' : 'bg-blue-50/70 border-blue-200/80'
+                }`}>
                 <Lightbulb className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className={`text-[11px] font-bold leading-tight ${
-                    isDark ? 'text-blue-300' : 'text-blue-900'
-                  }`}>AI Suggestion</span>
-                  <p className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${
-                    isDark ? 'text-blue-200/90' : 'text-blue-800/90'
-                  }`}>
+                  <span className={`text-[11px] font-bold leading-tight ${isDark ? 'text-blue-300' : 'text-blue-900'
+                    }`}>AI Suggestion</span>
+                  <p className={`text-[10px] leading-tight mt-0.5 line-clamp-2 ${isDark ? 'text-blue-200/90' : 'text-blue-800/90'
+                    }`}>
                     {aiSuggestionText}
                   </p>
                 </div>
@@ -2251,24 +2203,21 @@ export function EmergencyCommandCenterPage({
         {/* ────────────────────────────────────────────────────────────────────── */}
         <div className="lg:col-span-4 flex flex-col gap-2.5 min-w-0 lg:max-h-[calc(100vh-95px)] lg:overflow-y-auto pr-0.5 scrollbar-thin">
           {/* ── SECTION 1: Select Location ── */}
-          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
-            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-          }`}>
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
             <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
               <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 1. Select Location
               </h3>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                isDark ? 'text-blue-400 bg-blue-950/60 border border-blue-800/60' : 'text-blue-600 bg-blue-50 border border-blue-200/60'
-              }`}>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isDark ? 'text-blue-400 bg-blue-950/60 border border-blue-800/60' : 'text-blue-600 bg-blue-50 border border-blue-200/60'
+                }`}>
                 {CATEGORY_LABEL[currentLocation?.category || selectedCategory] || 'Target'}
               </span>
             </div>
 
             {/* Target Category Selector Tabs: ALL | ROOM | CORRIDOR | STAIR | EXIT */}
-            <div className={`grid grid-cols-5 gap-1 p-1 border rounded-xl mb-2.5 ${
-              isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
-            }`}>
+            <div className={`grid grid-cols-5 gap-1 p-1 border rounded-xl mb-2.5 ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-100/90 border-slate-200/80'
+              }`}>
               {[
                 { key: 'ALL', label: 'All' },
                 { key: 'ROOM', label: 'Room' },
@@ -2282,13 +2231,12 @@ export function EmergencyCommandCenterPage({
                     key={cat.key}
                     type="button"
                     onClick={() => handleSelectCategory(cat.key)}
-                    className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate cursor-pointer ${
-                      isSel
+                    className={`py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all text-center truncate cursor-pointer ${isSel
                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/25 ring-1 ring-blue-500'
                         : isDark
                           ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/70'
-                    }`}
+                      }`}
                   >
                     {cat.label}
                   </button>
@@ -2310,11 +2258,10 @@ export function EmergencyCommandCenterPage({
                           : Number(e.target.value)
                       )
                     }
-                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm border ${
-                      isDark
+                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm border ${isDark
                         ? 'bg-slate-900 border-slate-700 text-slate-200'
                         : 'bg-white border-slate-200 text-slate-800'
-                    }`}
+                      }`}
                   >
                     {ALL_FLOORS.map((fl) => (
                       <option key={fl.num} value={fl.num}>
@@ -2334,11 +2281,10 @@ export function EmergencyCommandCenterPage({
                   <select
                     value={selectedLocationId}
                     onChange={(e) => handleSelectLocation(e.target.value)}
-                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate border ${
-                      isDark
+                    className={`w-full h-8 pl-2.5 pr-7 rounded-xl text-xs font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer shadow-sm truncate border ${isDark
                         ? 'bg-slate-900 border-slate-700 text-slate-200'
                         : 'bg-white border-slate-200 text-slate-800'
-                    }`}
+                      }`}
                   >
                     {((selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory))).length > 0
                       ? (selectedCategory === 'ALL' ? floorLocations : floorLocations.filter((l) => l.category === (currentLocation?.category || selectedCategory)))
@@ -2355,9 +2301,8 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* Selected location preview card (data-driven) */}
-            <div className={`border rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm min-w-0 ${
-              isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/90'
-            }`}>
+            <div className={`border rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200/90'
+              }`}>
               <div className="w-[96px] h-[56px] rounded-lg border border-slate-700 shrink-0 bg-slate-950 flex flex-col items-center justify-center gap-0.5 px-1.5 overflow-hidden">
                 <span className="text-[8.5px] font-bold uppercase tracking-wider text-slate-400 leading-none truncate w-full text-center">
                   {CATEGORY_LABEL[currentLocation.category] || 'Location'}
@@ -2375,11 +2320,10 @@ export function EmergencyCommandCenterPage({
                   <div
                     className="h-full bg-emerald-400 transition-all duration-300"
                     style={{
-                      width: `${
-                        currentLocation.capacity
+                      width: `${currentLocation.capacity
                           ? Math.min(100, Math.round((currentLocation.current / currentLocation.capacity) * 100))
                           : 0
-                      }%`
+                        }%`
                     }}
                   />
                 </div>
@@ -2392,11 +2336,10 @@ export function EmergencyCommandCenterPage({
                   </h4>
                   <button
                     onClick={() => setIsDetailsModalOpen(true)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 shadow-xs ${
-                      isDark
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 shadow-xs ${isDark
                         ? 'text-blue-400 border border-blue-800/80 bg-blue-950/60 hover:bg-blue-900/60'
                         : 'text-blue-700 border border-blue-300 bg-blue-50 hover:bg-blue-100'
-                    }`}
+                      }`}
                   >
                     View Details
                   </button>
@@ -2421,16 +2364,14 @@ export function EmergencyCommandCenterPage({
           </div>
 
           {/* ── SECTION 2: Emergency Actions (category-aware grid with crisp Light/Dark contrast) ── */}
-          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
-            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-          }`}>
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
             <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
               <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 2. Emergency Actions
               </h3>
-              <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-semibold border shrink-0 ${
-                isDark ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-semibold border shrink-0 ${isDark ? 'bg-slate-900 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-200'
+                }`}>
                 {CATEGORY_LABEL[currentLocation.category] || 'Location'} Actions
               </span>
             </div>
@@ -2495,22 +2436,20 @@ export function EmergencyCommandCenterPage({
                     className={`p-1.5 sm:p-2 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer shadow-xs active:scale-95 group min-h-[58px] sm:min-h-[62px] relative ${toneCls}`}
                   >
                     {action.status && (
-                      <span className={`absolute top-1 right-1 text-[7.5px] font-black px-1 py-0.2 rounded-full uppercase tracking-wider ${
-                        isBtnActive
+                      <span className={`absolute top-1 right-1 text-[7.5px] font-black px-1 py-0.2 rounded-full uppercase tracking-wider ${isBtnActive
                           ? 'bg-black/30 text-white'
                           : isDark
                             ? 'bg-slate-800 text-slate-400'
                             : 'bg-slate-100 text-slate-500 border border-slate-200/60'
-                      }`}>
+                        }`}>
                         {action.status}
                       </span>
                     )}
                     <Icon
                       className={`w-4 h-4 sm:w-4.5 sm:h-4.5 group-hover:scale-110 transition-transform mb-1 shrink-0 ${iconCls} ${isBtnActive ? 'animate-pulse' : ''}`}
                     />
-                    <span className={`text-[10px] sm:text-[10.5px] font-bold leading-tight text-center ${
-                      isBtnActive ? 'text-white' : isDark ? 'text-slate-200' : 'text-slate-800'
-                    }`}>
+                    <span className={`text-[10px] sm:text-[10.5px] font-bold leading-tight text-center ${isBtnActive ? 'text-white' : isDark ? 'text-slate-200' : 'text-slate-800'
+                      }`}>
                       {action.label}
                     </span>
                   </button>
@@ -2520,9 +2459,8 @@ export function EmergencyCommandCenterPage({
           </div>
 
           {/* ── SECTION 3: Location Status + Active Events (all floors) ── */}
-          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
-            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-          }`}>
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
             <div className="flex items-center justify-between mb-1.5 gap-2 min-w-0">
               <h3 className={`text-xs md:text-sm font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 3. Status & Events
@@ -2538,13 +2476,13 @@ export function EmergencyCommandCenterPage({
                 currentLocation.category === 'EXIT'
                   ? !!exitData.find((e) => e.id === currentLocation.id && e.isBlocked)
                   : !!findEventAt(
-                      currentLocation.id,
-                      currentLocation.category === 'CORRIDOR'
-                        ? 'BLOCK_CORRIDOR'
-                        : currentLocation.category === 'STAIR'
-                          ? 'BLOCK_STAIR'
-                          : 'BLOCK_ROOM'
-                    );
+                    currentLocation.id,
+                    currentLocation.category === 'CORRIDOR'
+                      ? 'BLOCK_CORRIDOR'
+                      : currentLocation.category === 'STAIR'
+                        ? 'BLOCK_STAIR'
+                        : 'BLOCK_ROOM'
+                  );
               const title =
                 currentLocation.category === 'CORRIDOR'
                   ? 'Corridor Occupancy'
@@ -2554,17 +2492,15 @@ export function EmergencyCommandCenterPage({
                       ? 'Exit Status & Capacity'
                       : 'Room Status';
               return (
-                <div className={`p-2.5 rounded-xl border mb-2 min-w-0 ${
-                  isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
-                }`}>
+                <div className={`p-2.5 rounded-xl border mb-2 min-w-0 ${isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/80 text-slate-600'
+                  }`}>
                   <div className="flex items-center justify-between gap-2 min-w-0 mb-1">
                     <span className={`text-[11px] font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>{title}</span>
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${
-                        blockedNow
+                      className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border shrink-0 ${blockedNow
                           ? 'bg-red-100 text-red-700 border-red-200'
                           : 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                      }`}
+                        }`}
                     >
                       {blockedNow ? 'BLOCKED' : 'OPERATIONAL'}
                     </span>
@@ -2651,13 +2587,12 @@ export function EmergencyCommandCenterPage({
                       onClick={() => {
                         if (haz.locationId) focusEventLocation(haz);
                       }}
-                      className={`p-2 rounded-xl border flex items-center justify-between gap-2 min-w-0 cursor-pointer transition-colors ${
-                        haz.locationId === currentLocation.id
+                      className={`p-2 rounded-xl border flex items-center justify-between gap-2 min-w-0 cursor-pointer transition-colors ${haz.locationId === currentLocation.id
                           ? 'bg-red-50/80 border-red-200'
                           : isDark
                             ? 'bg-slate-900/80 border-slate-800 hover:bg-slate-800'
                             : 'bg-white border-slate-200 hover:bg-slate-50'
-                      }`}
+                        }`}
                       title="Click to select this location"
                     >
                       <div className="flex items-center gap-2 min-w-0">
@@ -2702,25 +2637,22 @@ export function EmergencyCommandCenterPage({
                 <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                   <button
                     onClick={() => handleAdjustPeopleStep(-1)}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${
-                      isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                    }`}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}
                     title="Decrease 1 Person"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
 
-                  <span className={`w-8 h-7 rounded-lg border flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${
-                    isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
-                  }`}>
+                  <span className={`w-8 h-7 rounded-lg border flex items-center justify-center font-bold text-xs shadow-sm shrink-0 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}>
                     {currentLocation.current}
                   </span>
 
                   <button
                     onClick={() => handleAdjustPeopleStep(1)}
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${
-                      isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                    }`}
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold cursor-pointer shadow-sm shrink-0 border ${isDark ? 'bg-slate-900 border-slate-700 text-slate-200 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}
                     title="Increase 1 Person"
                   >
                     <Plus className="w-3 h-3" />
@@ -2730,9 +2662,8 @@ export function EmergencyCommandCenterPage({
 
                   <button
                     onClick={handleResetRoomOccupancy}
-                    className={`px-2 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0 ${
-                      isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
-                    }`}
+                    className={`px-2 py-1 rounded-lg border text-[11px] font-semibold flex items-center gap-1 ml-1.5 cursor-pointer shadow-sm shrink-0 ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-600'
+                      }`}
                     title="Reset to Baseline"
                   >
                     <RotateCcw className="w-3 h-3 text-slate-400" />
@@ -2744,9 +2675,8 @@ export function EmergencyCommandCenterPage({
           </div>
 
           {/* ── SECTION 4: Scenario Controls (2x2 Grid) ── */}
-          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
-            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-          }`}>
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
             <h3 className={`text-xs md:text-sm font-bold mb-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               4. Scenario Controls
             </h3>
@@ -2762,9 +2692,8 @@ export function EmergencyCommandCenterPage({
 
               <button
                 onClick={handleUndo}
-                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
-                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
               >
                 <Undo2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="truncate">Undo Last</span>
@@ -2772,9 +2701,8 @@ export function EmergencyCommandCenterPage({
 
               <button
                 onClick={handleResetScenario}
-                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
-                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
               >
                 <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="truncate">Reset Scenario</span>
@@ -2782,9 +2710,8 @@ export function EmergencyCommandCenterPage({
 
               <button
                 onClick={handleLoadScenario}
-                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${
-                  isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                }`}
+                className={`py-2 px-2.5 rounded-xl border font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer active:scale-95 min-h-[38px] truncate ${isDark ? 'bg-slate-900 border-slate-700 hover:bg-slate-800 text-slate-200' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
               >
                 <FolderOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="truncate">Load Scenario</span>
@@ -2793,22 +2720,19 @@ export function EmergencyCommandCenterPage({
           </div>
 
           {/* ── SECTION 5: Live Environmental Telemetry ── */}
-          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${
-            isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
-          }`}>
+          <div className={`p-3.5 md:p-4 rounded-2xl border shadow-sm min-w-0 ${isDark ? 'bg-[#0d1627] border-slate-800' : 'bg-white border-slate-200/90'
+            }`}>
             <h3 className={`text-xs md:text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               5. Live Environmental Telemetry
             </h3>
 
             {/* Power Telemetry */}
-            <div className={`rounded-xl border p-2.5 mb-2 ${
-              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
-            }`}>
+            <div className={`rounded-xl border p-2.5 mb-2 ${isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+              }`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Zap
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    envTelemetry.power.mainGrid === 'OFFLINE' ? 'text-amber-500' : 'text-slate-400'
-                  }`}
+                  className={`w-3.5 h-3.5 shrink-0 ${envTelemetry.power.mainGrid === 'OFFLINE' ? 'text-amber-500' : 'text-slate-400'
+                    }`}
                 />
                 <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>POWER</span>
               </div>
@@ -2819,14 +2743,12 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* HVAC Telemetry */}
-            <div className={`rounded-xl border p-2.5 mb-2 ${
-              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
-            }`}>
+            <div className={`rounded-xl border p-2.5 mb-2 ${isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+              }`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Wind
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    envTelemetry.hvac.fans === 'DISABLED' ? 'text-purple-500' : 'text-slate-400'
-                  }`}
+                  className={`w-3.5 h-3.5 shrink-0 ${envTelemetry.hvac.fans === 'DISABLED' ? 'text-purple-500' : 'text-slate-400'
+                    }`}
                 />
                 <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>HVAC</span>
               </div>
@@ -2839,14 +2761,12 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* Structural Telemetry */}
-            <div className={`rounded-xl border p-2.5 mb-2 ${
-              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
-            }`}>
+            <div className={`rounded-xl border p-2.5 mb-2 ${isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+              }`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <BrickWall
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    envTelemetry.structural.corridor === 'BLOCKED' ? 'text-orange-500' : 'text-slate-400'
-                  }`}
+                  className={`w-3.5 h-3.5 shrink-0 ${envTelemetry.structural.corridor === 'BLOCKED' ? 'text-orange-500' : 'text-slate-400'
+                    }`}
                 />
                 <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>STRUCTURAL</span>
               </div>
@@ -2859,14 +2779,12 @@ export function EmergencyCommandCenterPage({
             </div>
 
             {/* Emergency Summary */}
-            <div className={`rounded-xl border p-2.5 ${
-              isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
-            }`}>
+            <div className={`rounded-xl border p-2.5 ${isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50/60 border-slate-200 text-slate-600'
+              }`}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <ShieldAlert
-                  className={`w-3.5 h-3.5 shrink-0 ${
-                    envTelemetry.summary.activeHazards > 0 ? 'text-red-500' : 'text-slate-400'
-                  }`}
+                  className={`w-3.5 h-3.5 shrink-0 ${envTelemetry.summary.activeHazards > 0 ? 'text-red-500' : 'text-slate-400'
+                    }`}
                 />
                 <span className={`text-[10.5px] font-bold tracking-wide ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>EMERGENCY SUMMARY</span>
               </div>

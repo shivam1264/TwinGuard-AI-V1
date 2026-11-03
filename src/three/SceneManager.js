@@ -359,10 +359,14 @@ export class SceneManager {
       }
     }, this.building);
     this.agentCrowd = new AgentCrowd(this.scene);
+    this.agentCrowd.fireSystem = this.fireSystem;
 
     this.navGrid = new NavGrid();
     this.pathfinder = new Pathfinder(this.navGrid);
     this.crowdOptimizer = new CrowdOptimizer(this.navGrid, this.pathfinder);
+    this.agentCrowd.crowdOptimizer = this.crowdOptimizer;
+    this.agentCrowd.navGrid = this.navGrid;
+    this.agentCrowd.pathfinder = this.pathfinder;
     this._primeEvacuationPlannerWorker();
 
     // Navigation graph for topological routing and live congestion tracking
@@ -402,7 +406,7 @@ export class SceneManager {
       const keyLower = key.toLowerCase();
 
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Space'].includes(key) ||
-          ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
+        ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
         e.preventDefault();
       }
 
@@ -447,7 +451,7 @@ export class SceneManager {
     if (!this.camera || !this.controls || !this.keysDown) return;
 
     const isRotateModifier = !!(this.keysDown['Alt'] || this.keysDown['AltLeft'] || this.keysDown['AltRight'] ||
-                                this.keysDown['Control'] || this.keysDown['ControlLeft'] || this.keysDown['ControlRight']);
+      this.keysDown['Control'] || this.keysDown['ControlLeft'] || this.keysDown['ControlRight']);
 
     if (isRotateModifier) {
       this.cameraTransition = null;
@@ -945,7 +949,7 @@ export class SceneManager {
     if (!this.camera || !this.controls) return;
 
     const targetPos = new THREE.Vector3(position.x, position.y || 5, position.z);
-    
+
     // Maintain current camera elevation angle and orientation relative to the target
     const currentOffset = this.camera.position.clone().sub(this.controls.target);
     const currentDist = currentOffset.length() || 60;
@@ -1354,8 +1358,9 @@ export class SceneManager {
       if (this.crowdOptimizer) {
         const fireLocations = [];
         if (this.fireSystem && this.fireSystem.activeFires) {
-          this.fireSystem.activeFires.forEach(f => {
-            if (f.basePos) fireLocations.push(f.basePos);
+          this.fireSystem.activeFires.forEach((f, rId) => {
+            if (f.basePos) fireLocations.push({ ...f.basePos, floor: f.floor, roomId: f.roomId || rId });
+            if (f.secondarySource) fireLocations.push({ ...f.secondarySource, floor: f.floor, roomId: f.roomId || rId });
           });
         }
         const optimizationResult = this.crowdOptimizer.reevaluateRoutes(
@@ -1380,8 +1385,9 @@ export class SceneManager {
     const requestId = `reeval_${runToken}_${currentVersion}_${Date.now()}`;
     const fireLocations = [];
     if (this.fireSystem && this.fireSystem.activeFires) {
-      this.fireSystem.activeFires.forEach(f => {
-        if (f.basePos) fireLocations.push(f.basePos);
+      this.fireSystem.activeFires.forEach((f, rId) => {
+        if (f.basePos) fireLocations.push({ ...f.basePos, floor: f.floor, roomId: f.roomId || rId });
+        if (f.secondarySource) fireLocations.push({ ...f.secondarySource, floor: f.floor, roomId: f.roomId || rId });
       });
     }
 
@@ -1454,7 +1460,8 @@ export class SceneManager {
         grid: this.navGrid.grid,
         hazardCosts: this.navGrid.hazardCosts,
         congestionCosts: this.navGrid.congestionCosts,
-        structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries())
+        structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries()),
+        fireZones: Array.from(this.navGrid.fireZones.entries())
       });
       return true;
     } catch (err) {
@@ -1570,6 +1577,11 @@ export class SceneManager {
     // Spawn visual fire particles with room reference for proper positioning
     this.fireSystem.spawnFire(roomId, { x: room.center.x, y: fireY, z: room.center.z }, room);
 
+    // Register active fire zone into navigation grid for real-time hazard avoidance
+    if (this.navGrid && this.navGrid.setFireZone) {
+      this.navGrid.setFireZone(room.center.x, room.center.z, 5.5, room.floor);
+    }
+
     // Inject interactive fire source into hazard state with room center for grid radius
     const injectOptions = {
       originRoomCenterX: room.center.x,
@@ -1607,10 +1619,17 @@ export class SceneManager {
       this.emergencyManager.dispatch(null, activeFires);
     }
 
-    if (this.isSimulating) {
+    // Automatically initiate full building evacuation on fire detection
+    this.evacuationCompleted = false;
+    if (!this.isSimulating) {
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario?.() : null;
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy?.() : null;
+      this.startEvacuation(activeScenario, activeStrategy);
+    } else {
       const fireLocations = [];
       this.fireSystem.activeFires.forEach((f, rId) => {
         if (f.basePos) fireLocations.push({ ...f.basePos, roomId: rId, floor: f.floor });
+        if (f.secondarySource) fireLocations.push({ ...f.secondarySource, roomId: rId, floor: f.floor });
       });
       const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario() : null;
       const blockedExitIds = activeScenario?.structuralFailures?.blockedExits || [];
@@ -1619,25 +1638,29 @@ export class SceneManager {
       const strategyType = activeStrategy?.type || 'LOAD_BALANCED';
       const unevacuatedAgents = this.agentCrowd.agents.filter(a => a.state !== 'SAFE' && !a.isEvacuated);
       if (unevacuatedAgents.length > 0) {
-      const optimizationResult = this.crowdOptimizer.optimizeRoutes(
-        unevacuatedAgents,
-        fireLocations,
-        blockedExitIds,
-        strategyType,
-        floorBlockedMap,
-        this.structuralCollapseZones.length ? this.structuralCollapseZones : this.manualStructuralCollapse
-      );
-      this._applyAssignments(optimizationResult.assignments, {
-        reason: 'Fire update re-optimization',
-        severity: 'Medium'
-      });
-      if (this.agentCrowd.rerouteAgents) {
-        this.agentCrowd.rerouteAgents(optimizationResult.assignments);
+        const optimizationResult = this.crowdOptimizer.optimizeRoutes(
+          unevacuatedAgents,
+          fireLocations,
+          blockedExitIds,
+          strategyType,
+          floorBlockedMap,
+          this.structuralCollapseZones.length ? this.structuralCollapseZones : this.manualStructuralCollapse
+        );
+        this._applyAssignments(optimizationResult.assignments, {
+          reason: 'Fire update re-optimization',
+          severity: 'Medium'
+        });
+        if (this.agentCrowd.rerouteAgents) {
+          this.agentCrowd.rerouteAgents(optimizationResult.assignments);
+        }
+        this._countCollapseReroutes(optimizationResult.assignments);
+        if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
+        if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
       }
-      this._countCollapseReroutes(optimizationResult.assignments);
-      if (this.renderRouteOverlays) this.renderRouteOverlays(optimizationResult.assignments);
-      if (this.updateExitHoloBadges) this.updateExitHoloBadges(optimizationResult.exitStats);
-      }
+    }
+
+    if (this.onFireTriggered && !this._suppressFireNotify) {
+      this.onFireTriggered(roomId);
     }
   }
 
@@ -1966,8 +1989,14 @@ export class SceneManager {
       }
     }
 
-    this.navGrid.setFireZone(room.center.x, room.center.z, 6.5);
-    this.recalculateDynamicRoutes();
+    this.navGrid.setFireZone(room.center.x, room.center.z, 6.5, room.floor);
+    if (!this.isSimulating && !this.evacuationCompleted) {
+      const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario?.() : null;
+      const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy?.() : null;
+      this.startEvacuation(activeScenario, activeStrategy);
+    } else {
+      this.recalculateDynamicRoutes();
+    }
     return true;
   }
 
@@ -2495,10 +2524,7 @@ export class SceneManager {
   }
 
   async _startEvacuation(scenario = null, strategy = null) {
-    if (this.evacuationCompleted) {
-      // Evacuation strictly runs once per scenario until Reset is clicked
-      return null;
-    }
+    this.evacuationCompleted = false;
     // Keep the scene responsive and occupants stationary while the initial
     // worker plan is being calculated. Movement and elapsed time begin once
     // every occupant has an assigned route.
@@ -2569,7 +2595,7 @@ export class SceneManager {
 
     if (optimizationResult && optimizationResult.assignments) {
       if (optimizationResult.assignments.length) {
-        this._applyAssignments(optimizationResult.assignments, { isInitial: true, deferRouteLines: true });
+        this._applyAssignments(optimizationResult.assignments, { isInitial: true, deferRouteLines: false });
       }
       if (optimizationResult.exitStats && this.crowdOptimizer) {
         const exitStatsById = new Map(optimizationResult.exitStats.map((exit) => [exit.id, exit]));
@@ -2588,6 +2614,18 @@ export class SceneManager {
     this._clock.reset();
     this._clock.start();
     this.elapsedSeconds = 0;
+
+    if (this.onStatsUpdate) {
+      this.onStatsUpdate({
+        total: this.agentCrowd ? this.agentCrowd.agents.length : 190,
+        evacuated: 0,
+        inTransit: this.agentCrowd ? this.agentCrowd.agents.length : 190,
+        elapsedSeconds: 0,
+        waiting: 0,
+        evacuating: this.agentCrowd ? this.agentCrowd.agents.length : 190,
+        isSimulating: true
+      });
+    }
 
     if (this.emergencyManager && !this.emergencyManager.isActive) {
       this.emergencyManager.dispatch(null, fireLocations);
@@ -2618,7 +2656,7 @@ export class SceneManager {
       this._routePlannerWorker.onerror = (err) => {
         console.warn('[EvacPlanner] Worker error event', err);
         if (this._routePlannerWorker) {
-          try { this._routePlannerWorker.terminate(); } catch {}
+          try { this._routePlannerWorker.terminate(); } catch { }
           this._routePlannerWorker = null;
         }
       };
@@ -2713,12 +2751,15 @@ export class SceneManager {
 
     return new Promise((resolve) => {
       let settled = false;
+      let timer = null;
+
       const finish = (result, error) => {
         if (settled) return;
         settled = true;
+        if (timer) clearTimeout(timer);
         this._pendingInitialPlan = null;
         if (error || !result) {
-          console.warn('[EvacPlanner] Worker initial plan failed, fallback to UI thread', error);
+          console.warn('[EvacPlanner] Worker initial plan failed or timed out, fallback to UI thread', error);
           resolve(this.crowdOptimizer.optimizeRoutes(
             options.agents,
             options.fireLocations,
@@ -2731,6 +2772,12 @@ export class SceneManager {
           resolve(result);
         }
       };
+
+      timer = setTimeout(() => {
+        if (!settled) {
+          finish(null, new Error('Worker timeout (800ms)'));
+        }
+      }, 800);
 
       this._pendingInitialPlan = { id: requestId, finish };
 
@@ -2749,7 +2796,8 @@ export class SceneManager {
           grid: this.navGrid.grid,
           hazardCosts: this.navGrid.hazardCosts,
           congestionCosts: this.navGrid.congestionCosts,
-          structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries())
+          structuralBoxes: Array.from(this.navGrid.structuralBoxes.entries()),
+          fireZones: Array.from(this.navGrid.fireZones.entries())
         });
       } catch (error) {
         finish(null, error);
@@ -2763,14 +2811,14 @@ export class SceneManager {
         this._routePlannerWorker.onmessage = null;
         this._routePlannerWorker.onerror = null;
         this._routePlannerWorker.terminate();
-      } catch {}
+      } catch { }
       this._routePlannerWorker = null;
     }
     if (this._routePlannerWarmWorker) {
       try {
         this._routePlannerWarmWorker.onerror = null;
         this._routePlannerWarmWorker.terminate();
-      } catch {}
+      } catch { }
       this._routePlannerWarmWorker = null;
     }
     if (this._pendingInitialPlan) {
@@ -3248,7 +3296,13 @@ export class SceneManager {
       else if (this.building) this.building.facadeMode = 'CUTAWAY';
 
       this.structuralCollapseState.active = true;
-      this.recalculateDynamicRoutes();
+      if (!this.isSimulating && !this.evacuationCompleted) {
+        const activeScenario = typeof AIEngine !== 'undefined' ? AIEngine.getActiveScenario?.() : null;
+        const activeStrategy = typeof AIEngine !== 'undefined' ? AIEngine.getActiveStrategy?.() : null;
+        this.startEvacuation(activeScenario, activeStrategy);
+      } else {
+        this.recalculateDynamicRoutes();
+      }
       return true;
     }
 
@@ -3262,7 +3316,7 @@ export class SceneManager {
         if (g) g.visible = false;
         if (this.navGrid && this.navGrid.unmarkStructuralBlocked) {
           this.navGrid.unmarkStructuralBlocked(z.corridorId);
-        if (z.kind === 'EXIT' && this.manualBlockedExits) { this.manualBlockedExits.delete(z.locId); }
+          if (z.kind === 'EXIT' && this.manualBlockedExits) { this.manualBlockedExits.delete(z.locId); }
         }
         this.structuralCollapseZones.splice(idx, 1);
       }

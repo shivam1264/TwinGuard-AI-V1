@@ -6,7 +6,6 @@ import {
   Building2,
   Sparkles,
   Trophy,
-  AlertTriangle,
   LineChart,
   FileText,
   Layers,
@@ -28,8 +27,7 @@ import {
   MapPin,
   ClipboardList,
   ShieldAlert,
-  Zap,
-  Radio
+  Zap
 } from 'lucide-react';
 
 export const DynamicLeftSidebar = React.memo(({
@@ -69,7 +67,7 @@ export const DynamicLeftSidebar = React.memo(({
 
   const isDark = theme === 'dark';
 
-  // ── 8 Primary Navigation Items (Moved from Top Header) ──
+  // ── Primary Navigation Items ──
   const primaryNavItems = [
     {
       id: 'LIVE_VIEW',
@@ -102,13 +100,6 @@ export const DynamicLeftSidebar = React.memo(({
       color: isDark ? '#38bdf8' : '#0284c7'
     },
     {
-      id: 'INCIDENTS',
-      label: 'Incidents',
-      icon: AlertTriangle,
-      color: '#ef4444',
-      badge: (incidents && incidents.length > 0) ? incidents.length : 3
-    },
-    {
       id: 'ANALYTICS',
       label: 'Analytics',
       icon: LineChart,
@@ -116,7 +107,7 @@ export const DynamicLeftSidebar = React.memo(({
     }
   ];
 
-  // ── Contextual Sub-Tools for All 8 Active Views ──
+  // ── Contextual Sub-Tools for Active Views ──
   const getContextItems = () => {
     switch (activeTab) {
       case 'LIVE_VIEW':
@@ -163,15 +154,6 @@ export const DynamicLeftSidebar = React.memo(({
             { id: 'RANK_TABLE', label: 'Strategy Matrix', icon: Trophy, color: '#eab308', badge: '5 Strat' },
             { id: 'CRITERIA', label: 'Egress Weights', icon: Activity, color: isDark ? '#38bdf8' : '#0284c7', badge: '4 Vars' },
             { id: 'SIM_EVAL', label: 'Real-Time Rank', icon: ShieldCheck, color: '#10b981', badge: 'AI Top' }
-          ]
-        };
-      case 'INCIDENTS':
-        return {
-          title: 'INCIDENT LOG & FLEET',
-          items: [
-            { id: 'ACTIVE_INC', label: 'Active Alarms', icon: AlertTriangle, color: '#ef4444', badge: '3 Active' },
-            { id: 'GIS_DISPATCH', label: 'GIS Fleet Map', icon: Compass, color: '#38bdf8', badge: 'Radar', action: onOpenGis },
-            { id: 'RADIO_COMMS', label: 'Emergency Radio', icon: Radio, color: '#10b981', badge: 'Live' }
           ]
         };
       case 'ANALYTICS':
@@ -268,7 +250,7 @@ export const DynamicLeftSidebar = React.memo(({
         </button>
       </div>
 
-      {/* ── Scrollable Body: 8 Primary Nav Items + Contextual Tools ── */}
+      {/* ── Scrollable Body: Primary Nav Items + Contextual Tools ── */}
       <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col p-2 gap-1 w-full">
         {/* Section Label (Expanded only) */}
         {!isCollapsed && (
@@ -282,7 +264,7 @@ export const DynamicLeftSidebar = React.memo(({
           </div>
         )}
 
-        {/* 8 Primary Navigation Buttons */}
+        {/* Primary Navigation Buttons */}
         {primaryNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
